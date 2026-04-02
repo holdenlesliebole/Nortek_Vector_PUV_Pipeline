@@ -22,7 +22,7 @@ PUV_Pipeline/
 Related directories:
 - Raw data (read-only): `/Volumes/group/PUV_data/Vector/`
 - Deployment notes: `/Volumes/group/DeploymentNotes/`
-- Old first-gen code (archived): `Beach Change Observation/Vector/PUVs/`
+- Old first-gen code (archived): `Beach_Change_Observation/Vector/PUVs/`
 - Paper 1 analysis: `Paper 1/DataCodes/`
 
 ---
@@ -160,7 +160,7 @@ u_b directly. Not currently used in the main pipeline; flag before using.
 
 ### rotate_shorenormal.m — moplist.mat dependency
 The function does `load('moplist.mat')` relying on MATLAB path. The file is in
-`Beach Change Observation/Vector/PUVs/PUV_Processing-main/extra/`. Canonical
+`Beach_Change_Observation/Vector/PUVs/PUV_Processing-main/extra/`. Canonical
 copy placed in `PUV_Pipeline/shared/`. The function also makes a live CDIP
 THREDDS call to get shore-normal angle — requires internet access at runtime.
 
@@ -195,16 +195,20 @@ field notes). See `config/CONFIG_REVIEW_NOTES.md` for full list.
 - Once copy completes: run `test_L1_comparison` from `PUV_Pipeline/` in MATLAB
 - If comparison passes: run `PUV_L1_driver` for TBR23, then NN24
 
-### L2 — not yet written
-Next step: write `L2_spectral/PUV_L2_driver.m` using `PUV_all_in_one.m` as reference.
-Key spec:
-- 17-min (2048-sample @ 2 Hz) segments, detrend each segment
-- Wu pressure correction → surface elevation spectrum
-- pwelch PSD → Hs (SS and IG bands), Tp, energy flux
-- `bed_velocity_ifft.m` → near-bed orbital velocity
-- `compute_reynolds_stress.m`, `compute_velocity_moments.m` per segment
-- Optional MOP comparison module
-- Output: one results struct per instrument in `outputs/L2/{deployment}/`
+### L2 — written, testing on TBR23
+- `PUV_L2_spectral.m`: core function (segmentation, spectra, bulk params, bed velocity)
+- `PUV_L2_driver.m` / `PUV_L2_run_all.m`: drivers following L1 pattern
+- New shared utilities: `pressure_correction_wu.m`, `compute_bulk_params.m`
+- 17-min (2048 @ 2 Hz) segments, detrend, Wu pressure correction, ~34 DOF pwelch
+- Shore-normal rotation via CDIP THREDDS with fallback to buoy coords
+- **D50 = 0.25 mm placeholder** — real grain size data from Laser Particle Analyzer
+  campaign expected within weeks. Bed stress (tau_b, fric_w, Aw) can be recomputed
+  from stored Ub and Tp without re-running spectral analysis.
+- **Wu pressure correction**: standard linear wave theory Kp = cosh(k*z)/cosh(k*H).
+  Coefficients should be reviewed before publication — there is disagreement in the
+  literature about the appropriate form. See TODO in `pressure_correction_wu.m`.
+- PUV vs MOP wave product comparison will live in a separate `validation/` module,
+  not inside L2 core.
 
 ### L3 / Paper 1 wrapper — not yet written
 Thin wrapper in `Paper 1/DataCodes/` calling shared pipeline with TBR23 config.

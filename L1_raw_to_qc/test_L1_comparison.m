@@ -31,7 +31,7 @@ fprintf('\nRunning new PUV_raw_process...\n');
 PUV_new = PUV_raw_process(instr, cfg);
 
 %% ======================== LOAD ORIGINAL ========================
-origFile = '/Users/holden/Documents/Scripps/Research/Beach Change Observation/Vector/PUVs/TorreyMay-July2023/DATA/PUV/Level1_QC/5m_16739_MOP580_processed.mat';
+origFile = '/Users/holden/Documents/Scripps/Research/Beach_Change_Observation/Vector/PUVs/TorreyMay-July2023/DATA/PUV/Level1_QC/5m_16739_MOP580_processed.mat';
 fprintf('Loading original: %s\n', origFile);
 orig = load(origFile);
 PUV_orig = orig.PUV;
