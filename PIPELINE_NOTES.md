@@ -1,0 +1,211 @@
+# PUV Pipeline — Design Notes and Decisions
+
+This document records the architectural decisions, known issues, and rationale
+behind the pipeline design. Update it when decisions change.
+
+---
+
+## Directory Structure
+
+```
+PUV_Pipeline/
+    startup_puv.m              — adds all subdirs to MATLAB path; run first
+    config/                    — per-deployment config structs + registry
+    L1_raw_to_qc/              — raw .dat/.sen/.hdr → QC'd PUV struct (.mat)
+    L2_spectral/               — spectral analysis, wave stats, bed velocity
+    L3_transport/              — sediment transport models (Paper 1 specific)
+    shared/                    — canonical copies of shared functions
+    raw_cache/                 — local copies of raw server files (not committed)
+    outputs/L1|L2|L3/          — processed outputs per deployment
+```
+
+Related directories:
+- Raw data (read-only): `/Volumes/group/PUV_data/Vector/`
+- Deployment notes: `/Volumes/group/DeploymentNotes/`
+- Old first-gen code (archived): `Beach Change Observation/Vector/PUVs/`
+- Paper 1 analysis: `Paper 1/DataCodes/`
+
+---
+
+## Pipeline Stages
+
+### L1: Raw → QC'd timeseries
+- **Input**: raw `.dat`/`.sen`/`.hdr` files from lab server
+- **Script**: `PUV_L1_driver.m` (loops instruments) → `PUV_raw_process.m` (one instrument)
+- **Processing**: load bursts, clock drift correction, pitch/roll/pressure QC,
+  correlation QC (minCorr < 70%), rotate to buoy coords (+x WEST, +y NORTH, +z UP)
+- **Output**: `outputs/L1/{deployment}/{label}_processed.mat` containing `PUV` struct
+
+### L2: Spectral analysis
+- **Input**: L1 `.mat` files
+- **Script**: `PUV_L2_driver.m`
+- **Processing**: 17-min (2048-sample @ 2Hz) segments, detrend, Wu pressure
+  correction, Welch PSD, Hs/Tp/energy flux, bed velocity (IFFT method),
+  Reynolds stress, velocity moments, optional MOP comparison
+- **Output**: `outputs/L2/{deployment}/` struct per instrument
+
+### L3: Transport (Paper 1)
+- Lives in `Paper 1/DataCodes/` — deployment-specific analysis, not reusable pipeline
+- `run_transport_model.m`: Bailard → Hoefel & Elgar → undertow → Shields hierarchy
+
+---
+
+## Key Design Decisions
+
+### Segment length: 17 minutes (2048 samples @ 2 Hz)
+The original Athina Lange pipeline used 1-hour segments with tidal fitting.
+This was abandoned because tidal artifacts persisted even after fitting.
+The canonical approach is 17-min segments with detrending.
+**Do not reintroduce tidal fitting or 3-hour segments.**
+
+Tradeoffs documented:
+- 17 min: better temporal resolution, robust detrending, ~34 DOF (pwelch, 50% overlap),
+  df ≈ 0.001 Hz, standard in nearshore literature
+- 1 hour: finer frequency resolution, better IG band coverage — not worth the
+  tidal contamination at these depths
+
+### .nc files: deprecated
+`save_initial_processingPUV_netcdf.m` is commented out in the original
+`PUV_raw_process.m` and has been confirmed unused. The Paper 1 pipeline
+loads `.mat` files only. `.nc` export is available as an optional step if
+data sharing/archival requires it, but is not part of the standard pipeline.
+
+### .mat format: primary intermediate format
+Use `-v7.3` (HDF5) for large structs. Preserves datetime objects directly
+(unlike .nc which converts to datenum and loses timezone). Can be opened
+by Python via h5py if needed.
+
+### L2 code: PUV_all_in_one.m is the reference implementation
+`PUV_all_in_one.m` (Paper 1/DataCodes/PUV/) is the actually-used, working
+L2 implementation. `PUV_MOP_master.m` is a cleaner but incomplete rewrite
+with undefined variables — it was never run to completion and should not
+be used as a reference. Both are archived in place.
+
+### Config system: DeploymentNotes are authoritative
+Per-deployment processing parameters (lat/lon, heading, clock drift, sensor
+offset) come from `/Volumes/group/DeploymentNotes/DeploymentNotes{year}.xls`.
+The annual checkout spreadsheets (`VectorPUV_{year}Checkout.xlsx`) have serial
+numbers and qualitative checklist items but NOT the numerical processing params.
+`TBR23_Notes.xlsx` (local) was the only machine-readable source before
+DeploymentNotes was discovered — its format is the template for new deployments.
+
+### Raw file reading: use textscan, not load()
+MATLAB's `load()` on large ASCII files is extremely slow (30+ min for 316 MB).
+Use `textscan(fid, repmat('%f',1,N), 'CollectOutput', true)` instead.
+Files on `/Volumes/group/` are on a network mount — copy to local disk first
+using `copy_raw_to_local(cfg)` before running L1 processing.
+Local cache goes to `PUV_Pipeline/raw_cache/`.
+
+### Coordinate conventions
+- After L1 rotation: +x WEST, +y NORTH, +z UP (left-handed, MOP convention)
+- After L2 shorenormal rotation: +x onshore (shore-normal), +y alongshore north
+- Transport sign convention: q_x positive = onshore flux
+- Pressure: dBar (raw from instrument, not converted to Pa)
+
+### Magnetic declination: no Aerospace Toolbox required
+`decyear()` requires Aerospace Toolbox. Replaced with inline calculation:
+```matlab
+doy   = datenum(yr, mo, dy) - datenum(yr, 1, 0);
+isLeap = (mod(yr,4)==0 && mod(yr,100)~=0) || mod(yr,400)==0;
+decYr  = yr + (doy-1) / (365 + double(isLeap));
+```
+`igrfmagm()` requires Mapping Toolbox (available). Use this, not `wrldmagm()` (Aerospace Toolbox).
+`wrldmagm` is limited to a 5-year WMM lifespan and errors on older deployment dates.
+`igrfmagm(height_km, lat, lon, decYr, 13)` — height in km, IGRF model epoch 13.
+
+---
+
+## Raw Data Structure on Lab Server
+
+Location: `/Volumes/group/PUV_data/Vector/`
+
+Two layouts exist:
+- **Subfolder layout** (older, multi-instrument): one subfolder per instrument
+  inside the deployment folder, e.g. `Torrey20230503-20230816/MOP580-5m16739/`
+- **Flat layout** (newer, single-instrument): files directly in deployment folder,
+  e.g. `SouthSIOPier20250123-20250329/6M-51102_1.dat`
+
+`PUV_raw_process.m` handles both via `instr.rawSubfolder` (empty = flat).
+
+### File prefix naming
+The file prefix (e.g. `5m_16739_MOP580`) is user-defined at programming time and
+is not guaranteed to match the instrument serial number. The serial number in the
+config comes from DeploymentNotes. Both are recorded in the config for reference.
+
+### Known server issue fixed
+`Torrey20230503-20230816/` previously had both MOP580-7m and MOP586-7m files
+mixed in a single misnamed folder (`MOP586-7m17047`). Fixed on 2026-04-01:
+- Created `MOP580-7m58002/` with the MOP580 files
+- Renamed to `MOP586-7m58602/` for the MOP586 files
+- Redistributed `.dep`/`.log` config files to correct instrument folders
+
+---
+
+## Known Issues and Review Items
+
+See also: `config/CONFIG_REVIEW_NOTES.md` for deployment-specific items.
+
+### bed_velocity_ifft.m — potential conjugate symmetry bug
+In the loop over FFT bins, the negative-frequency bin is set to the conjugate
+of the *already-scaled* positive bin. For k > N/2 the positive-frequency
+processing is skipped (continue), but its conjugate partner at N-k was already
+handled in a prior iteration. This appears logically correct but is subtle —
+verify with a synthetic test case (known sinusoid input, check output amplitude).
+
+### calculate_friction_factor.m — overrides input u_b
+The function accepts `u_b` as an input but then immediately recomputes it
+internally from wave parameters (H, a, L, T). The input `u_b` is silently
+discarded. This is likely a bug — the function was probably intended to accept
+u_b directly. Not currently used in the main pipeline; flag before using.
+
+### rotate_shorenormal.m — moplist.mat dependency
+The function does `load('moplist.mat')` relying on MATLAB path. The file is in
+`Beach Change Observation/Vector/PUVs/PUV_Processing-main/extra/`. Canonical
+copy placed in `PUV_Pipeline/shared/`. The function also makes a live CDIP
+THREDDS call to get shore-normal angle — requires internet access at runtime.
+
+### NN24 instruments with NaN clock drift
+7 of 9 NN24 instruments have unknown clock drift (battery depletion or missing
+field notes). See `config/CONFIG_REVIEW_NOTES.md` for full list.
+
+---
+
+## Archived Scripts (do not use)
+
+| Script | Location | Reason archived |
+|--------|----------|-----------------|
+| `PUV_L1.m` | `Vector/PUVs/PUV_Processing-main/` | Replaced by `PUV_L1_driver.m` |
+| `PUV_raw_process.m` (original) | `Vector/PUVs/PUV_Processing-main/Level1_QC/` | Replaced; had eval(), interactive figures |
+| `PUV_all_in_one.m` | `Paper 1/DataCodes/PUV/` | Will be replaced by `PUV_L2_driver.m` |
+| `PUV_MOP_master.m` | `Paper 1/DataCodes/PUV/` | Never ran to completion; undefined variables |
+| `PUV_all_in_one_for_Nick.m` | `Paper 1/DataCodes/PUV/` | Regenerate from pipeline if needed |
+| `PUV_code_combined_3h_incoming.m` | `Vector/PUVs/PUV_Processing-main/` | 3-hour tiding approach abandoned |
+| `PUV_L2_analysis.m` | `Vector/PUVs/PUVs/` | Superseded by L2 driver |
+| `importNortekPUVdat.m` | `Vector/` | Early scratch script, not generalized |
+| `calculate_friction_factor.m` | `Paper 1/DataCodes/PUV/` | Deleted — used Jonsson formula inconsistent with Swart (1974) in `bed_stress.m`; also had bug where `u_b` input was silently overwritten internally. Use `bed_stress.m` instead. |
+
+---
+
+## Current Status (as of April 2026 session)
+
+### L1 — written, test in progress
+- `PUV_raw_process.m` and `PUV_L1_driver.m` written and code-reviewed
+- `test_L1_comparison.m` written to compare new output vs original TBR23 processed .mat
+- Raw files being copied from server to `raw_cache/TBR23/` via `copy_raw_to_local(cfg)`
+- Once copy completes: run `test_L1_comparison` from `PUV_Pipeline/` in MATLAB
+- If comparison passes: run `PUV_L1_driver` for TBR23, then NN24
+
+### L2 — not yet written
+Next step: write `L2_spectral/PUV_L2_driver.m` using `PUV_all_in_one.m` as reference.
+Key spec:
+- 17-min (2048-sample @ 2 Hz) segments, detrend each segment
+- Wu pressure correction → surface elevation spectrum
+- pwelch PSD → Hs (SS and IG bands), Tp, energy flux
+- `bed_velocity_ifft.m` → near-bed orbital velocity
+- `compute_reynolds_stress.m`, `compute_velocity_moments.m` per segment
+- Optional MOP comparison module
+- Output: one results struct per instrument in `outputs/L2/{deployment}/`
+
+### L3 / Paper 1 wrapper — not yet written
+Thin wrapper in `Paper 1/DataCodes/` calling shared pipeline with TBR23 config.
+`run_transport_model.m` stays in Paper 1 — deployment-specific.
