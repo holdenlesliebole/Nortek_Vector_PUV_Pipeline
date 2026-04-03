@@ -1,0 +1,152 @@
+% PUV Pipeline — L1 and L2 Methods Section
+% Drop into your paper's methods section. Adjust \subsection depth as needed.
+% Requires: amsmath, siunitx (optional, for units)
+
+\subsection{Nearshore wave measurements}
+
+Nearshore wave and current dynamics were measured using bottom-mounted
+Nortek Vector acoustic Doppler velocimeters (ADVs) configured in
+pressure--velocity (PUV) mode, sampling continuously at \SI{2}{\hertz}.
+Instruments were deployed along MOP (Monitoring and Prediction) transect
+lines at nominal depths of \SIrange{5}{7}{\meter}, with two cross-shore
+positions per transect. Deployment metadata---including instrument heading,
+clock drift, and pressure sensor height above the bed ($z_s$, typically
+\SIrange{0.75}{0.77}{\meter})---were obtained from field deployment notes.
+
+\subsection{Level 1: Quality control and coordinate rotation}
+
+Raw burst files (.dat/.sen/.hdr) were merged into continuous time series
+at the \SI{2}{\hertz} sampling rate. Clock drift corrections were applied
+linearly over each deployment based on measured drift at recovery. A
+battery cutoff detection algorithm identified intermittent sampling
+caused by battery depletion by flagging gaps exceeding \SI{1}{\second}
+between consecutive sensor records; all data following the first such
+gap were discarded.
+
+Quality control filters removed samples where: (1) pitch or roll exceeded
+$\pm\SI{5}{\degree}$; (2) pressure fell outside the range
+$[\bar{P}/2,\; 2\bar{P}]$, where $\bar{P}$ is the deployment median
+pressure; or (3) the minimum beam correlation dropped below 70\%, following
+Nortek recommendations. Flagged samples were set to NaN.
+
+Velocity components were rotated from the instrument XYZ frame to a
+geographic buoy coordinate system ($+x$ west, $+y$ north, $+z$ up;
+left-handed, consistent with the MOP convention) using the magnetic
+heading from deployment notes and the magnetic declination computed via
+the International Geomagnetic Reference Field (IGRF-13) model at the
+deployment location and epoch.
+
+\subsection{Level 2: Spectral analysis}
+
+\subsubsection{Segmentation and preprocessing}
+
+The continuous L1 time series were divided into non-overlapping
+\SI{17.1}{\minute} segments of 2048 samples at \SI{2}{\hertz}. Segments
+in which more than 10\% of pressure or velocity samples were flagged as
+NaN were discarded; for segments with $\leq$10\% NaN, gaps were filled
+by linear interpolation before further processing. Prior to spectral
+analysis, velocities were rotated to a shore-normal coordinate frame
+($+x$ onshore, $+y$ alongshore north) using the shore-normal angle
+retrieved from the CDIP THREDDS server for the corresponding MOP station.
+
+For each valid segment, the mean pressure was used to compute the total
+water column depth $H = \bar{P} \times 10^4 / (\rho g) + z_s$, where
+$\bar{P}$ is the segment-mean pressure in \si{\deci\bar}, $\rho =
+\SI{1025}{\kilogram\per\meter\cubed}$, $g = \SI{9.81}{\meter\per
+\second\squared}$, and $z_s$ is the pressure sensor height above the bed.
+Mean cross-shore, alongshore, and vertical velocities and temperature
+were recorded for each segment prior to detrending. The pressure time
+series was converted from \si{\deci\bar} to meters of water head, and
+all channels (pressure, $u$, $v$, $w$) were linearly detrended.
+
+\subsubsection{Spectral estimation}
+
+Power spectral densities were estimated using Welch's method
+\citep{welch1967} with 256-sample sub-segments (\SI{128}{\second}),
+a Hanning window, and 50\% overlap, yielding approximately 34 effective
+degrees of freedom per segment. This configuration provides a frequency
+resolution of $\Delta f \approx \SI{0.0078}{\hertz}$ over the range
+0--\SI{1}{\hertz}. Cross-spectra between pressure and the two horizontal
+velocity components were computed using the same windowing parameters
+for directional analysis.
+
+\subsubsection{Pressure correction}
+
+The measured pressure spectrum was converted to a surface elevation
+spectrum using the linear wave theory transfer function:
+%
+\begin{equation}
+  K_p(f) = \frac{\cosh(k z_s)}{\cosh(k H)}
+\end{equation}
+%
+where $k(f)$ is the wavenumber obtained by solving the linear dispersion
+relation $\omega^2 = g k \tanh(kH)$ via Newton's method. The surface
+elevation spectrum was computed as $S_\eta(f) = S_p(f) / K_p^2(f)$.
+Frequency bins where $K_p < 0.1$ were set to zero to suppress
+noise amplification at high frequencies; the resulting cutoff frequency
+$f_\text{cut}$ was recorded for each segment.
+
+\subsubsection{Bulk wave parameters}
+
+Significant wave height was computed as $H_s = 4\sqrt{m_0}$, where
+$m_0 = \int S_\eta(f)\,df$ is the zeroth spectral moment, integrated
+separately over the sea--swell band (\SIrange{0.04}{0.25}{\hertz})
+and infragravity band (\SIrange{0.004}{0.04}{\hertz}). Peak period
+$T_p = 1/f_p$ was determined from the frequency of maximum $S_\eta$
+within the sea--swell band, and the mean zero-crossing period was
+computed as $T_{m02} = \sqrt{m_0/m_2}$. The energy-weighted mean wave
+direction was obtained from the first-harmonic directional coefficients
+$a_1$ and $b_1$ derived from the pressure--velocity cross-spectra.
+Total energy flux was computed as
+$F = \rho g \int c_g(f)\, S_\eta(f)\, df$,
+where $c_g$ is the group velocity from linear wave theory.
+
+\subsubsection{Near-bed velocity and stress}
+
+Near-bed orbital velocities were estimated by scaling the measured
+velocity spectrum at sensor height to the bed using linear wave theory.
+Each frequency bin of the velocity FFT was multiplied by
+$\cosh(kH) / \cosh[k(H - z_s)]$, and the result was inverse-transformed
+to obtain the near-bed velocity time series \citep[e.g.,][]{guza1980}.
+The RMS near-bed orbital velocity $U_b$ and wave orbital excursion $A_w$
+were computed from the bed velocity time series for each segment.
+
+Wave-induced bed shear stress was estimated using the Swart (1974)
+friction factor formulation with a bed roughness of $k_s = 2.5 D_{50}$,
+where $D_{50} = \SI{0.25}{\milli\meter}$ (to be updated with site-specific
+grain size distributions from laser particle analysis). Reynolds stress
+components ($\overline{u'w'}$, $\overline{v'w'}$, $\overline{u'v'}$)
+and turbulent kinetic energy were computed from the detrended velocity
+fluctuations. Velocity moment statistics including skewness $S_k$ and
+acceleration asymmetry $A_s$ were computed following
+\citet{elgar1985,hoefel2003} for characterizing wave nonlinearity
+relevant to sediment transport.
+
+\subsection{Validation against MOP wave model}
+
+PUV-derived wave parameters were validated against hourly wave data from
+the CDIP Monitoring and Prediction (MOP) system, a spectral wave model
+initialized by offshore CDIP buoy observations. The MOP model provides
+wave energy density spectra $S_\eta(f)$ at \SI{10}{\meter} depth along
+each MOP transect line. MOP spectra were shoaled to the PUV instrument
+depth using linear wave theory energy conservation:
+%
+\begin{equation}
+  S_\eta(f, h_\text{PUV}) = S_\eta(f, 10\,\text{m}) \times
+  \frac{c_g(f, 10\,\text{m})}{c_g(f, h_\text{PUV})}
+\end{equation}
+%
+Shoaled MOP wave heights were computed by integrating the shoaled spectrum
+over the sea--swell band using the (non-uniform) MOP frequency bandwidth
+vector. PUV segment values (\SI{17}{\minute} resolution) were interpolated
+to the MOP hourly time grid for comparison. Agreement was quantified using
+$R^2$, RMSE, bias (PUV $-$ MOP), and the Willmott (1981) skill score.
+
+Frequency-dependent validation was performed by computing the mean
+spectral ratio $S_\eta^\text{PUV}(f) / S_\eta^\text{MOP,shoaled}(f)$
+across all matched hours, binned into low-swell
+(\SIrange{0.04}{0.08}{\hertz}), mid-swell (\SIrange{0.08}{0.14}{\hertz}),
+and high-swell (\SIrange{0.14}{0.25}{\hertz}) bands. This diagnostic
+isolates whether systematic biases originate from the pressure transfer
+function (which amplifies high-frequency energy most aggressively) or
+from physical processes such as nonlinear shoaling amplification.
