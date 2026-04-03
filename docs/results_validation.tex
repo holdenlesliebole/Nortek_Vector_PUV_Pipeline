@@ -1,0 +1,104 @@
+% PUV Pipeline — Validation Results Section
+% Drop into your paper's results section.
+
+\subsection{PUV--MOP validation}
+
+\subsubsection{Bulk wave parameter agreement}
+
+PUV-derived wave parameters showed strong agreement with the MOP wave
+model across all four TBR23 instruments (Table~\ref{tab:validation}).
+For instruments unaffected by biofouling, $H_s$ correlations exceeded
+$R^2 = 0.83$ with RMSE $< \SI{0.06}{\meter}$ and biases of
+\SIrange{+0.002}{+0.008}{\meter}. One instrument (MOP580 5m) exhibited
+lower agreement ($R^2 = 0.66$, bias $= \SI{+0.037}{\meter}$), attributed
+to intermittent kelp fouling that reduced the valid segment rate to 49\%
+compared with \SIrange{85}{91}{\percent} for the remaining instruments.
+A small but consistent positive $H_s$ bias was observed across all
+instruments, with PUV-measured wave heights systematically exceeding
+shoaled MOP values.
+
+% TODO: Insert Table \ref{tab:validation} with R2, RMSE, bias, skill, N
+% for Hs, Tm, Ef across all instruments
+
+\subsubsection{Frequency-dependent spectral bias}
+
+The frequency-resolved spectral ratio
+$S_\eta^\text{PUV}(f) / S_\eta^\text{MOP,shoaled}(f)$, averaged across
+all matched hours, revealed that the positive $H_s$ bias was concentrated
+at the swell spectral peak (\SIrange{0.04}{0.08}{\hertz}), where the
+pressure transfer function $K_p > 0.9$ and the correction is minimal
+(Table~\ref{tab:spectral_ratio}). The mid-swell band
+(\SIrange{0.08}{0.14}{\hertz}) showed near-unity ratios ($0.99$--$1.03$),
+and the high-swell band (\SIrange{0.14}{0.25}{\hertz}), where the
+pressure correction is most aggressive ($K_p$ as low as $0.24$), also
+showed only modest excess ($1.03$--$1.05$). The low-swell amplification
+increased with decreasing depth, from a band-averaged ratio of $1.17$ at
+\SI{8.3}{\meter} to $1.28$ at \SI{5.5}{\meter}. The overall excess
+energy relative to the shoaled MOP spectrum was \SI{4.5}{\percent} at
+\SI{8.3}{\meter} depth and \SI{8.7}{\percent} at \SI{5.5}{\meter}.
+
+The concentration of excess energy at the spectral peak---where the
+pressure correction factor is close to unity---indicates that the bias
+does not originate from the pressure-to-surface-elevation transfer
+function.
+
+% TODO: Insert Table \ref{tab:spectral_ratio} with band-averaged ratios
+% and Kp ranges for each instrument
+
+\subsubsection{Hypothesis testing}
+
+Four candidate mechanisms for the systematic positive bias were evaluated
+(Table~\ref{tab:hypotheses}).
+
+\paragraph{Nonlinear shoaling.}
+The Ursell number $\mathit{Ur} = H_s L_p^2 / h^3$, which characterizes
+wave nonlinearity and governs the strength of triad interactions during
+shoaling, showed no correlation with the low-swell spectral ratio
+($R^2 = 0.004$, $N = 5228$ segment-hours across all instruments). The
+median Ursell number ranged from 12 at \SI{8.3}{\meter} depth to 30 at
+\SI{5.5}{\meter}, spanning conditions from weakly to moderately
+nonlinear.
+
+\paragraph{Directional narrowing.}
+The first-harmonic directional spread $\sigma_1$, computed from the PUV
+cross-spectral $a_1$ and $b_1$ coefficients, was systematically
+\emph{wider} than the MOP model spread at swell frequencies
+(\SI{15}{\degree} vs.\ \SI{10}{\degree} at the peak). This is opposite
+to the narrowing expected from refraction-driven focusing. No correlation
+was found between the spread ratio and $H_s$ amplification
+($R^2 < 0.001$). The wider PUV spread may reflect scattered wave energy
+at shallow depths not represented in the forward-propagating MOP model.
+
+\paragraph{Bound long waves.}
+Bound wave energy forced by wave group modulation scales as $H_s^2$
+\citep{longuethiggins1962}. The low-swell excess energy showed no
+positive correlation with $H_s^2$ ($R = -0.14$), and the amplification
+ratio weakly \emph{decreased} with increasing wave height ($R = -0.19$).
+Furthermore, the excess energy was concentrated at the swell spectral
+peak (\SIrange{0.04}{0.08}{\hertz}), not at the expected group/bound
+wave frequencies ($\sim$\SIrange{0.01}{0.03}{\hertz}).
+
+\paragraph{MOP spectral peak broadening.}
+The Goda peakedness parameter $Q_p$ was systematically higher for PUV
+spectra than for shoaled MOP spectra (median $Q_p = 1.88$ vs.\ $1.75$,
+ratio $1.07$). The PUV half-power spectral bandwidth was
+\SI{16.7}{\percent} narrower than MOP (\SI{0.039}{\hertz} vs.\
+\SI{0.047}{\hertz}), and the PUV peak spectral density was
+\SI{14.4}{\percent} higher. The peakedness difference
+$\Delta Q_p = Q_p^\text{PUV} - Q_p^\text{MOP}$ showed the strongest
+correlation with $H_s$ amplification of any tested mechanism
+($R = 0.44$, $R^2 = 0.20$). Hours when the PUV spectrum was more peaked
+relative to MOP corresponded to hours with larger positive $H_s$ bias.
+
+These results indicate that the MOP spectral wave model introduces
+numerical broadening of the spectral peak during propagation from the
+initialization depth (\SI{10}{\meter}) to the instrument depth. The
+in-situ PUV measurement captures the true, narrower spectral peak shape,
+resulting in higher peak energy density and thus higher $H_s$ for a
+given total variance. This spectral broadening is a recognized property
+of discretized spectral wave models \citep[e.g.,][]{rogers2002,booij1999}
+and has not been previously quantified using co-located PUV observations
+in this depth range.
+
+% TODO: Insert Table \ref{tab:hypotheses} summarizing hypothesis,
+% test metric, result, and verdict for each of the four mechanisms
