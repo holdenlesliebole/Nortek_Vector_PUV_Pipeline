@@ -57,6 +57,12 @@ segLen = opts.segLen;
 N      = length(PUV.P);
 nSeg   = floor(N / segLen);
 
+% Check for required metadata
+if isnan(PUV.doffp)
+    error('PUV_L2_spectral:noDoffp', ...
+        'doffp is NaN for %s — fill from DeploymentNotes before running L2.', PUV.label);
+end
+
 fprintf('  Segmenting: %d samples → %d segments of %d (%.1f min each)\n', ...
     N, nSeg, segLen, segLen / fs / 60);
 

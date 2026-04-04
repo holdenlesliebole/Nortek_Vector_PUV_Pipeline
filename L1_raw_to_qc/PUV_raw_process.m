@@ -87,6 +87,30 @@ function PUV = PUV_raw_process(instr, cfg)
         senfile = fullfile(instrDir, [depstr burstID '.sen']);
         datfile = fullfile(instrDir, [depstr burstID '.dat']);
 
+        % Handle prefix mismatch between .dat and .sen files.
+        % Some deployments use underscore in .dat (6M_51102_1.dat) but
+        % hyphen in .sen (6M-51102_1.sen). Try swapping _ <-> - if needed.
+        if ~isfile(senfile)
+            altPrefix = strrep(depstr, '_', '-');
+            altSen = fullfile(instrDir, [altPrefix burstID '.sen']);
+            if isfile(altSen)
+                senfile = altSen;
+            else
+                altPrefix = strrep(depstr, '-', '_');
+                altSen = fullfile(instrDir, [altPrefix burstID '.sen']);
+                if isfile(altSen)
+                    senfile = altSen;
+                end
+            end
+        end
+        if ~isfile(datfile)
+            altPrefix = strrep(depstr, '_', '-');
+            altDat = fullfile(instrDir, [altPrefix burstID '.dat']);
+            if isfile(altDat)
+                datfile = altDat;
+            end
+        end
+
         fprintf('  Loading burst %d/%d: .sen ...', ii, nBursts);
         t1 = tic;
         fid = fopen(senfile, 'r');
@@ -238,18 +262,40 @@ function PUV = PUV_raw_process(instr, cfg)
                 DATii(end+1 : nSEN*2, :) = NaN;
             end
 
-            % Find index range in the full deployment array
+            % Find index range in the full deployment array.
+            % Use nearest-match (within 1 sample) to handle sub-second
+            % time misalignments between burst boundaries and the
+            % regular full_date grid.
             iStart = find(full_date == dt_starts(ii), 1);
             iEnd   = find(full_date == dt_ends(ii), 1);
+
+            if isempty(iStart)
+                [minDt, iStart] = min(abs(full_date - dt_starts(ii)));
+                if minDt > seconds(1/fs)
+                    warning('PUV_raw_process:burstAlignFailed', ...
+                        'Burst %d start time misaligned by %.2f s — skipping.', ii, seconds(minDt));
+                    continue
+                end
+            end
+            if isempty(iEnd)
+                [minDt, iEnd] = min(abs(full_date - dt_ends(ii)));
+                if minDt > seconds(1/fs)
+                    warning('PUV_raw_process:burstAlignFailed', ...
+                        'Burst %d end time misaligned by %.2f s — skipping.', ii, seconds(minDt));
+                    continue
+                end
+            end
 
             % DAT is at 2 Hz — fill contiguously
             nFill = iEnd - iStart + 2;  % +2 because original uses iEnd+1
             nFill = min(nFill, size(DATii, 1));
+            nFill = min(nFill, length(full_date) - iStart + 1);
             DAT(iStart : iStart+nFill-1, :) = DATii(1:nFill, :);
 
             % SEN is at 1 Hz — duplicate each sample to fill 2 Hz slots
-            SEN(iStart   : 2 : iEnd+1, :) = SENii;
-            SEN(iStart+1 : 2 : iEnd,   :) = SENii(1:end-1, :);
+            senEnd = min(iEnd+1, length(full_date));
+            SEN(iStart   : 2 : senEnd, :) = SENii(1:min(size(SENii,1), numel(iStart:2:senEnd)), :);
+            SEN(iStart+1 : 2 : iEnd,   :) = SENii(1:min(size(SENii,1)-1, numel(iStart+1:2:iEnd)), :);
         end
     else
         % 1 Hz sampling
@@ -267,8 +313,18 @@ function PUV = PUV_raw_process(instr, cfg)
             iStart = find(full_date == dt_starts(ii), 1);
             iEnd   = find(full_date == dt_ends(ii), 1);
 
+            if isempty(iStart)
+                [minDt, iStart] = min(abs(full_date - dt_starts(ii)));
+                if minDt > seconds(1), continue; end
+            end
+            if isempty(iEnd)
+                [minDt, iEnd] = min(abs(full_date - dt_ends(ii)));
+                if minDt > seconds(1), continue; end
+            end
+
             nFill = iEnd - iStart + 2;
             nFill = min(nFill, size(DATii, 1));
+            nFill = min(nFill, length(full_date) - iStart + 1);
             DAT(iStart : iStart+nFill-1, :) = DATii(1:nFill, :);
             SEN(iStart : iStart+nFill-1, :) = SENii(1:min(nFill, size(SENii,1)), :);
         end
@@ -397,7 +453,18 @@ function PUV = PUV_raw_process(instr, cfg)
     decYr = yr + (doy - 1) / (365 + double(isLeap));
     % igrfmagm (Mapping Toolbox) — handles any date, unlike wrldmagm which is
     % limited to a 5-year WMM lifespan. Height in km (0 = sea level).
-    [~, ~, magDeclination, ~, ~] = igrfmagm(0, LAT, LON, decYr, 13);
+    % IGRF-13 covers through 2025.0; for later dates, try epoch 14 first,
+    % fall back to capping at 2025.0 (extrapolation error < 0.1 deg/yr).
+    try
+        [~, ~, magDeclination, ~, ~] = igrfmagm(0, LAT, LON, decYr, 14);
+    catch
+        decYrCapped = min(decYr, 2024.99);
+        [~, ~, magDeclination, ~, ~] = igrfmagm(0, LAT, LON, decYrCapped, 13);
+        if decYr > 2025
+            warning('PUV_raw_process:igrfCapped', ...
+                'IGRF-13 limit reached (decYr=%.2f). Using 2025.0 declination (error < 0.1 deg).', decYr);
+        end
+    end
 
     if coordSystem == "XYZ"
         % For an upward-looking XYZ sensor, +z is down, so flip sign.
