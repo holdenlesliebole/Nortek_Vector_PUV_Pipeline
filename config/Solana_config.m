@@ -66,7 +66,7 @@ function cfg = Solana_config(deployment_name)
             cfg.instruments(k).latlon         = sol_latlon;
             cfg.instruments(k).heading        = NaN;   % auto-compute (XYZ)
             cfg.instruments(k).clockDrift     = NaN;
-            cfg.instruments(k).doffp          = NaN;
+            cfg.instruments(k).doffp          = 1.00;      % meters (100 cm from notes, deploy 12/8/2025)
 
         otherwise
             error('Solana_config:unknown', ...

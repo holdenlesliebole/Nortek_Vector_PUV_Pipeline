@@ -84,7 +84,7 @@ function cfg = LPL_config(deployment_name)
             cfg.instruments(k).latlon         = lpl_latlon;
             cfg.instruments(k).heading        = NaN;   % auto-compute (XYZ)
             cfg.instruments(k).clockDrift     = NaN;
-            cfg.instruments(k).doffp          = NaN;
+            cfg.instruments(k).doffp          = 0.80;      % meters (~80 cm from notes, deploy 12/8/2025)
 
         otherwise
             error('LPL_config:unknown', ...

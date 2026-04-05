@@ -147,7 +147,7 @@ function cfg = SIO_Pier_config(deployment_name)
             cfg.instruments(k).latlon         = sio_latlon;
             cfg.instruments(k).heading        = NaN;
             cfg.instruments(k).clockDrift     = NaN;
-            cfg.instruments(k).doffp          = 0.69;      % meters (69 cm measured 4/17/2025, sand accreted)
+            cfg.instruments(k).doffp          = 0.90;      % meters (90 cm from 2025-2026 notes, deploy 11/25/2025)
 
         otherwise
             error('SIO_Pier_config:unknown', ...
