@@ -26,7 +26,7 @@ function cfg = TOR24S_config()
     cfg.instruments(k).latlon         = [32.925, -117.264];
     cfg.instruments(k).heading        = NaN;   % auto-compute from .sen
     cfg.instruments(k).clockDrift     = NaN;
-    cfg.instruments(k).doffp          = NaN;
+    cfg.instruments(k).doffp          = 0.72;      % meters (72 cm, redeploy 2/28/2024)
 
     % ---- MOP 586, 5m ----
     k = k + 1;
@@ -40,7 +40,7 @@ function cfg = TOR24S_config()
     cfg.instruments(k).latlon         = [32.930, -117.264];
     cfg.instruments(k).heading        = NaN;
     cfg.instruments(k).clockDrift     = NaN;
-    cfg.instruments(k).doffp          = NaN;
+    cfg.instruments(k).doffp          = 0.63;      % meters (63 cm, redeploy 2/28/2024)
 
     % ---- MOP 586, 7m ----
     k = k + 1;
@@ -54,7 +54,7 @@ function cfg = TOR24S_config()
     cfg.instruments(k).latlon         = [32.930, -117.265];
     cfg.instruments(k).heading        = NaN;
     cfg.instruments(k).clockDrift     = NaN;
-    cfg.instruments(k).doffp          = NaN;
+    cfg.instruments(k).doffp          = 0.70;      % meters (70 cm, redeploy 2/28/2024)
 
     % ---- MOP 586, 10m ----
     k = k + 1;
@@ -68,7 +68,7 @@ function cfg = TOR24S_config()
     cfg.instruments(k).latlon         = [32.930, -117.266];
     cfg.instruments(k).heading        = NaN;
     cfg.instruments(k).clockDrift     = NaN;
-    cfg.instruments(k).doffp          = NaN;
+    cfg.instruments(k).doffp          = 0.79;      % meters (79 cm, redeploy 2/28/2024)
 
     % ---- MOP 586, 15m ----
     k = k + 1;
@@ -82,6 +82,6 @@ function cfg = TOR24S_config()
     cfg.instruments(k).latlon         = [32.930, -117.270];
     cfg.instruments(k).heading        = NaN;
     cfg.instruments(k).clockDrift     = NaN;
-    cfg.instruments(k).doffp          = NaN;
+    cfg.instruments(k).doffp          = 0.74;      % meters (74 cm, redeploy 2/28/2024)
 
 end

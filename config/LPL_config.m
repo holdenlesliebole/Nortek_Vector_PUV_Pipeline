@@ -39,7 +39,7 @@ function cfg = LPL_config(deployment_name)
             cfg.instruments(k).latlon         = lpl_latlon;
             cfg.instruments(k).heading        = NaN;   % auto-compute (XYZ)
             cfg.instruments(k).clockDrift     = NaN;
-            cfg.instruments(k).doffp          = NaN;
+            cfg.instruments(k).doffp          = 0.88;      % meters (88 cm from notes)
 
         case 'LPL24'
             cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector/LPL20241211-20250221';
@@ -54,7 +54,7 @@ function cfg = LPL_config(deployment_name)
             cfg.instruments(k).latlon         = lpl_latlon;
             cfg.instruments(k).heading        = NaN;   % ENU — heading not used
             cfg.instruments(k).clockDrift     = NaN;
-            cfg.instruments(k).doffp          = NaN;
+            cfg.instruments(k).doffp          = 0.75;      % meters (75 cm from notes)
 
         case 'LPL25A'
             cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector/LPL20250305-20250601';
@@ -69,7 +69,7 @@ function cfg = LPL_config(deployment_name)
             cfg.instruments(k).latlon         = lpl_latlon;
             cfg.instruments(k).heading        = NaN;   % ENU — heading not used
             cfg.instruments(k).clockDrift     = NaN;
-            cfg.instruments(k).doffp          = NaN;
+            cfg.instruments(k).doffp          = 0.85;      % meters (85 cm from notes)
 
         case 'LPL25B'
             cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector/LPL20251208-20260225';

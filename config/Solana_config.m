@@ -36,7 +36,7 @@ function cfg = Solana_config(deployment_name)
             cfg.instruments(k).latlon         = sol_latlon;
             cfg.instruments(k).heading        = NaN;   % ENU — heading not used
             cfg.instruments(k).clockDrift     = NaN;
-            cfg.instruments(k).doffp          = NaN;
+            cfg.instruments(k).doffp          = 0.89;      % meters (89 cm from notes)
 
         case 'SOL25A'
             cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector/Solana20250305-20250517';
@@ -51,7 +51,7 @@ function cfg = Solana_config(deployment_name)
             cfg.instruments(k).latlon         = sol_latlon;
             cfg.instruments(k).heading        = NaN;   % auto-compute (XYZ)
             cfg.instruments(k).clockDrift     = NaN;
-            cfg.instruments(k).doffp          = NaN;
+            cfg.instruments(k).doffp          = 0.81;      % meters (81 cm from notes)
 
         case 'SOL25B'
             cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector/Solana20251205-20260225';

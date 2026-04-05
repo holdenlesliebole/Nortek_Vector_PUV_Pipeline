@@ -42,7 +42,7 @@ function cfg = SIO_Pier_config(deployment_name)
             cfg.instruments(k).latlon         = sio_latlon;
             cfg.instruments(k).heading        = NaN;   % auto-compute from .sen
             cfg.instruments(k).clockDrift     = NaN;
-            cfg.instruments(k).doffp          = NaN;
+            cfg.instruments(k).doffp          = 0.79;      % meters (79 cm from notes, initial install)
 
         case 'SIO24B'
             cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector/SouthSIOPier20240611-20240728';
@@ -57,7 +57,7 @@ function cfg = SIO_Pier_config(deployment_name)
             cfg.instruments(k).latlon         = sio_latlon;
             cfg.instruments(k).heading        = NaN;
             cfg.instruments(k).clockDrift     = NaN;
-            cfg.instruments(k).doffp          = NaN;
+            cfg.instruments(k).doffp          = 0.79;      % meters (same pipe as SIO24A)
 
         case 'SIO24C'
             cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector/SouthSIOPier20241024-20241231';
@@ -72,7 +72,7 @@ function cfg = SIO_Pier_config(deployment_name)
             cfg.instruments(k).latlon         = sio_latlon;
             cfg.instruments(k).heading        = NaN;
             cfg.instruments(k).clockDrift     = NaN;
-            cfg.instruments(k).doffp          = NaN;
+            cfg.instruments(k).doffp          = 0.79;      % meters (same pipe as SIO24A)
 
         case 'SIO25A'
             cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector/SouthSIOPier20250123-20250329';
@@ -87,7 +87,7 @@ function cfg = SIO_Pier_config(deployment_name)
             cfg.instruments(k).latlon         = sio_latlon;
             cfg.instruments(k).heading        = NaN;
             cfg.instruments(k).clockDrift     = NaN;
-            cfg.instruments(k).doffp          = NaN;
+            cfg.instruments(k).doffp          = 0.79;      % meters (same pipe as SIO24A)
 
         case 'SIO25B'
             cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector/SouthSIOPier20250417-20250622';
@@ -102,7 +102,7 @@ function cfg = SIO_Pier_config(deployment_name)
             cfg.instruments(k).latlon         = sio_latlon;
             cfg.instruments(k).heading        = NaN;
             cfg.instruments(k).clockDrift     = NaN;
-            cfg.instruments(k).doffp          = NaN;
+            cfg.instruments(k).doffp          = 0.79;      % meters (same pipe, sand level may vary)
 
         case 'SIO25C'
             cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector/SouthSIOPier20250718-20250813';
@@ -117,7 +117,7 @@ function cfg = SIO_Pier_config(deployment_name)
             cfg.instruments(k).latlon         = sio_latlon;
             cfg.instruments(k).heading        = NaN;
             cfg.instruments(k).clockDrift     = NaN;
-            cfg.instruments(k).doffp          = NaN;
+            cfg.instruments(k).doffp          = 0.79;      % meters (same pipe, sand level may vary)
 
         case 'SIO25D'
             cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector/SouthSIOPier20250904-20251126';
@@ -132,7 +132,7 @@ function cfg = SIO_Pier_config(deployment_name)
             cfg.instruments(k).latlon         = sio_latlon;
             cfg.instruments(k).heading        = NaN;
             cfg.instruments(k).clockDrift     = NaN;
-            cfg.instruments(k).doffp          = NaN;
+            cfg.instruments(k).doffp          = 0.79;      % meters (same pipe, sand level may vary)
 
         case 'SIO25E'
             cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector/SouthSIOPier20251208-20260225';
@@ -147,7 +147,7 @@ function cfg = SIO_Pier_config(deployment_name)
             cfg.instruments(k).latlon         = sio_latlon;
             cfg.instruments(k).heading        = NaN;
             cfg.instruments(k).clockDrift     = NaN;
-            cfg.instruments(k).doffp          = NaN;
+            cfg.instruments(k).doffp          = 0.69;      % meters (69 cm measured 4/17/2025, sand accreted)
 
         otherwise
             error('SIO_Pier_config:unknown', ...

@@ -36,7 +36,7 @@ function cfg = TOR25S_config()
     cfg.instruments(k).latlon         = [32.930, -117.264];
     cfg.instruments(k).heading        = NaN;   % auto-compute from .sen
     cfg.instruments(k).clockDrift     = NaN;
-    cfg.instruments(k).doffp          = NaN;
+    cfg.instruments(k).doffp          = 0.63;      % meters (63 cm, redeploy 3/26/2025)
 
     % ---- MOP 586, 10m ----
     % Subfolder in Torrey20250305-20250512/
@@ -51,7 +51,7 @@ function cfg = TOR25S_config()
     cfg.instruments(k).latlon         = [32.930, -117.266];
     cfg.instruments(k).heading        = NaN;
     cfg.instruments(k).clockDrift     = NaN;
-    cfg.instruments(k).doffp          = NaN;
+    cfg.instruments(k).doffp          = 0.86;      % meters (86 cm, redeploy 3/5/2025)
 
     % ---- MOP 586, 15m ----
     % Subfolder in Torrey20250305-20250512/
@@ -66,7 +66,7 @@ function cfg = TOR25S_config()
     cfg.instruments(k).latlon         = [32.930, -117.270];
     cfg.instruments(k).heading        = NaN;
     cfg.instruments(k).clockDrift     = NaN;
-    cfg.instruments(k).doffp          = NaN;
+    cfg.instruments(k).doffp          = 0.80;      % meters (80 cm, redeploy 3/5/2025)
 
     % 7m instrument failed after <1 day — no usable data. Excluded.
 
