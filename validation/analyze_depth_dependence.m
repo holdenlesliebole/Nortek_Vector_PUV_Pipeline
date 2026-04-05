@@ -68,8 +68,16 @@ for k = 1:nInstr
     instrDepths(k) = median(L2.depth(validIdx), 'omitnan');
 
     % Load MOP data
-    mopNum = regexp(L2.label, 'MOP(\d+)', 'tokens', 'once');
-    mopStation = ['D0' mopNum{1}];
+    if isfield(L2, 'mopStation') && ~isempty(L2.mopStation)
+        mopStation = L2.mopStation;
+    else
+        mopNum = regexp(L2.label, 'MOP(\d+)', 'tokens', 'once');
+        if isempty(mopNum)
+            error('analyze_depth_dependence:noStation', ...
+                'Cannot determine MOP station for label: %s', L2.label);
+        end
+        mopStation = ['D0' mopNum{1}];
+    end
 
     tStart = min(L2.time(validIdx));
     tEnd = max(L2.time(validIdx));

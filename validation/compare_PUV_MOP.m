@@ -55,12 +55,16 @@ end
 
 % Extract MOP station from L2 metadata
 % L2.label is e.g. 'MOP580_5m' → station is 'D0580'
-mopNum = regexp(L2.label, 'MOP(\d+)', 'tokens', 'once');
-if isempty(mopNum)
-    error('compare_PUV_MOP:noStation', ...
-        'Cannot extract MOP station from label: %s', L2.label);
+if isfield(L2, 'mopStation') && ~isempty(L2.mopStation)
+    mopStation = L2.mopStation;
+else
+    mopNum = regexp(L2.label, 'MOP(\d+)', 'tokens', 'once');
+    if isempty(mopNum)
+        error('compare_PUV_MOP:noStation', ...
+            'Cannot determine MOP station for label: %s', L2.label);
+    end
+    mopStation = ['D0' mopNum{1}];
 end
-mopStation = ['D0' mopNum{1}];
 
 rho = 1025;  % kg/m^3
 g   = 9.81;  % m/s^2

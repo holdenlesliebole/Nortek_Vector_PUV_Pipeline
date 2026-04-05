@@ -286,4 +286,11 @@ L2.fs             = fs;
 L2.f              = f;
 L2.params         = opts;
 
+% Store MOP station for validation scripts
+if isfield(instr, 'mopStation')
+    L2.mopStation = instr.mopStation;
+else
+    L2.mopStation = '';
+end
+
 end

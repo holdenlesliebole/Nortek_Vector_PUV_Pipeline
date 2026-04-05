@@ -56,10 +56,13 @@ for d = 1:nDeploy
             L2 = loaded.L2;
 
             % Skip instruments without MOP station
-            mopNum = regexp(L2.label, 'MOP(\d+)', 'tokens', 'once');
-            if isempty(mopNum)
-                fprintf('  No MOP station — skipping validation\n');
-                continue
+            if ~isfield(L2, 'mopStation') || isempty(L2.mopStation)
+                % Fallback: try to parse from label
+                mopNum = regexp(L2.label, 'MOP(\d+)', 'tokens', 'once');
+                if isempty(mopNum)
+                    fprintf('  No MOP station — skipping validation\n');
+                    continue
+                end
             end
 
             % Run spectral shape analysis
