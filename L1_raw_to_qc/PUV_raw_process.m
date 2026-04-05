@@ -161,7 +161,31 @@ function PUV = PUV_raw_process(instr, cfg)
     fprintf('  All bursts loaded in %.1f min\n', toc(tLoad)/60);
 
     %% ========== PARSE SAMPLING RATE AND COORDINATE SYSTEM FROM HDR ==========
-    hdrFile = fullfile(instrDir, [depstr '1.hdr']);
+    if nBursts == 1
+        hdrFile = fullfile(instrDir, [depstr '.hdr']);
+    else
+        hdrFile = fullfile(instrDir, [depstr '1.hdr']);
+    end
+
+    % Handle prefix mismatch (same logic as .sen/.dat)
+    if ~isfile(hdrFile)
+        altPrefix = strrep(depstr, '_', '-');
+        if nBursts == 1
+            altHdr = fullfile(instrDir, [altPrefix '.hdr']);
+        else
+            altHdr = fullfile(instrDir, [altPrefix '1.hdr']);
+        end
+        if isfile(altHdr)
+            hdrFile = altHdr;
+        else
+            % Fallback: find any .hdr file
+            hdrCandidates = dir(fullfile(instrDir, '*.hdr'));
+            if ~isempty(hdrCandidates)
+                hdrFile = fullfile(instrDir, hdrCandidates(1).name);
+            end
+        end
+    end
+
     fid = fopen(hdrFile, 'r');
     if fid == -1
         error('PUV_raw_process:hdrNotFound', ...
