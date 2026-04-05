@@ -372,9 +372,22 @@ function PUV = PUV_raw_process(instr, cfg)
     full_date = full_date - seconds(driftfix);
 
     %% ========== QC: PITCH, ROLL, PRESSURE THRESHOLDS ==========
-    % Flag and NaN out samples where pitch or roll exceeds 5 degrees or
-    % pressure is anomalously low (< median/2) or high (> median*2).
-    % These thresholds catch deployment/recovery periods and inspection dips.
+    % Two-stage tilt QC:
+    %   Stage 1: Flag samples where pitch/roll VARIABILITY is high (instrument
+    %            is moving/unstable). Uses a rolling-window std deviation.
+    %   Stage 2: Flag samples where pressure is anomalous (deployment/recovery).
+    %
+    % Samples with large but STABLE tilt (e.g., bent pipe after a storm) are
+    % kept — the tilt will be corrected via rotation before heading rotation.
+    %
+    % Thresholds:
+    %   tiltStdMax   = 2 deg — max rolling std of pitch or roll (instability)
+    %   tiltAbsMax   = 30 deg — absolute tilt beyond which data is unreliable
+    %   tiltWindow   = 120 samples (60 sec at 2 Hz) — window for rolling std
+
+    tiltStdMax = 2;    % degrees — variability threshold
+    tiltAbsMax = 30;   % degrees — absolute tilt beyond which data is unreliable
+    tiltWindow = 120;  % samples for rolling std (60 sec at 2 Hz)
 
     % --- Build diagnostic copies for the "before/after" plot ---
     pitch_raw    = SEN(:, 12);
@@ -386,62 +399,74 @@ function PUV = PUV_raw_process(instr, cfg)
     roll_qc     = roll_raw;
     pressure_qc = pressure_raw;
 
-    % Pitch > 5 deg flags all three
-    bad = abs(pitch_qc) >= 5;
-    pitch_qc(bad) = NaN; roll_qc(bad) = NaN; pressure_qc(bad) = NaN;
+    % Compute rolling standard deviation of pitch and roll
+    pitchStd = movstd(pitch_raw, tiltWindow, 'omitnan');
+    rollStd  = movstd(roll_raw,  tiltWindow, 'omitnan');
 
-    % Roll > 5 deg flags all three
-    bad = abs(roll_qc) >= 5;
-    pitch_qc(bad) = NaN; roll_qc(bad) = NaN; pressure_qc(bad) = NaN;
+    % Stage 1: Flag UNSTABLE tilt (high variability within window)
+    bad_tilt_var = pitchStd > tiltStdMax | rollStd > tiltStdMax;
+    pitch_qc(bad_tilt_var) = NaN;
+    roll_qc(bad_tilt_var)  = NaN;
+    pressure_qc(bad_tilt_var) = NaN;
 
-    % Pressure too low
+    % Stage 1b: Flag extreme absolute tilt (instrument completely toppled)
+    bad_tilt_abs = abs(pitch_raw) >= tiltAbsMax | abs(roll_raw) >= tiltAbsMax;
+    pitch_qc(bad_tilt_abs) = NaN;
+    roll_qc(bad_tilt_abs)  = NaN;
+    pressure_qc(bad_tilt_abs) = NaN;
+
+    % Stage 2: Pressure anomalies (deployment/recovery/exposure)
     pMed = nanmedian(pressure_qc); %#ok<NANMEDIAN> — backwards compat
     bad = pressure_qc < pMed/2;
     pitch_qc(bad) = NaN; roll_qc(bad) = NaN; pressure_qc(bad) = NaN;
 
-    % Pressure too high
     bad = pressure_qc > pMed*2;
     pitch_qc(bad) = NaN; roll_qc(bad) = NaN; pressure_qc(bad) = NaN;
 
-    % --- Save diagnostic plot instead of interactive figure ---
+    % --- Save diagnostic plot ---
     diagDir = fullfile(cfg.outputDir, 'L1', 'diagnostics');
     if ~exist(diagDir, 'dir'), mkdir(diagDir); end
 
-    fig = figure('Visible', 'off', 'Position', [100 100 1200 700]);
+    fig = figure('Visible', 'off', 'Position', [100 100 1200 900]);
 
-    subplot(3,1,1)
+    subplot(4,1,1)
     plot(full_date, pitch_raw, 'Color', [0.7 0.7 0.7]); hold on
     plot(full_date, pitch_qc, 'b');
     title('Pitch'); ylabel('degrees'); legend('raw','QC');
 
-    subplot(3,1,2)
+    subplot(4,1,2)
     plot(full_date, roll_raw, 'Color', [0.7 0.7 0.7]); hold on
     plot(full_date, roll_qc, 'b');
     title('Roll'); ylabel('degrees'); legend('raw','QC');
 
-    subplot(3,1,3)
+    subplot(4,1,3)
+    plot(full_date, pitchStd, 'r', 'LineWidth', 0.5); hold on
+    plot(full_date, rollStd, 'b', 'LineWidth', 0.5);
+    yline(tiltStdMax, 'k--', sprintf('%.0f° threshold', tiltStdMax));
+    title('Tilt variability (rolling std)'); ylabel('degrees');
+    legend('pitch std', 'roll std');
+
+    subplot(4,1,4)
     plot(full_date, pressure_raw, 'Color', [0.7 0.7 0.7]); hold on
     plot(full_date, pressure_qc, 'b');
     title('Pressure'); ylabel('dBar'); legend('raw','QC');
 
-    sgtitle(sprintf('%s  %s  —  L1 QC', cfg.name, instr.label), 'Interpreter', 'none');
+    sgtitle(sprintf('%s  %s  —  L1 QC (tilt variability method)', cfg.name, instr.label), ...
+        'Interpreter', 'none');
     diagFile = fullfile(diagDir, sprintf('%s_%s_L1_QC.png', cfg.name, instr.label));
     exportgraphics(fig, diagFile, 'Resolution', 150);
     close(fig);
     fprintf('  Diagnostic plot saved: %s\n', diagFile);
 
-    % --- Now apply the QC to the actual DAT/SEN arrays ---
-    bad = abs(SEN(:,12)) >= 5;   % pitch
-    DAT(bad,:) = NaN; SEN(bad,:) = NaN;
-
-    bad = abs(SEN(:,13)) >= 5;   % roll
+    % --- Apply QC to actual DAT/SEN arrays ---
+    bad = bad_tilt_var | bad_tilt_abs;
     DAT(bad,:) = NaN; SEN(bad,:) = NaN;
 
     pMed = nanmedian(DAT(:,15)); %#ok<NANMEDIAN>
-    bad = DAT(:,15) < pMed/2;   % pressure too low
+    bad = DAT(:,15) < pMed/2;
     DAT(bad,:) = NaN; SEN(bad,:) = NaN;
 
-    bad = DAT(:,15) > pMed*2;   % pressure too high
+    bad = DAT(:,15) > pMed*2;
     DAT(bad,:) = NaN; SEN(bad,:) = NaN;
 
     %% ========== QC: CORRELATION < 70% ==========
@@ -470,6 +495,53 @@ function PUV = PUV_raw_process(instr, cfg)
     W = DAT(:,5);   % Up / Z velocity (m/s)
     T = SEN(:,14);  % temperature (deg C)
     P = DAT(:,15);  % pressure (dBar)
+
+    %% ========== TILT CORRECTION ==========
+    % If the instrument is tilted (bent pipe), rotate velocities from the
+    % tilted instrument frame to the true vertical frame using measured
+    % pitch and roll angles. This corrects for static tilts (stable bent
+    % pipe) while the variability QC above already rejected unstable periods.
+    %
+    % For a tilted instrument:
+    %   R_pitch rotates around the Y axis by pitch angle
+    %   R_roll  rotates around the X axis by roll angle
+    %   [U;V;W]_corrected = R_roll * R_pitch * [U;V;W]_measured
+    %
+    % The pitch/roll values from SEN are at 1 Hz (duplicated to 2 Hz),
+    % so the correction is applied sample-by-sample.
+    pitch_deg = SEN(:, 12);
+    roll_deg  = SEN(:, 13);
+
+    % Only apply tilt correction where pitch/roll are valid (not NaN'd by QC)
+    hasValidTilt = ~isnan(pitch_deg) & ~isnan(roll_deg) & ~isnan(U);
+    maxTilt = max(abs(median(pitch_deg(hasValidTilt), 'omitnan')), ...
+                  abs(median(roll_deg(hasValidTilt), 'omitnan')));
+
+    if maxTilt > 1.0  % only correct if median tilt > 1 degree
+        fprintf('  Tilt correction: median pitch=%.1f°, roll=%.1f° — applying rotation\n', ...
+            median(pitch_deg(hasValidTilt), 'omitnan'), ...
+            median(roll_deg(hasValidTilt), 'omitnan'));
+
+        p_rad = deg2rad(pitch_deg);
+        r_rad = deg2rad(roll_deg);
+
+        % Apply sample-by-sample 3D rotation
+        U_tc = U;  V_tc = V;  W_tc = W;
+        idx = find(hasValidTilt);
+        for jj = 1:length(idx)
+            ii = idx(jj);
+            cp = cos(p_rad(ii)); sp = sin(p_rad(ii));
+            cr = cos(r_rad(ii)); sr = sin(r_rad(ii));
+
+            % R_roll * R_pitch (extrinsic rotation)
+            U_tc(ii) =  cp      * U(ii) + sp*sr   * V(ii) + sp*cr   * W(ii);
+            V_tc(ii) =              cr   * V(ii) -    sr   * W(ii);
+            W_tc(ii) = -sp      * U(ii) + cp*sr   * V(ii) + cp*cr   * W(ii);
+        end
+        U = U_tc;  V = V_tc;  W = W_tc;
+    else
+        fprintf('  Tilt < 1° — no tilt correction needed\n');
+    end
 
     %% ========== COORDINATE ROTATION TO BUOY FRAME ==========
     % Compute magnetic declination at the deployment start location and time.
