@@ -186,29 +186,30 @@ field notes). See `config/CONFIG_REVIEW_NOTES.md` for full list.
 
 ---
 
-## Current Status (as of April 2026 session)
+## Current Status (as of April 5, 2026)
 
-### L1 — written, test in progress
-- `PUV_raw_process.m` and `PUV_L1_driver.m` written and code-reviewed
-- `test_L1_comparison.m` written to compare new output vs original TBR23 processed .mat
-- Raw files being copied from server to `raw_cache/TBR23/` via `copy_raw_to_local(cfg)`
-- Once copy completes: run `test_L1_comparison` from `PUV_Pipeline/` in MATLAB
-- If comparison passes: run `PUV_L1_driver` for TBR23, then NN24
+### L1 — complete, 33/40 instruments processed
+- Variability-based tilt QC (2° rolling std threshold, 30° absolute cap)
+- Sample-by-sample tilt correction for bent pipes (3D rotation using pitch/roll)
+- Handles mixed file prefixes (underscore/hyphen), single-burst files, IGRF-14 fallback
+- 7 failures are genuine hardware problems (bent pipes, burial, dead batteries)
+- See `docs/deployment_database_overview.md` for full instrument-by-instrument status
 
-### L2 — written, testing on TBR23
-- `PUV_L2_spectral.m`: core function (segmentation, spectra, bulk params, bed velocity)
-- `PUV_L2_driver.m` / `PUV_L2_run_all.m`: drivers following L1 pattern
-- New shared utilities: `pressure_correction_wu.m`, `compute_bulk_params.m`
+### L2 — complete, 33/33 instruments processed
 - 17-min (2048 @ 2 Hz) segments, detrend, Wu pressure correction, ~34 DOF pwelch
 - Shore-normal rotation via CDIP THREDDS with fallback to buoy coords
 - **D50 = 0.25 mm placeholder** — real grain size data from Laser Particle Analyzer
-  campaign expected within weeks. Bed stress (tau_b, fric_w, Aw) can be recomputed
-  from stored Ub and Tp without re-running spectral analysis.
+  campaign expected soon. Bed stress can be recomputed from stored Ub and Tp.
 - **Wu pressure correction**: standard linear wave theory Kp = cosh(k*z)/cosh(k*H).
-  Coefficients should be reviewed before publication — there is disagreement in the
-  literature about the appropriate form. See TODO in `pressure_correction_wu.m`.
-- PUV vs MOP wave product comparison will live in a separate `validation/` module,
-  not inside L2 core.
+  Confirmed identical to Wu (1986) approximation and Bill O'Reilly's modified
+  coefficients — all three methods produce same Kp to 4-5 decimal places.
+
+### Validation — complete, confirmed across TBR23 + NN24
+- PUV-MOP comparison: Hs R² = 0.83–0.86 for good instruments
+- Spectral shape analysis: MOP spectral peak broadening identified as root cause
+  of systematic positive Hs bias (R(Qp)=0.30–0.63 across 11 instruments)
+- Ruled out: nonlinear shoaling, directional narrowing, bound long waves
+- Full hypothesis testing suite in `validation/`
 
 ### L3 / Paper 1 wrapper — not yet written
 Thin wrapper in `Paper 1/DataCodes/` calling shared pipeline with TBR23 config.
