@@ -64,9 +64,16 @@ function PUV = PUV_raw_process(instr, cfg)
     % The common prefix is the part of the filename that is identical across
     % all burst files (e.g. "7M_58602_MOP586_"). We find the first column
     % where any character differs across files.
-    nameChars = char(filenames(:));
-    firstDiff = find(any(diff(nameChars, 1, 1), 1), 1, 'first');
-    depstr    = filenames{1}(1:firstDiff-1);
+    if nBursts == 1
+        % Single burst file: strip the trailing '.dat' to get the full name.
+        % The file has no _N burst suffix, so we use the full name as prefix
+        % and set burstID to '' in the loading loop.
+        depstr = filenames{1}(1:end-4);  % remove '.dat'
+    else
+        nameChars = char(filenames(:));
+        firstDiff = find(any(diff(nameChars, 1, 1), 1), 1, 'first');
+        depstr    = filenames{1}(1:firstDiff-1);
+    end
 
     fprintf('  Found %d burst files, prefix: %s\n', nBursts, depstr);
 
@@ -83,14 +90,21 @@ function PUV = PUV_raw_process(instr, cfg)
 
     tLoad = tic;
     for ii = 1:nBursts
-        burstID = num2str(ii);
+        if nBursts == 1
+            burstID = '';  % single-burst file has no _N suffix
+        else
+            burstID = num2str(ii);
+        end
         senfile = fullfile(instrDir, [depstr burstID '.sen']);
         datfile = fullfile(instrDir, [depstr burstID '.dat']);
 
         % Handle prefix mismatch between .dat and .sen files.
-        % Some deployments use underscore in .dat (6M_51102_1.dat) but
-        % hyphen in .sen (6M-51102_1.sen). Try swapping _ <-> - if needed.
+        % Some deployments use underscore in .dat but hyphen in .sen
+        % (e.g., 6M_51102_1.dat vs 6M-51102_1.sen), or the common
+        % prefix across .dat files is too short. Search for matching
+        % .sen and .dat files by burst number pattern if direct path fails.
         if ~isfile(senfile)
+            % Try swapping _ <-> - in prefix
             altPrefix = strrep(depstr, '_', '-');
             altSen = fullfile(instrDir, [altPrefix burstID '.sen']);
             if isfile(altSen)
@@ -100,14 +114,27 @@ function PUV = PUV_raw_process(instr, cfg)
                 altSen = fullfile(instrDir, [altPrefix burstID '.sen']);
                 if isfile(altSen)
                     senfile = altSen;
+                else
+                    % Fallback: find any .sen file ending with burstID.sen
+                    senCandidates = dir(fullfile(instrDir, ['*' burstID '.sen']));
+                    if ~isempty(senCandidates)
+                        senfile = fullfile(instrDir, senCandidates(1).name);
+                    end
                 end
             end
         end
         if ~isfile(datfile)
+            % Try swapping _ <-> - in prefix
             altPrefix = strrep(depstr, '_', '-');
             altDat = fullfile(instrDir, [altPrefix burstID '.dat']);
             if isfile(altDat)
                 datfile = altDat;
+            else
+                % Fallback: find any .dat file ending with burstID.dat
+                datCandidates = dir(fullfile(instrDir, ['*' burstID '.dat']));
+                if ~isempty(datCandidates)
+                    datfile = fullfile(instrDir, datCandidates(1).name);
+                end
             end
         end
 
