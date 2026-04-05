@@ -23,7 +23,8 @@ allMOP   = [];
 allLabel = {};
 
 for d = 1:numel(deployNames)
-    cfg = registry(deployNames{d})();
+    configFn = registry(deployNames{d});
+    cfg = configFn();
     for k = 1:numel(cfg.instruments)
         inst = cfg.instruments(k);
         allLat(end+1)   = inst.latlon(1);
