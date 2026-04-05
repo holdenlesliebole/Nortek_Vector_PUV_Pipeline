@@ -1,17 +1,17 @@
 % PUV Pipeline — Beamer Slide Deck
 % Last updated: April 5, 2026
-% Metropolis theme
 
 \documentclass[10pt, aspectratio=169]{beamer}
-\usetheme{metropolis}
+\usetheme{Madrid}
+\usecolortheme{default}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
 
 \usepackage{booktabs}
 \usepackage{amsmath}
-\usepackage{siunitx}
 \usepackage{graphicx}
+\graphicspath{{../outputs/validation/}}
 \usepackage{xcolor}
-\usepackage{appendixnumberbeamer}
-% \usepackage[draft]{todonotes}  % uncomment for \missingfigure support
 
 % ------------------------------------------------------------------
 % Metadata
@@ -47,7 +47,7 @@
   \begin{itemize}
     \item Nearshore wave transformation governs beach morphology,
           sediment transport, and coastal hazards
-    \item Accurate in-situ wave measurements at \SIrange{5}{15}{\meter}
+    \item Accurate in-situ wave measurements at 5--15~m
           depth are needed to validate spectral wave models and drive
           transport calculations
     \item PUV (pressure--velocity) measurements from bottom-mounted ADVs
@@ -70,9 +70,9 @@
             \item Solana Beach --- MOP 654
             \item Los Pe\~nasquitos Lagoon --- MOP 591
           \end{itemize}
-        \item Depths: \SIrange{5}{15}{\meter}
+        \item Depths: 5--15~m
         \item Deployment period: 2023--2026
-        \item Nortek Vector ADVs, \SI{2}{\hertz} continuous
+        \item Nortek Vector ADVs, 2~Hz continuous
       \end{itemize}
     \end{column}
     \begin{column}{0.42\textwidth}
@@ -115,11 +115,11 @@
           \texttt{.sen} (sensor/diagnostics), \texttt{.hdr} (header)
     \item Parsed with MATLAB \texttt{textscan} for speed ---
           deployments can exceed $10^8$ samples
-    \item Continuous \SI{2}{\hertz} time series reconstructed from
+    \item Continuous 2~Hz time series reconstructed from
           burst boundaries
     \item \textbf{Clock drift correction}: linear interpolation
           between deployment and recovery clocks
-    \item Battery cutoff detection: gaps $> \SI{1}{\second}$
+    \item Battery cutoff detection: gaps $> 1~s$
           $\Rightarrow$ discard remainder of record
   \end{itemize}
 \end{frame}
@@ -130,7 +130,7 @@
     \begin{column}{0.48\textwidth}
       \textbf{Old: Fixed threshold}
       \begin{itemize}
-        \item Absolute $\pm\SI{5}{\degree}$ pitch/roll cap
+        \item Absolute $\pm 5^\circ$ pitch/roll cap
         \item Discards all tilted data
         \item Problematic when pipes bend during storms ---
               stable but non-zero tilt is \emph{correctable}
@@ -139,9 +139,9 @@
     \begin{column}{0.48\textwidth}
       \textbf{New: Variability-based QC}
       \begin{itemize}
-        \item Rolling std of pitch/roll over \SI{60}{\second} windows
-        \item Flag samples where variability $> \SI{2}{\degree}$
-        \item Absolute cap retained at $\SI{30}{\degree}$ for
+        \item Rolling std of pitch/roll over 60~s windows
+        \item Flag samples where variability $> 2^\circ$
+        \item Absolute cap retained at $30^\circ$ for
               severely compromised instruments
         \item Stable tilts \emph{retained} and corrected
       \end{itemize}
@@ -213,8 +213,8 @@
 % ------------------------------------------------------------------
 \begin{frame}{Segmentation}
   \begin{itemize}
-    \item \textbf{Segment length}: 2048 samples = \SI{17.1}{\minute}
-          at \SI{2}{\hertz}
+    \item \textbf{Segment length}: 2048 samples = 17.1~min
+          at 2~Hz
     \item Non-overlapping segments
     \item \textbf{NaN policy}: segments with $>$10\% NaN discarded;
           $\leq$10\% filled by linear interpolation
@@ -227,11 +227,11 @@
 \begin{frame}{Spectral Estimation}
   \begin{itemize}
     \item \textbf{Method}: Welch's averaged periodogram
-    \item Sub-segments: $N_\text{fft} = 256$ samples (\SI{128}{\second})
+    \item Sub-segments: $N_\text{fft} = 256$ samples (128~s)
     \item \textbf{Window}: Hanning, 50\% overlap
     \item $\approx$\textbf{34 effective DOF} per segment
     \item Frequency resolution: $\Delta f \approx
-          \SI{0.0078}{\hertz}$, range 0--\SI{1}{\hertz}
+          0.0078~Hz$, range 0--1~Hz
     \item \textbf{Cross-spectra}: $S_{pu}$, $S_{pv}$ computed with
           same windowing for directional coefficients $a_1$, $b_1$
   \end{itemize}
@@ -262,8 +262,8 @@
   \begin{itemize}
     \item $H_s = 4\sqrt{m_0}$, computed separately for:
       \begin{itemize}
-        \item Sea--swell: \SIrange{0.04}{0.25}{\hertz}
-        \item Infragravity: \SIrange{0.004}{0.04}{\hertz}
+        \item Sea--swell: 0.04--0.25~Hz
+        \item Infragravity: 0.004--0.04~Hz
       \end{itemize}
     \item Peak period $T_p = 1/f_p$ (max $S_\eta$ in SS band)
     \item Mean period $T_{m02} = \sqrt{m_0/m_2}$
@@ -310,7 +310,7 @@
   \begin{itemize}
     \item CDIP Monitoring and Prediction (MOP) spectral wave model
     \item Initialized by offshore CDIP buoy observations
-    \item Provides $S_\eta(f)$ at \SI{10}{\meter} depth, hourly
+    \item Provides $S_\eta(f)$ at 10~m depth, hourly
     \item \textbf{Shoaling to PUV depth}:
   \end{itemize}
   \begin{equation*}
@@ -318,7 +318,7 @@
     \times \frac{c_g(f,\, 10\,\text{m})}{c_g(f,\, h_\text{PUV})}
   \end{equation*}
   \begin{itemize}
-    \item PUV segments (\SI{17}{\minute}) interpolated to MOP hourly
+    \item PUV segments (17~min) interpolated to MOP hourly
           time base for comparison
   \end{itemize}
 \end{frame}
@@ -329,10 +329,10 @@
     \begin{column}{0.50\textwidth}
       \begin{itemize}
         \item $H_s$: $R^2 = 0.83$--$0.86$
-        \item RMSE $< \SI{0.06}{\meter}$
+        \item RMSE $< 0.06~m$
         \item Small positive bias (PUV $>$ MOP)
         \item Kelp-fouled instrument: $R^2 = 0.66$,
-              bias $= \SI{+0.037}{\meter}$
+              bias $= +0.037~m$
       \end{itemize}
     \end{column}
     \begin{column}{0.48\textwidth}
@@ -347,7 +347,7 @@
     \begin{column}{0.50\textwidth}
       \begin{itemize}
         \item Excess energy concentrated at \textbf{swell peak}
-              (\SIrange{0.04}{0.08}{\hertz})
+              (0.04--0.08~Hz)
         \item $K_p > 0.9$ at these frequencies --- pressure
               correction is minimal
         \item Mid-swell band: near-unity ratio (0.99--1.03)
@@ -413,8 +413,8 @@
               $\mathit{Ur} = H_s L_p^2 / h^3$
         \item $N = 5228$ segment-hours
         \item \textbf{Result}: $R^2 = 0.004$
-        \item Median $\mathit{Ur}$: 12 at \SI{8.3}{\meter},
-              30 at \SI{5.5}{\meter}
+        \item Median $\mathit{Ur}$: 12 at 8.3~m,
+              30 at 5.5~m
         \item[$\Rightarrow$] \alert{RULED OUT}
       \end{itemize}
     \end{column}
@@ -432,7 +432,7 @@
           $H_s$
     \item \textbf{Result}: PUV spread is systematically
           \emph{wider} than MOP at swell frequencies
-          (\SI{15}{\degree} vs.\ \SI{10}{\degree})
+          ($15^\circ$ vs.\ $10^\circ$)
     \item Opposite to prediction
     \item Correlation with $H_s$ amplification: $R^2 < 0.001$
     \item[$\Rightarrow$] \alert{RULED OUT}
@@ -473,7 +473,7 @@
         \item Peak spectral density: PUV 14.4\% higher
         \item $\Delta Q_p$ vs.\ $H_s$ amplification:
               $R = 0.44$, $R^2 = 0.20$
-        \item[$\Rightarrow$] \textbf{\color{mLightGreen}SUPPORTED}
+        \item[$\Rightarrow$] \textbf{\color{green!60!black}SUPPORTED}
       \end{itemize}
     \end{column}
     \begin{column}{0.48\textwidth}
@@ -531,7 +531,7 @@
     \item Spans:
       \begin{itemize}
         \item Summer and winter wave climates
-        \item Depths \SIrange{5.5}{15.5}{\meter}
+        \item Depths 5.5--15.5~m
         \item Multiple MOP transects
       \end{itemize}
     \item Spectral peak broadening is a \textbf{robust, general}
@@ -548,7 +548,7 @@
   \begin{enumerate}
     \item \textbf{Pipeline validated}: 33/40 instruments processed
           (82.5\%), strong agreement with MOP
-          ($R^2 > 0.83$, RMSE $< \SI{0.06}{\meter}$)
+          ($R^2 > 0.83$, RMSE $< 0.06~m$)
     \item \textbf{Bias identified}: small systematic positive
           $H_s$ bias concentrated at the swell spectral peak,
           \emph{not} from the pressure correction
@@ -593,7 +593,7 @@
 \end{frame}
 
 % ------------------------------------------------------------------
-\begin{frame}[standout]
+\begin{frame}
   Questions?
 \end{frame}
 
