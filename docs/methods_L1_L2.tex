@@ -29,6 +29,40 @@ $[\bar{P}/2,\; 2\bar{P}]$, where $\bar{P}$ is the deployment median
 pressure; or (3) the minimum beam correlation dropped below 70\%, following
 Nortek recommendations. Flagged samples were set to NaN.
 
+A variability-based tilt quality control was applied rather than a fixed
+angular threshold. The rolling standard deviation of pitch and roll was
+computed over 60-second windows; samples where the variability exceeded
+\SI{2}{\degree} were flagged as unstable. An absolute tilt cap of
+\SI{30}{\degree} was retained for severely compromised instruments.
+Samples with stable but non-zero tilt (e.g., from pipes bent during storm
+events) were retained and corrected via a sample-by-sample
+three-dimensional rotation using the measured pitch ($\phi$) and roll
+($\theta$) angles:
+%
+\begin{equation}
+  \mathbf{v}_\text{corrected} =
+  \mathbf{R}_\text{roll}(\theta)\;\mathbf{R}_\text{pitch}(\phi)\;
+  \mathbf{v}_\text{raw},
+\end{equation}
+%
+where
+\[
+  \mathbf{R}_\text{roll} = \begin{bmatrix}
+    1 & 0 & 0 \\
+    0 & \cos\theta & -\sin\theta \\
+    0 & \sin\theta &  \cos\theta
+  \end{bmatrix}, \qquad
+  \mathbf{R}_\text{pitch} = \begin{bmatrix}
+    \cos\phi & 0 & \sin\phi \\
+    0 & 1 & 0 \\
+    -\sin\phi & 0 & \cos\phi
+  \end{bmatrix}.
+\]
+This tilt correction was applied before the heading rotation to buoy
+coordinates, ensuring that the velocity vector was first returned to the
+local vertical frame before projection onto the geographic coordinate
+system.
+
 Velocity components were rotated from the instrument XYZ frame to a
 geographic buoy coordinate system ($+x$ west, $+y$ north, $+z$ up;
 left-handed, consistent with the MOP convention) using the magnetic

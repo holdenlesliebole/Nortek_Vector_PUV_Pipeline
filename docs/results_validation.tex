@@ -5,17 +5,19 @@
 
 \subsubsection{Bulk wave parameter agreement}
 
-PUV-derived wave parameters showed strong agreement with the MOP wave
-model across all four TBR23 instruments (Table~\ref{tab:validation}).
-For instruments unaffected by biofouling, $H_s$ correlations exceeded
-$R^2 = 0.83$ with RMSE $< \SI{0.06}{\meter}$ and biases of
-\SIrange{+0.002}{+0.008}{\meter}. One instrument (MOP580 5m) exhibited
-lower agreement ($R^2 = 0.66$, bias $= \SI{+0.037}{\meter}$), attributed
-to intermittent kelp fouling that reduced the valid segment rate to 49\%
-compared with \SIrange{85}{91}{\percent} for the remaining instruments.
-A small but consistent positive $H_s$ bias was observed across all
-instruments, with PUV-measured wave heights systematically exceeding
-shoaled MOP values.
+Of 40 instruments across 20 deployments, 33 were processed successfully
+(82.5\%), with 7 failures attributable to hardware issues (burial, bent
+pipes, dead batteries). PUV-derived wave parameters showed strong
+agreement with the MOP wave model across all four TBR23 instruments
+(Table~\ref{tab:validation}). For instruments unaffected by biofouling,
+$H_s$ correlations exceeded $R^2 = 0.83$ with RMSE $<
+\SI{0.06}{\meter}$ and biases of \SIrange{+0.002}{+0.008}{\meter}. One
+instrument (MOP580 5m) exhibited lower agreement ($R^2 = 0.66$, bias $=
+\SI{+0.037}{\meter}$), attributed to intermittent kelp fouling that
+reduced the valid segment rate to 49\% compared with
+\SIrange{85}{91}{\percent} for the remaining instruments. A small but
+consistent positive $H_s$ bias was observed across all instruments, with
+PUV-measured wave heights systematically exceeding shoaled MOP values.
 
 % TODO: Insert Table \ref{tab:validation} with R2, RMSE, bias, skill, N
 % for Hs, Tm, Ef across all instruments
@@ -99,6 +101,17 @@ given total variance. This spectral broadening is a recognized property
 of discretized spectral wave models \citep[e.g.,][]{rogers2002,booij1999}
 and has not been previously quantified using co-located PUV observations
 in this depth range.
+
+\subsubsection{Cross-deployment confirmation}
+
+The spectral peak broadening pattern was confirmed across 11 instruments
+spanning multiple deployments, sites, and seasons. The correlation between
+$\Delta Q_p$ and $H_s$ amplification ranged from $R = 0.30$ to $R = 0.63$
+across individual instruments, with all showing the same sign. These
+instruments spanned depths from \SI{5.5}{\meter} to \SI{15.5}{\meter} and
+included both summer and winter wave climates, indicating that the MOP
+model spectral broadening is a robust and general feature rather than a
+site-specific or seasonally dependent artifact.
 
 % TODO: Insert Table \ref{tab:hypotheses} summarizing hypothesis,
 % test metric, result, and verdict for each of the four mechanisms
