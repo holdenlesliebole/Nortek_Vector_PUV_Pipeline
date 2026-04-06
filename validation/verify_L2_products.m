@@ -60,16 +60,17 @@ end
 
 good = ~isnan(Ub) & ~isnan(Ub_spectral) & Ub_spectral > 0;
 if sum(good) > 20
-    R = corrcoef(Ub(good), Ub_spectral(good));
-    ratio = median(Ub(good) ./ Ub_spectral(good));
-    fprintf('  Ub vs spectral theory: R=%.3f, median ratio=%.3f\n', R(1,2), ratio);
-    if ratio > 0.7 && ratio < 1.5 && R(1,2) > 0.8
+    R_tmp = corrcoef(Ub(good), Ub_spectral(good));
+    R_Ub_spec = R_tmp(1,2);
+    ratio_Ub_spec = median(Ub(good) ./ Ub_spectral(good));
+    fprintf('  Ub vs spectral theory: R=%.3f, median ratio=%.3f\n', R_Ub_spec, ratio_Ub_spec);
+    if ratio_Ub_spec > 0.7 && ratio_Ub_spec < 1.5 && R_Ub_spec > 0.8
         fprintf('  --> PASS: Ub matches spectral theory well\n');
     else
         fprintf('  --> CHECK: ratio or correlation outside expected range\n');
     end
 else
-    R = [NaN NaN; NaN NaN]; ratio = NaN;
+    R_Ub_spec = NaN; ratio_Ub_spec = NaN;
     fprintf('  Insufficient data for Ub spectral comparison\n');
 end
 
@@ -252,7 +253,7 @@ end
 %% ======================== SUMMARY ========================
 fprintf('\n--- VERIFICATION SUMMARY ---\n');
 checks = {
-    'Ub vs linear theory', R(1,2) > 0.8 && ratio > 0.7 && ratio < 1.5;
+    'Ub vs spectral theory', R_Ub_spec > 0.8 && ratio_Ub_spec > 0.7 && ratio_Ub_spec < 1.5;
     'TKE vs Hs', R_Hs_TKE(1,2) > 0.5;
     'Hs vs Ub', R_Hs_Ub(1,2) > 0.9;
     'Ub vs tau_b', R_Ub_tau(1,2) > 0.9;
