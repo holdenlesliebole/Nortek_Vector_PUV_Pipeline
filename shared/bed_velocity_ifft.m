@@ -3,10 +3,11 @@ function [uBed, vBed] = bed_velocity_ifft(segU, segV, fs, hValue, offset, g)
 %
 %   [uBed, vBed] = bed_velocity_ifft(segU, segV, fs, hValue, offset, g)
 %
-%   Scales each frequency bin of the velocity FFT by the ratio of
-%   cosh(k*h) / cosh(k*(h-z)), where z is the sensor height above bed.
-%   This inverts the depth-attenuation of horizontal velocity under linear
-%   wave theory to estimate the near-bed (z=0) orbital velocity.
+%   Scales each frequency bin of the velocity FFT by 1/cosh(k*z_sensor),
+%   where z_sensor is the sensor height above bed (offset/doffp).
+%   Under linear wave theory, horizontal velocity u(z) ~ cosh(kz)/sinh(kh),
+%   so the ratio u_bed/u_sensor = 1/cosh(k*z_sensor). Since the bed is
+%   below the sensor, the bed velocity is always <= sensor velocity.
 %
 %   INPUTS
 %     segU    - (N x 1) measured shore-normal velocity at sensor height (m/s)
@@ -25,15 +26,16 @@ function [uBed, vBed] = bed_velocity_ifft(segU, segV, fs, hValue, offset, g)
 %     - Input segments should be detrended and NaN-free before calling.
 %     - Requires get_wavenumber.m on the MATLAB path.
 %
-%   KNOWN ISSUE
-%     The conjugate symmetry enforcement for the negative-frequency bins
-%     sets U_fft(N-k) = conj(U_fft(k+1)) AFTER the positive-frequency bin
-%     has been scaled. This is correct for k in 1..N/2-1, but the loop
-%     structure means k > N/2 bins (which are the negative-frequency bins)
-%     are visited again with f > fs/2, hit the 'continue' branch, and are
-%     NOT re-scaled. Net result: positive-frequency bins are scaled correctly
-%     and their conjugate partners are set correctly in the same iteration.
-%     Verify with a synthetic sinusoid test if in doubt.
+%   HISTORY
+%     Original code used cosh(kH)/cosh(k(H-z)) which is the ratio of
+%     velocity at the SURFACE to velocity at the SENSOR — the wrong
+%     direction. This amplified velocities (especially at high freq)
+%     instead of reducing them to bed level. Fixed April 2026 to use
+%     1/cosh(k*offset) which correctly scales sensor→bed.
+%
+%     The conjugate symmetry enforcement sets U_fft(N-k) = conj(U_fft(k+1))
+%     after scaling. The 'symmetric' flag in ifft() handles any residual
+%     imaginary components.
 
 N = length(segU);
 
@@ -57,14 +59,14 @@ for k = 0:(N-1)
     kVal  = get_wavenumber(omega, hValue);
 
     if ~isnan(kVal) && kVal > 0
-        denomSensor = cosh(kVal * (hValue - offset));
-        denomBed    = cosh(kVal * hValue);
-
-        if denomSensor > 0 && denomBed > 0
-            ratio = denomBed / denomSensor;
-            U_fft(idxFft) = U_fft(idxFft) * ratio;
-            V_fft(idxFft) = V_fft(idxFft) * ratio;
-        end
+        % Scale from sensor height (z=offset above bed) to bed (z=0).
+        % Under linear wave theory: u(z) ~ cosh(kz) / sinh(kh)
+        % At sensor: u_sensor ~ cosh(k*offset)
+        % At bed:    u_bed    ~ cosh(0) = 1
+        % Ratio bed/sensor = 1 / cosh(k*offset)
+        ratio = 1.0 / cosh(kVal * offset);
+        U_fft(idxFft) = U_fft(idxFft) * ratio;
+        V_fft(idxFft) = V_fft(idxFft) * ratio;
     end
 
     % Enforce conjugate symmetry for the mirrored negative-frequency bin
