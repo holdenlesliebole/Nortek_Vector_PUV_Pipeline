@@ -35,26 +35,42 @@ fprintf('  Ub:  min=%.3f, max=%.3f, mean=%.3f, median=%.3f m/s\n', ...
 fprintf('  uBed_rms: median=%.3f m/s\n', median(L2.uBed_rms(validIdx), 'omitnan'));
 fprintf('  vBed_rms: median=%.3f m/s\n', median(L2.vBed_rms(validIdx), 'omitnan'));
 
-% Linear theory prediction: Ub_theory = pi*Hs / (Tp * sinh(kh))
-Ub_theory = NaN(nValid, 1);
+% Spectral bed velocity prediction from S_eta:
+%   Ub_rms^2 = integral[ (omega/sinh(kh))^2 * S_eta(f) * df ]
+% This is the proper broadband comparison (not monochromatic amplitude).
+f_puv = L2.f;
+df = f_puv(2) - f_puv(1);
+iSS = f_puv >= 0.04 & f_puv <= 0.25;
+Ub_spectral = NaN(nValid, 1);
+
+validTimes = find(validIdx);
 for i = 1:nValid
-    if ~isnan(Hs(i)) && ~isnan(Tp(i)) && ~isnan(depth(i)) && Tp(i) > 0
-        omega = 2*pi/Tp(i);
-        k = get_wavenumber(omega, depth(i));
-        Ub_theory(i) = pi * Hs(i) / (Tp(i) * sinh(k * depth(i)));
-    end
+    ii = validTimes(i);
+    h = depth(i);
+    S = L2.S_eta(:, ii);
+    if isnan(h) || h <= 0, continue; end
+
+    omega_f = 2*pi*f_puv(iSS);
+    k_f = get_wavenumber(omega_f, h);
+    transfer = omega_f ./ sinh(k_f * h);
+
+    Ub2 = sum(transfer.^2 .* S(iSS) * df);
+    Ub_spectral(i) = sqrt(Ub2);
 end
 
-good = ~isnan(Ub) & ~isnan(Ub_theory);
+good = ~isnan(Ub) & ~isnan(Ub_spectral) & Ub_spectral > 0;
 if sum(good) > 20
-    R = corrcoef(Ub(good), Ub_theory(good));
-    ratio = median(Ub(good) ./ Ub_theory(good));
-    fprintf('  Ub vs linear theory: R=%.3f, median ratio=%.3f\n', R(1,2), ratio);
+    R = corrcoef(Ub(good), Ub_spectral(good));
+    ratio = median(Ub(good) ./ Ub_spectral(good));
+    fprintf('  Ub vs spectral theory: R=%.3f, median ratio=%.3f\n', R(1,2), ratio);
     if ratio > 0.7 && ratio < 1.5 && R(1,2) > 0.8
-        fprintf('  --> PASS: Ub matches linear theory well\n');
+        fprintf('  --> PASS: Ub matches spectral theory well\n');
     else
         fprintf('  --> CHECK: ratio or correlation outside expected range\n');
     end
+else
+    R = [NaN NaN; NaN NaN]; ratio = NaN;
+    fprintf('  Insufficient data for Ub spectral comparison\n');
 end
 
 %% ======================== 2. BED STRESS ========================

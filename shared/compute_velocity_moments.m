@@ -33,8 +33,13 @@ stats.u_uabs3 = mean(u .* abs_u.^3);
 stats.skewness = skewness(u);
 stats.kurtosis = kurtosis(u);
 
+% Acceleration asymmetry via Hilbert transform (Elgar 1987, Hoefel & Elgar 2003)
+% As = -mean(H(u)^3) / mean(u^2)^(3/2)
+% where H(u) is the Hilbert transform of u
+u_hilbert = imag(hilbert(u));
+stats.asymmetry = -mean(u_hilbert.^3) / mean(u.^2)^(3/2);
+
 a = gradient(u, dt);
-stats.asymmetry = mean(sign(a) .* u.^2);
 stats.a2 = mean(a.^2);
 stats.a3 = mean(a.^3);
 
