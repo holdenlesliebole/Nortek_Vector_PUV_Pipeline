@@ -1,0 +1,53 @@
+% Standalone wrapper to compile methods and results sections as a single PDF
+% Usage: pdflatex compile_sections.tex
+
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\graphicspath{{../outputs/validation/}}
+\usepackage{hyperref}
+\usepackage[utf8]{inputenc}
+
+% Use siunitx if available, otherwise define stubs
+\IfFileExists{siunitx.sty}{%
+  \usepackage{siunitx}
+}{%
+  \newcommand{\SI}[2]{#1~#2}
+  \newcommand{\SIrange}[3]{#1--#2~#3}
+  \newcommand{\si}[1]{#1}
+  \newcommand{\hertz}{Hz}
+  \newcommand{\meter}{m}
+  \newcommand{\second}{s}
+  \newcommand{\minute}{min}
+  \newcommand{\degree}{$^\circ$}
+  \newcommand{\deci}{}
+  \newcommand{\kilogram}{kg}
+  \newcommand{\per}{/}
+  \newcommand{\cubed}{$^3$}
+  \newcommand{\squared}{$^2$}
+  \newcommand{\milli}{m}
+}
+
+% Stub out natbib/citation commands
+\newcommand{\citep}[1]{[#1]}
+\newcommand{\citet}[1]{#1}
+
+\title{PUV Pipeline --- Methods and Validation Results}
+\author{Holden Leslie-Bole \\ Scripps Institution of Oceanography}
+\date{April 2026}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Methods}
+\input{methods_L1_L2}
+
+\newpage
+\section{Results}
+\input{results_validation}
+
+\end{document}

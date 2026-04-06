@@ -1,21 +1,18 @@
-% MAKE_SITE_MAP  Generate a publication-quality site map of all PUV deployments.
+% MAKE_SITE_MAP  Generate site map with satellite basemap and MOP transects.
 %
-%   Reads all instrument positions and depths from deployment_registry(),
-%   de-duplicates by unique lat/lon/depth, groups by MOP line, and creates
-%   a two-panel figure:
-%     Left  — overview of all sites along the San Diego coast
-%     Right — zoomed inset of the Torrey Pines / Los Penasquitos cluster
+%   Uses MATLAB Mapping Toolbox geoplot/geobasemap for satellite imagery.
+%   Reads all instrument positions from deployment_registry().
+%   Draws MOP transect lines from shore to the outermost instrument using
+%   the shore-normal angle from the config.
 %
 %   Saves to outputs/validation/site_map.png at 300 DPI.
 
 startup_puv
 
-%% ---- Extract unique instrument positions from all configs ---------------
-
-registry    = deployment_registry();
+%% ======================== EXTRACT INSTRUMENT POSITIONS ========================
+registry = deployment_registry();
 deployNames = sort(keys(registry));
 
-% Collect every instrument record
 allLat   = [];
 allLon   = [];
 allDepth = [];
@@ -31,235 +28,186 @@ for d = 1:numel(deployNames)
         allLon(end+1)   = inst.latlon(2);
         allDepth(end+1) = inst.depth_nominal;
         allMOP(end+1)   = inst.mopLine;
-        allLabel{end+1}  = inst.label;
+        allLabel{end+1} = inst.label;
     end
 end
 
-% De-duplicate: keep unique (lat, lon, depth) combinations
-% Round to 5 decimal places to merge near-identical positions across deployments
-coords = round([allLat(:), allLon(:), allDepth(:)], 5);
-[~, ia] = unique(coords, 'rows');
-
-lat   = allLat(ia);
-lon   = allLon(ia);
-depth = allDepth(ia);
-mop   = allMOP(ia);
-label = allLabel(ia);
+% De-duplicate (same instrument redeployed at same location)
+coords = round([allLat(:) allLon(:) allDepth(:)], 5);
+[~, iUniq] = unique(coords, 'rows', 'stable');
+lat   = allLat(iUniq);
+lon   = allLon(iUniq);
+depth = allDepth(iUniq);
+mop   = allMOP(iUniq);
+label = allLabel(iUniq);
 
 fprintf('Extracted %d unique instrument positions from %d deployments.\n', ...
-    numel(lat), numel(deployNames));
+    length(lat), numel(deployNames));
 
-%% ---- Define site groups by MOP line ------------------------------------
+%% ======================== DEPTH COLORS ========================
+depthLevels = [5 6 7 8 10 15];
+depthColors = [0.2 0.6 1.0;    % 5m  - light blue
+               0.1 0.3 0.8;    % 6m  - blue
+               0.8 0.2 0.2;    % 7m  - red
+               0.9 0.5 0.1;    % 8m  - orange
+               0.6 0.1 0.6;    % 10m - purple
+               0.3 0.3 0.3];   % 15m - dark gray
 
-% Unique MOP lines for labeling
-siteDefs = struct('mop', {}, 'name', {});
-siteDefs(end+1) = struct('mop', 580,   'name', 'Torrey Pines MOP 580');
-siteDefs(end+1) = struct('mop', 586,   'name', 'Torrey Pines MOP 586');
-siteDefs(end+1) = struct('mop', 511,   'name', 'SIO Pier MOP 511');
-siteDefs(end+1) = struct('mop', 591,   'name', 'Los Penasquitos MOP 591');
-siteDefs(end+1) = struct('mop', 651,   'name', 'Solana Beach MOP 651');
-siteDefs(end+1) = struct('mop', 654.5, 'name', 'Solana Beach MOP 654');
-
-%% ---- Depth colormap ----------------------------------------------------
-
-depthLevels = sort(unique(depth));
-nLevels     = numel(depthLevels);
-
-% Perceptually distinct colors (dark to light blue with warm accents)
-cmap = [
-    0.20  0.56  0.90   % 5m  — medium blue
-    0.10  0.38  0.70   % 6m  — darker blue
-    0.00  0.24  0.53   % 7m  — navy
-    0.85  0.33  0.10   % 8m  — rust/orange
-    0.64  0.08  0.18   % 10m — dark red
-    0.44  0.00  0.44   % 15m — purple
-];
-
-% Map only the levels that exist
-if nLevels <= size(cmap, 1)
-    depthColors = cmap(1:nLevels, :);
-else
-    depthColors = parula(nLevels);
+markerColors = zeros(length(depth), 3);
+for i = 1:length(depth)
+    [~, iClose] = min(abs(depthLevels - depth(i)));
+    markerColors(i,:) = depthColors(iClose,:);
 end
 
-% Build a color vector for each point
-ptColors = zeros(numel(depth), 3);
-for i = 1:numel(depth)
-    idx = find(depthLevels == depth(i), 1);
-    ptColors(i,:) = depthColors(idx,:);
+%% ======================== MOP TRANSECT LINES ========================
+% Group instruments by MOP line and draw transect from shallowest to deepest
+uniqueMOP = unique(mop(~isnan(mop)));
+
+% Shore-normal angles (approximate, from CDIP)
+% These define the direction the transect extends offshore
+mopAngles = containers.Map('KeyType', 'double', 'ValueType', 'double');
+mopAngles(580) = 263.9;  % degrees compass, direction waves come FROM
+mopAngles(586) = 264.5;
+mopAngles(511) = 260.0;  % approximate
+mopAngles(591) = 264.0;  % approximate
+mopAngles(651) = 259.5;
+mopAngles(654) = 262.0;
+
+%% ======================== FIGURE 1: OVERVIEW WITH SATELLITE ========================
+fig1 = figure('Position', [50 50 1400 700], 'Color', 'w');
+
+% --- Left panel: Overview ---
+gx1 = geoaxes(fig1, 'Position', [0.03 0.08 0.45 0.85]);
+hold(gx1, 'on');
+
+% Plot instruments
+for i = 1:length(lat)
+    geoplot(gx1, lat(i), lon(i), 'o', 'MarkerSize', 10, ...
+        'MarkerFaceColor', markerColors(i,:), 'MarkerEdgeColor', 'k', 'LineWidth', 0.5);
 end
 
-%% ---- Approximate coastline ---------------------------------------------
-% The coastline runs roughly NNW-SSE.  We use a simple polyline at the
-% approximate shoreline longitude for this stretch of coast.
+% Draw MOP transect lines (extend from shore to outermost instrument)
+for m = 1:length(uniqueMOP)
+    mLine = uniqueMOP(m);
+    idx = find(mop == mLine);
+    if length(idx) < 1, continue; end
 
-coastLat = linspace(32.84, 33.01, 50);
-% Linear fit: shoreline longitude shifts slightly west going north
-coastLon = interp1([32.84, 33.01], [-117.253, -117.273], coastLat);
+    % Sort by depth (shallowest to deepest = closest to farthest from shore)
+    [~, sortIdx] = sort(depth(idx));
+    idx = idx(sortIdx);
 
-%% ---- Create figure (16:9 for Beamer) -----------------------------------
+    if isKey(mopAngles, mLine)
+        % Extend the line slightly shoreward of shallowest instrument
+        shoreAngle = mopAngles(mLine) + 180;  % onshore direction
+        shoreAngleRad = deg2rad(90 - shoreAngle);  % convert to math convention
+        extendDeg = 0.003;  % ~300m shoreward extension
 
-fig = figure('Units', 'inches', 'Position', [1 1 12 5.5], ...
-    'Color', 'w', 'PaperPositionMode', 'auto');
+        shoreLat = lat(idx(1)) + extendDeg * sin(shoreAngleRad);
+        shoreLon = lon(idx(1)) + extendDeg * cos(shoreAngleRad) / cosd(lat(idx(1)));
 
-markerSize = 70;
+        transectLat = [shoreLat, lat(idx)];
+        transectLon = [shoreLon, lon(idx)];
+    else
+        transectLat = lat(idx);
+        transectLon = lon(idx);
+    end
 
-% ---- Left panel: overview -----------------------------------------------
-ax1 = axes('Position', [0.06 0.12 0.42 0.82]);
-hold on; box on;
-
-% Coastline shading: fill land side (east of coastline)
-fill([coastLon, ones(1,numel(coastLon))*-117.24], ...
-     [coastLat, fliplr(coastLat)], ...
-     [0.93 0.91 0.87], 'EdgeColor', 'none');
-
-% Coastline
-plot(coastLon, coastLat, '-', 'Color', [0.45 0.40 0.35], 'LineWidth', 1.5);
-
-% Instrument positions
-scatter(lon, lat, markerSize, ptColors, 'filled', ...
-    'MarkerEdgeColor', 'k', 'LineWidth', 0.5);
+    geoplot(gx1, transectLat, transectLon, '-', 'Color', [0.5 0.5 0.5], 'LineWidth', 1.5);
+end
 
 % Site labels
-for s = 1:numel(siteDefs)
-    mask = abs(mop - siteDefs(s).mop) < 0.1;
-    if ~any(mask), continue; end
-    meanLat = mean(lat(mask));
-    meanLon = mean(lon(mask));
+siteLabels = {
+    'Solana Beach MOP 654', 32.991, -117.282;
+    'Solana Beach MOP 651', 32.988, -117.280;
+    'Los Pen. MOP 591',     32.936, -117.268;
+    'Torrey Pines MOP 586', 32.931, -117.268;
+    'Torrey Pines MOP 580', 32.925, -117.265;
+    'SIO Pier MOP 511',     32.866, -117.261;
+};
+for s = 1:size(siteLabels, 1)
+    text(gx1, siteLabels{s,2}, siteLabels{s,3}, ['  ' siteLabels{s,1}], ...
+        'FontSize', 9, 'FontWeight', 'bold', 'Color', 'w', ...
+        'BackgroundColor', [0 0 0 0.5], 'Margin', 1);
+end
 
-    % Offset labels to avoid overlap
-    switch siteDefs(s).mop
-        case 511
-            dx = 0.006; dy = -0.002;
-        case 580
-            dx = 0.008; dy = -0.003;
-        case 586
-            dx = 0.008; dy = 0.002;
-        case 591
-            dx = 0.008; dy = 0.000;
-        case 651
-            dx = 0.008; dy = -0.002;
-        case 654.5
-            dx = 0.008; dy = 0.002;
-        otherwise
-            dx = 0.006; dy = 0.000;
+geobasemap(gx1, 'satellite');
+geolimits(gx1, [32.855 33.00], [-117.315 -117.235]);
+title(gx1, 'PUV Deployment Sites — San Diego Coast', 'FontSize', 13);
+
+% --- Right panel: Torrey Pines inset ---
+gx2 = geoaxes(fig1, 'Position', [0.52 0.08 0.45 0.85]);
+hold(gx2, 'on');
+
+% Plot instruments with depth labels
+for i = 1:length(lat)
+    if lat(i) < 32.920 || lat(i) > 32.942, continue; end  % only TP/LPL area
+    geoplot(gx2, lat(i), lon(i), 'o', 'MarkerSize', 12, ...
+        'MarkerFaceColor', markerColors(i,:), 'MarkerEdgeColor', 'w', 'LineWidth', 1);
+    text(gx2, lat(i), lon(i) + 0.0004, sprintf('%dm', depth(i)), ...
+        'FontSize', 7, 'Color', 'w', 'FontWeight', 'bold');
+end
+
+% Draw MOP transects for TP/LPL area
+for m = 1:length(uniqueMOP)
+    mLine = uniqueMOP(m);
+    idx = find(mop == mLine);
+    tpIdx = idx(lat(idx) > 32.920 & lat(idx) < 32.942);
+    if length(tpIdx) < 1, continue; end
+
+    [~, sortIdx] = sort(depth(tpIdx));
+    tpIdx = tpIdx(sortIdx);
+
+    if isKey(mopAngles, mLine)
+        shoreAngle = mopAngles(mLine) + 180;
+        shoreAngleRad = deg2rad(90 - shoreAngle);
+        extendDeg = 0.002;
+
+        shoreLat = lat(tpIdx(1)) + extendDeg * sin(shoreAngleRad);
+        shoreLon = lon(tpIdx(1)) + extendDeg * cos(shoreAngleRad) / cosd(lat(tpIdx(1)));
+
+        transectLat = [shoreLat, lat(tpIdx)];
+        transectLon = [shoreLon, lon(tpIdx)];
+    else
+        transectLat = lat(tpIdx);
+        transectLon = lon(tpIdx);
     end
 
-    text(meanLon + dx, meanLat + dy, siteDefs(s).name, ...
-        'FontSize', 7.5, 'FontName', 'Helvetica', ...
-        'HorizontalAlignment', 'left', 'VerticalAlignment', 'middle');
+    geoplot(gx2, transectLat, transectLon, '-', 'Color', [1 1 1 0.7], 'LineWidth', 2);
+
+    % Label the MOP line
+    midIdx = ceil(length(transectLat)/2);
+    text(gx2, transectLat(midIdx) + 0.0005, transectLon(midIdx), ...
+        sprintf('MOP %d', mLine), 'FontSize', 8, 'Color', 'y', 'FontWeight', 'bold');
 end
 
-xlabel('Longitude (^{\circ}W)');
-ylabel('Latitude (^{\circ}N)');
-title('PUV Deployment Sites — San Diego', 'FontSize', 11, 'FontWeight', 'bold');
+geobasemap(gx2, 'satellite');
+geolimits(gx2, [32.922 32.940], [-117.275 -117.258]);
+title(gx2, 'Torrey Pines / Los Pe\~nasquitos Inset', 'FontSize', 13);
 
-xlim([-117.30 -117.23]);
-ylim([32.85 33.00]);
-set(ax1, 'FontSize', 9, 'FontName', 'Helvetica', 'TickDir', 'out', ...
-    'XDir', 'normal', 'Layer', 'top');
-
-% Draw box showing inset extent
-insetLon = [-117.275 -117.258];
-insetLat = [32.920 32.940];
-rectangle('Position', [insetLon(1), insetLat(1), ...
-    diff(insetLon), diff(insetLat)], ...
-    'EdgeColor', [0.7 0.1 0.1], 'LineWidth', 1.2, 'LineStyle', '--');
-
-% ---- Right panel: Torrey Pines / LPL inset ------------------------------
-ax2 = axes('Position', [0.55 0.12 0.38 0.82]);
-hold on; box on;
-
-% Coastline
-coastMask = coastLat >= 32.915 & coastLat <= 32.945;
-fill([coastLon(coastMask), ones(1,sum(coastMask))*-117.255], ...
-     [coastLat(coastMask), fliplr(coastLat(coastMask))], ...
-     [0.93 0.91 0.87], 'EdgeColor', 'none');
-plot(coastLon(coastMask), coastLat(coastMask), '-', ...
-    'Color', [0.45 0.40 0.35], 'LineWidth', 1.5);
-
-% Only instruments in the inset region
-inMask = lat >= insetLat(1) & lat <= insetLat(2) & ...
-         lon >= insetLon(1) & lon <= insetLon(2);
-
-scatter(lon(inMask), lat(inMask), markerSize*1.5, ptColors(inMask,:), 'filled', ...
-    'MarkerEdgeColor', 'k', 'LineWidth', 0.6);
-
-% Label individual instruments in inset with depth
-for i = find(inMask)
-    depthStr = sprintf('%gm', depth(i));
-    % Offset label slightly above/below to reduce overlap
-    dy = 0.0004;
-    if depth(i) >= 10
-        dy = -0.0004;
+%% ======================== DEPTH LEGEND ========================
+% Create a manual legend using annotation
+legendStr = {};
+legendColors = [];
+for d = 1:length(depthLevels)
+    idx = find(abs(depth - depthLevels(d)) < 1, 1);
+    if ~isempty(idx)
+        legendStr{end+1} = sprintf('%dm', depthLevels(d));
+        legendColors(end+1,:) = depthColors(d,:);
     end
-    text(lon(i) + 0.0005, lat(i) + dy, depthStr, ...
-        'FontSize', 7, 'FontName', 'Helvetica', ...
-        'HorizontalAlignment', 'left', 'VerticalAlignment', 'middle', ...
-        'Color', ptColors(i,:), 'FontWeight', 'bold');
 end
 
-% MOP line labels in inset
-for s = 1:numel(siteDefs)
-    if siteDefs(s).mop == 511 || siteDefs(s).mop >= 650
-        continue;  % outside inset
-    end
-    mask = abs(mop - siteDefs(s).mop) < 0.1 & inMask;
-    if ~any(mask), continue; end
-
-    % Draw a thin line connecting instruments on the same MOP transect
-    sortIdx = find(mask);
-    [~, order] = sort(depth(sortIdx));
-    sortIdx = sortIdx(order);
-    plot(lon(sortIdx), lat(sortIdx), '-', 'Color', [0.6 0.6 0.6], 'LineWidth', 0.8);
-
-    % Label at shallowest instrument
-    text(lon(sortIdx(1)) + 0.001, lat(sortIdx(1)) + 0.0008, ...
-        strrep(siteDefs(s).name, 'Torrey Pines ', 'TP '), ...
-        'FontSize', 8, 'FontName', 'Helvetica', 'FontWeight', 'bold', ...
-        'HorizontalAlignment', 'left');
+% Use invisible plots on gx1 for legend
+for d = 1:length(legendStr)
+    geoplot(gx1, NaN, NaN, 'o', 'MarkerSize', 10, ...
+        'MarkerFaceColor', legendColors(d,:), 'MarkerEdgeColor', 'k', ...
+        'DisplayName', legendStr{d});
 end
+legend(gx1, 'Location', 'southwest', 'FontSize', 9, 'TextColor', 'w', ...
+    'Color', [0.2 0.2 0.2], 'EdgeColor', 'w');
 
-xlabel('Longitude (^{\circ}W)');
-ylabel('Latitude (^{\circ}N)');
-title('Torrey Pines / Los Penasquitos Inset', 'FontSize', 11, 'FontWeight', 'bold');
-
-xlim(insetLon + [-0.001 0.004]);
-ylim(insetLat + [-0.002 0.002]);
-set(ax2, 'FontSize', 9, 'FontName', 'Helvetica', 'TickDir', 'out', ...
-    'Layer', 'top');
-
-% Add "LAND" / "OCEAN" labels
-text(-117.258, 32.937, 'land', 'FontSize', 8, 'FontAngle', 'italic', ...
-    'Color', [0.55 0.50 0.45], 'HorizontalAlignment', 'center', ...
-    'Parent', ax2);
-text(-117.270, 32.922, 'ocean', 'FontSize', 8, 'FontAngle', 'italic', ...
-    'Color', [0.30 0.45 0.65], 'HorizontalAlignment', 'center', ...
-    'Parent', ax2);
-
-%% ---- Legend for depth ---------------------------------------------------
-% Place a compact legend below the right panel
-lgdAx = axes('Position', [0.55 0.01 0.38 0.08], 'Visible', 'off');
-hold on;
-lgdHandles = gobjects(nLevels, 1);
-for i = 1:nLevels
-    lgdHandles(i) = scatter(NaN, NaN, 50, depthColors(i,:), 'filled', ...
-        'MarkerEdgeColor', 'k', 'LineWidth', 0.5);
-end
-lgdLabels = arrayfun(@(d) sprintf('%g m', d), depthLevels, 'UniformOutput', false);
-leg = legend(lgdHandles, lgdLabels, ...
-    'Orientation', 'horizontal', 'Location', 'south', ...
-    'FontSize', 8, 'FontName', 'Helvetica', 'Box', 'off');
-leg.Title.String = 'Nominal Depth';
-leg.Title.FontWeight = 'bold';
-leg.Title.FontSize = 8.5;
-
-%% ---- Save ---------------------------------------------------------------
-outDir = fullfile(fileparts(mfilename('fullpath')), '..', 'outputs', 'validation');
-if ~exist(outDir, 'dir')
-    mkdir(outDir);
-end
-outFile = fullfile(outDir, 'site_map.png');
-exportgraphics(fig, outFile, 'Resolution', 300);
+%% ======================== SAVE ========================
+diagDir = fullfile(fileparts(fileparts(mfilename('fullpath'))), 'outputs', 'validation');
+if ~exist(diagDir, 'dir'), mkdir(diagDir); end
+outFile = fullfile(diagDir, 'site_map.png');
+exportgraphics(fig1, outFile, 'Resolution', 300);
 fprintf('Saved: %s\n', outFile);
-close(fig);
