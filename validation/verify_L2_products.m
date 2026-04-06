@@ -278,10 +278,10 @@ fprintf('\n  %d/%d checks passed\n', nPass, size(checks, 1));
 fig = figure('Position', [50 50 1400 900], 'Color', 'w');
 
 subplot(3,3,1)
-scatter(Ub_theory(good), Ub(good), 4, 'filled', 'MarkerFaceAlpha', 0.2);
+scatter(Ub_spectral(good), Ub(good), 4, 'filled', 'MarkerFaceAlpha', 0.2);
 hold on; plot([0 0.5], [0 0.5], 'k--');
-xlabel('Ub theory (m/s)'); ylabel('Ub measured (m/s)');
-title('Bed velocity vs linear theory'); grid on; axis equal;
+xlabel('Ub spectral theory (m/s)'); ylabel('Ub IFFT (m/s)');
+title('Bed velocity: IFFT vs spectral'); grid on; axis equal;
 
 subplot(3,3,2)
 scatter(Ub(~isnan(tau_b)), tau_b(~isnan(tau_b)), 4, 'filled', 'MarkerFaceAlpha', 0.2);
