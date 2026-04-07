@@ -147,6 +147,18 @@ if ~isempty(mopStation)
             fprintf('    MOP: %d hourly records, Hs range: %.2f–%.2f m\n', ...
                 length(MOP.time), min(L3.mop.Hs), max(L3.mop.Hs));
 
+            % Ensure PUV event times have timezone for comparison with MOP
+            mopTZ = MOP.time.TimeZone;
+            if ~isempty(mopTZ)
+                for e = 1:length(events)
+                    if isempty(events(e).start.TimeZone)
+                        events(e).start.TimeZone = mopTZ;
+                        events(e).end_time.TimeZone = mopTZ;
+                        events(e).peak_time.TimeZone = mopTZ;
+                    end
+                end
+            end
+
             % Detect storms in MOP record (same thresholds)
             mop_above = L3.mop.Hs > Hs_storm_thresh;
             mop_labels = zeros(size(mop_above));
