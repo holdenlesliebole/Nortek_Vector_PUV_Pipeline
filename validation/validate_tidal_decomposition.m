@@ -76,6 +76,15 @@ if isempty(noaa_pred_hgt)
     warning('No NOAA data retrieved. Check internet connection.');
     return
 end
+
+% Remove duplicate timestamps from chunk overlaps
+[noaa_pred_time, iU] = unique(noaa_pred_time);
+noaa_pred_hgt = noaa_pred_hgt(iU);
+if hasObs
+    [noaa_obs_time, iU] = unique(noaa_obs_time);
+    noaa_obs_hgt = noaa_obs_hgt(iU);
+end
+
 fprintf('  Predictions: %d hourly records\n', length(noaa_pred_hgt));
 if hasObs
     fprintf('  Observations: %d hourly records\n', length(noaa_obs_hgt));
