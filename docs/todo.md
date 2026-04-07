@@ -1,94 +1,120 @@
 # PUV Pipeline — Master To-Do List
 
 Tracks tasks across all processing levels. Grouped by priority.
+Updated: April 6, 2026
 
 ---
 
-## Immediate (needed for TBR23 paper)
+## Completed
 
-### L3a: Frequency-Band Energy Decomposition
-- [ ] Write `PUV_L3_spectral_bands.m` — compute F_ig, F_swell, F_sea per segment from L2 spectra
-- [ ] Write `PUV_L3_driver.m` — single deployment driver
-- [ ] Write `PUV_L3_run_all.m` — batch runner
-- [ ] Confirm band definitions with advisor: IG [0.004–0.04], swell [0.04–0.10], sea [0.10–0.25]
-- [ ] Test on TBR23, verify F_total matches L2.Ef
+### L3: Wave Forcing Characterization (ALL DONE)
+- [x] L3a: frequency-band energy decomposition (PUV_L3_bands.m)
+- [x] L3b: storm/event detection with MOP gap-filling (PUV_L3_storms.m)
+- [x] L3c: transport proxies — Fb, Shields, Rouse, mobilization (PUV_L3_transport.m)
+- [x] L3d: tidal current decomposition via t_tide + NOAA depth (PUV_L3_currents.m)
+- [x] Verified on TBR23 and NN24
+- [x] Ef_total/L2.Ef = 1.0000 consistency check passes for all instruments
+- [x] Timezone confirmed UTC via NOAA cross-correlation
 
-### L3b: Storm/Event Detection
-- [ ] Write `detect_storm_events.m` — threshold + duration based event detection
-- [ ] Define event metrics: peak Hs, duration, total energy, cumulative flux
-- [ ] Identify the early 2023 storm sequence in context of TBR23 deployment
+### L2 Bug Fixes
+- [x] bed_velocity_ifft: transfer function was inverted (fixed)
+- [x] compute_velocity_moments: asymmetry formula fixed (Hilbert transform)
+- [x] L2 verification: 8/8 checks pass
+- [x] Full L2 re-run with fixes (all deployments)
 
-### L3c: Transport Proxies
-- [ ] Write `compute_bottom_flux.m` — Fb = ρg·cg·Ub² (spectral integral)
-- [ ] Add Shields parameter time series to L3 output
-- [ ] Compute mobilization fraction per deployment
-- [ ] Implement cumulative bottom flux (for survey-to-survey comparison)
+### Validation
+- [x] Cross-deployment spectral shape analysis (33 instruments, 5 sites)
+- [x] SIO Pier canyon focusing discovery (2-5x amplification)
+- [x] Hypothesis testing suite (4 mechanisms, 1 supported)
+- [x] Tidal validation against NOAA Scripps Pier gauge
 
 ### Pipeline Maintenance
-- [ ] Re-run full L2 for all deployments (bed velocity + asymmetry fixes) — DONE for TBR23
-- [ ] Retry SOL25B and TBR23 MOP580_5m shore-normal rotation when THREDDS stable
-- [ ] Brian meeting: review deployment_database_overview.md
-- [ ] Cross-check TBR23 L2 output against original PUV_all_in_one.m values
+- [x] All doffp values filled from DeploymentNotes
+- [x] File prefix handling (underscore/hyphen, single-burst)
+- [x] IGRF epoch 14 fallback
+- [x] Tilt correction for bent pipes
+- [x] Site map with satellite basemap
+- [x] Beamer slide deck (32 slides)
+- [x] Deployment database for Brian
 
 ---
 
-## Near-term (needed soon but not blocking TBR23)
+## Immediate (in progress)
 
-### L3d: Current Decomposition
-- [ ] Integrate UTide or t_tide for tidal harmonic analysis
-- [ ] Compute subtidal residual currents from L2.uMean/vMean
-- [ ] Validate tidal current magnitudes against known tidal constituents
+### Full L3 Batch Run
+- [ ] Running PUV_L3_run_all for all 33 instruments (in progress)
+- [ ] Retry SOL25B and TBR23 MOP580_5m shore-normal rotation
+- [ ] Brian meeting: review deployment_database_overview.md
+
+### Documentation Updates
+- [ ] Update Beamer slides with L3 results and L2 verification
+- [ ] Update LaTeX methods with L3 methodology
+- [ ] Fix LaTeX interpreter on MATLAB plot axes
+- [ ] Clean up site map legend
+
+---
+
+## Near-term (before TBR23 paper submission)
+
+### TBR23 Paper Analysis (lives in Paper 1 repo)
+- [ ] Load survey data (truck lidar + jetski bathymetry)
+- [ ] Wave forcing time series figures (L3 band flux, storms, mean currents)
+- [ ] Survey-to-survey volume change vs cumulative Fb
+- [ ] Depth-dependent response comparison (5m vs 7m pairs)
+- [ ] Reproduce Bill O'Reilly's bottom flux analysis with new pipeline
+- [ ] See Paper 1/TBR23_analysis_todo.md for full list
 
 ### Grain Size Integration
 - [ ] Process Laser Particle Analyzer data → D50 per site
-- [ ] Update config files with site-specific D50
-- [ ] Re-run L2 bed stress with real D50 (Ub unaffected, only tau_b/Shields change)
+- [ ] Update configs with site-specific D50
+- [ ] Re-run L2 bed stress and L3 Shields/Rouse with real D50
 
-### Documentation
-- [ ] Update Beamer slides with L2 verification results and cross-deployment summary
-- [ ] Update LaTeX methods section with bed velocity fix and asymmetry fix
-- [ ] Fix LaTeX interpreter on MATLAB plot axes (use 'Interpreter','latex')
-- [ ] Clean up site map legend (extra entries from data loop)
-- [ ] Fix "Ignoring extra legend entries" warnings in L1 diagnostic plots
+### Cross-check
+- [ ] Compare TBR23 L2 output against original PUV_all_in_one.m values
 
 ---
 
-## Medium-term (spinoff paper / Chapter 2)
+## Medium-term (spinoff papers)
 
 ### L4: IG / Bound Wave Dynamics
-- [ ] Review Athina Lange's Ruby2D code for IG analysis methods
+- [ ] Review Athina Lange's Ruby2D code for methods
 - [ ] Implement bispectral analysis (bicoherence)
 - [ ] Bound vs free IG wave separation
 - [ ] Cross-instrument IG coherence for multi-instrument arrays
-- [ ] Quantify IG energy generation in the cross-shore array
+- [ ] Quantify IG energy generation across the cross-shore array
 
 ### L5: PUV-Altimeter Integration
-- [ ] Write altimeter data loader (AA400 .log files and EA400 .log files)
-- [ ] Time-align altimeter bed elevation with L2/L3 wave segments
+- [ ] Write altimeter data loader (AA400/EA400 .log files)
+- [ ] Time-align altimeter bed elevation with L2/L3
 - [ ] Correlate bed level change with Shields exceedance
-- [ ] Identify scour/accretion events in altimeter timeseries
-- [ ] Estimate transport rates from bed level change + continuity equation
+- [ ] Estimate transport rates from bed level change + continuity
 
-### Wave Dynamics Paper
-- [ ] Investigate SIO Pier canyon focusing mechanism in detail
-- [ ] Quantify depth trend in peak ratio across all cross-shore arrays
-- [ ] Analyze temporal/seasonal variability of spectral shape bias
-- [ ] Draft paper figures (see PUV_Wave_Dynamics_Paper/docs/todo.md)
+### Wave Dynamics Paper (PUV_Wave_Dynamics_Paper repo)
+- [ ] Investigate SIO Pier canyon focusing mechanism
+- [ ] Quantify depth trend in peak ratio
+- [ ] Seasonal variability of spectral shape bias
+- [ ] Draft paper figures and manuscript
 
 ---
 
-## Long-term
+## Ideas for Later
+
+### Tidal Current Gap-Filling
+- [ ] Fit transfer function between NOAA tidal elevation and observed
+      tidal currents during reliable periods
+- [ ] Use transfer function to predict tidal currents during data gaps
+- [ ] Would improve subtidal residual estimates for instruments with
+      large gaps (MOP580_5m, MOP651_7m)
 
 ### Additional Transport Models
-- [ ] Implement Bailard (1981) energetics model
-- [ ] Implement Hoefel & Elgar (2003) acceleration-skewness correction
-- [ ] Implement undertow-driven offshore transport estimation
-- [ ] Compare model predictions against observed morphology change
-- [ ] Rodriguez-Padilla transport model (if applicable)
+- [ ] Bailard (1981) energetics
+- [ ] Hoefel & Elgar (2003) acceleration-skewness correction
+- [ ] Rodriguez-Padilla transport model
+- [ ] Compare against observed morphology change
 
 ### Pipeline Hardening
-- [ ] Investigate SIO24B/24C/25A failures with Brian — can any data be recovered?
-- [ ] Consider raising tiltAbsMax from 30° to 35° for SIO24B (32° stable tilt)
-- [ ] Vectorize bed_velocity_ifft tilt correction loop for speed
-- [ ] Add option for time-varying doffp from altimeter data
+- [ ] Investigate SIO24B/24C/25A with Brian — any data recoverable?
+- [ ] Consider raising tiltAbsMax for SIO24B (32° stable tilt)
+- [ ] Vectorize bed_velocity_ifft tilt correction loop
+- [ ] Add time-varying doffp option from altimeter data
 - [ ] Cache shore-normal angles locally to avoid THREDDS dependency
