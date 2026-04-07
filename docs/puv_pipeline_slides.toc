@@ -1,0 +1,6 @@
+\beamer@sectionintoc {1}{Overview}{3}{0}{1}
+\beamer@sectionintoc {2}{L1 Processing}{6}{0}{2}
+\beamer@sectionintoc {3}{L2 Spectral Analysis}{11}{0}{3}
+\beamer@sectionintoc {4}{Validation Against MOP}{17}{0}{4}
+\beamer@sectionintoc {5}{Hypothesis Testing}{21}{0}{5}
+\beamer@sectionintoc {6}{Key Findings and Next Steps}{29}{0}{6}

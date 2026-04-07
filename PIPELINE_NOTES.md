@@ -44,9 +44,18 @@ Related directories:
   Reynolds stress, velocity moments, optional MOP comparison
 - **Output**: `outputs/L2/{deployment}/` struct per instrument
 
-### L3: Transport (Paper 1)
-- Lives in `Paper 1/DataCodes/` — deployment-specific analysis, not reusable pipeline
+### L3: Transport & Derived Products (Paper_1)
+- Lives in `Paper_1/DataCodes/` — deployment-specific analysis, not reusable pipeline
 - `run_transport_model.m`: Bailard → Hoefel & Elgar → undertow → Shields hierarchy
+
+#### L3 additions needed:
+- **Frequency-band energy flux decomposition**: Compute energy flux separately for
+  sea band vs swell band (and optionally IG band) per burst. This is needed for a
+  Paper_1 figure showing which frequency band drives morphological change at 5m vs 7m.
+  The PUV L2 output already has full spectra — L3 just needs to integrate F(f) over
+  defined bands and output time series of F_sea, F_swell, F_ig per instrument.
+  Band definitions: IG = 0.004–0.04 Hz, swell = 0.04–0.10 Hz, sea = 0.10–0.25 Hz
+  (confirm with Holden). This supports the "local seas vs swell" finding in Paper_1.
 
 ---
 
