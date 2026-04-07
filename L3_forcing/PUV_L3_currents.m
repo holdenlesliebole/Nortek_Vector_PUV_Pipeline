@@ -167,8 +167,16 @@ if exist('getztide2', 'file')
         noaa_hgt_all = noaa_hgt_all(iU);
 
         noaa_dt = datetime(noaa_time_all, 'InputFormat', 'yyyy-MM-dd HH:mm', 'TimeZone', 'UTC');
+
+        % Strip timezone for interpolation (PUV times are UTC but untagged)
+        noaa_dt_notz = datetime(noaa_dt, 'TimeZone', '');
+        t_reg_notz = t_reg;
+        if ~isempty(t_reg_notz.TimeZone)
+            t_reg_notz = datetime(t_reg_notz, 'TimeZone', '');
+        end
+
         % NOAA is relative to MSL; add mean depth to get total water column
-        d_tidal_noaa = interp1(noaa_dt, noaa_hgt_all, t_reg', 'linear', NaN) + d_mean;
+        d_tidal_noaa = interp1(noaa_dt_notz, noaa_hgt_all, t_reg_notz', 'linear', NaN) + d_mean;
 
         useNOAA = true;
         fprintf('    NOAA tidal predictions loaded (%d records)\n', length(noaa_hgt_all));
@@ -232,12 +240,11 @@ end
 gap_at_seg = interp1(t_reg, double(~gap_flag), t(validIdx), 'nearest', 0);
 L3.tidal.reliable(validIdx) = gap_at_seg > 0.5;
 
-% NaN out unreliable tidal current predictions
-unreliable = validIdx & ~L3.tidal.reliable;
-L3.tidal.u(unreliable) = NaN;
-L3.tidal.v(unreliable) = NaN;
-
-% Subtidal = observed - tidal (only where tidal prediction is reliable)
+% Subtidal = observed - tidal
+% Note: near data gaps, tidal.reliable = false indicates the t_tide
+% current prediction may have artifacts. The values are kept (not NaN'd)
+% so the subtidal residual is always available, but users should check
+% tidal.reliable before interpreting tidal current details near gaps.
 L3.subtidal.u(validIdx) = uMean(validIdx) - L3.tidal.u(validIdx);
 L3.subtidal.v(validIdx) = vMean(validIdx) - L3.tidal.v(validIdx);
 
