@@ -54,8 +54,10 @@ for k = 1:nInstr
         % --- L3a: Frequency-band decomposition ---
         L3 = PUV_L3_bands(L2);
 
+        % --- L3b: Storm detection + MOP context ---
+        L3 = PUV_L3_storms(L3, L2);
+
         % --- Future L3 components will be added here ---
-        % L3 = PUV_L3_storms(L3, L2);    % L3b
         % L3 = PUV_L3_transport(L3, L2); % L3c
         % L3 = PUV_L3_currents(L3, L2);  % L3d
 

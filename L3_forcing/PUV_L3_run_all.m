@@ -66,6 +66,7 @@ for d = 1:nDeploy
             L2 = loaded.L2;
 
             L3 = PUV_L3_bands(L2);
+            L3 = PUV_L3_storms(L3, L2);
 
             save(outFile, 'L3', '-v7.3');
             nProcessed = nProcessed + 1;
