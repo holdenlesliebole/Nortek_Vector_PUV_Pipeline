@@ -6,7 +6,7 @@
 %   To process a different deployment, change deployment_name below and re-run.
 
 %% ======================== USER SETTINGS ========================
-deployment_name = 'TBR23';  % change to process a different deployment
+deployment_name = 'NN24';  % change to process a different deployment
 
 %% ======================== SETUP ========================
 startup_puv
@@ -57,8 +57,10 @@ for k = 1:nInstr
         % --- L3b: Storm detection + MOP context ---
         L3 = PUV_L3_storms(L3, L2);
 
-        % --- Future L3 components will be added here ---
-        % L3 = PUV_L3_transport(L3, L2); % L3c
+        % --- L3c: Transport proxies ---
+        L3 = PUV_L3_transport(L3, L2);
+
+        % --- Future L3 components ---
         % L3 = PUV_L3_currents(L3, L2);  % L3d
 
         outFile = fullfile(outDir, [instr.label '_L3.mat']);
