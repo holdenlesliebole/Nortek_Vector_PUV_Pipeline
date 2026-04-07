@@ -46,8 +46,17 @@ dt_hr = hours(dt_hr);  % segment spacing in hours (~0.285 hr for 17-min)
 above = Hs > Hs_storm_thresh;
 above(isnan(Hs)) = false;
 
-% Label connected regions
-labels = bwlabel(above);
+% Label connected regions (no Image Processing Toolbox needed)
+labels = zeros(size(above));
+currentLabel = 0;
+for j = 1:length(above)
+    if above(j)
+        if j == 1 || ~above(j-1)
+            currentLabel = currentLabel + 1;
+        end
+        labels(j) = currentLabel;
+    end
+end
 nRegions = max(labels);
 
 events = struct('start', {}, 'end_time', {}, 'duration_hr', {}, ...
@@ -140,7 +149,16 @@ if ~isempty(mopStation)
 
             % Detect storms in MOP record (same thresholds)
             mop_above = L3.mop.Hs > Hs_storm_thresh;
-            mop_labels = bwlabel(mop_above);
+            mop_labels = zeros(size(mop_above));
+mopLabel = 0;
+for j = 1:length(mop_above)
+    if mop_above(j)
+        if j == 1 || ~mop_above(j-1)
+            mopLabel = mopLabel + 1;
+        end
+        mop_labels(j) = mopLabel;
+    end
+end
             nMopRegions = max(mop_labels);
 
             nMopEvents = 0;
