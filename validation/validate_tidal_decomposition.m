@@ -36,26 +36,49 @@ t2 = max(t(validIdx));
 dn1 = datenum(t1);
 dn2 = datenum(t2);
 
-%% Download NOAA data
+%% Download NOAA data (chunked into 30-day requests to avoid API timeout)
 fprintf('Downloading NOAA tide gauge data (Scripps Pier, 9410230)...\n');
 
-% Get predictions (harmonic prediction — the "truth" for tidal signal)
-try
-    [noaa_pred_time, noaa_pred_hgt] = getztide2(dn1, dn2, 'gmt', 'msl', 'predictions');
-    fprintf('  Predictions: %d hourly records\n', length(noaa_pred_time));
-catch ME
-    warning('NOAA prediction download failed: %s', ME.message);
-    return
+chunkDays = 30;
+noaa_pred_time = {};
+noaa_pred_hgt = [];
+noaa_obs_time = {};
+noaa_obs_hgt = [];
+hasObs = true;
+
+dn_cur = dn1;
+while dn_cur < dn2
+    dn_end = min(dn_cur + chunkDays, dn2);
+
+    try
+        [pt, ph] = getztide2(dn_cur, dn_end, 'gmt', 'msl', 'predictions');
+        noaa_pred_time = [noaa_pred_time; pt]; %#ok<AGROW>
+        noaa_pred_hgt = [noaa_pred_hgt; double(ph)]; %#ok<AGROW>
+    catch ME
+        fprintf('  Warning: prediction chunk failed (%s–%s): %s\n', ...
+            datestr(dn_cur, 'mm/dd'), datestr(dn_end, 'mm/dd'), ME.message);
+    end
+
+    if hasObs
+        try
+            [ot, oh] = getztide2(dn_cur, dn_end, 'gmt', 'msl', 'hourly_height');
+            noaa_obs_time = [noaa_obs_time; ot]; %#ok<AGROW>
+            noaa_obs_hgt = [noaa_obs_hgt; double(oh)]; %#ok<AGROW>
+        catch
+            hasObs = false;
+        end
+    end
+
+    dn_cur = dn_end;
 end
 
-% Get observations (actual water level — includes non-tidal components)
-try
-    [noaa_obs_time, noaa_obs_hgt] = getztide2(dn1, dn2, 'gmt', 'msl', 'hourly_height');
-    fprintf('  Observations: %d hourly records\n', length(noaa_obs_time));
-    hasObs = true;
-catch ME
-    warning('NOAA observation download failed: %s', ME.message);
-    hasObs = false;
+if isempty(noaa_pred_hgt)
+    warning('No NOAA data retrieved. Check internet connection.');
+    return
+end
+fprintf('  Predictions: %d hourly records\n', length(noaa_pred_hgt));
+if hasObs
+    fprintf('  Observations: %d hourly records\n', length(noaa_obs_hgt));
 end
 
 %% Convert NOAA times to datetime
