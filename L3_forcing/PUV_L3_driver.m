@@ -60,8 +60,8 @@ for k = 1:nInstr
         % --- L3c: Transport proxies ---
         L3 = PUV_L3_transport(L3, L2);
 
-        % --- Future L3 components ---
-        % L3 = PUV_L3_currents(L3, L2);  % L3d
+        % --- L3d: Current decomposition ---
+        L3 = PUV_L3_currents(L3, L2);
 
         outFile = fullfile(outDir, [instr.label '_L3.mat']);
         save(outFile, 'L3', '-v7.3');
