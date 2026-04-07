@@ -141,19 +141,103 @@ catch ME
     tidestruc_depth = struct();
 end
 
+%% Try NOAA tide gauge for depth tidal signal (better than t_tide for depth)
+toolboxPath = fullfile(getenv('HOME'), 'Documents', 'Scripps', 'Research', 'toolbox');
+if ~exist('getztide2', 'file'), addpath(toolboxPath); end
+
+useNOAA = false;
+if exist('getztide2', 'file')
+    try
+        fprintf('  Downloading NOAA tide predictions (Scripps Pier)...\n');
+        dn1 = datenum(t_reg(1));
+        dn2 = datenum(t_reg(end));
+
+        noaa_time_all = {};
+        noaa_hgt_all = [];
+        dn_cur = dn1;
+        while dn_cur < dn2
+            dn_end = min(dn_cur + 30, dn2);
+            [nt, nh] = getztide2(dn_cur, dn_end, 'gmt', 'msl', 'predictions');
+            noaa_time_all = [noaa_time_all; nt]; %#ok<AGROW>
+            noaa_hgt_all = [noaa_hgt_all; double(nh)]; %#ok<AGROW>
+            dn_cur = dn_end;
+        end
+
+        [noaa_time_all, iU] = unique(noaa_time_all);
+        noaa_hgt_all = noaa_hgt_all(iU);
+
+        noaa_dt = datetime(noaa_time_all, 'InputFormat', 'yyyy-MM-dd HH:mm', 'TimeZone', 'UTC');
+        % NOAA is relative to MSL; add mean depth to get total water column
+        d_tidal_noaa = interp1(noaa_dt, noaa_hgt_all, t_reg', 'linear', NaN) + d_mean;
+
+        useNOAA = true;
+        fprintf('    NOAA tidal predictions loaded (%d records)\n', length(noaa_hgt_all));
+    catch ME
+        fprintf('    NOAA download failed: %s — using t_tide for depth\n', ME.message);
+    end
+end
+
+%% Identify data gaps for quality flagging
+% Flag tidal predictions as unreliable near large data gaps
+% where t_tide's interpolated input degrades the harmonic fit.
+gap_flag = false(nReg, 1);
+isNaN_orig = isnan(u_reg);  % original NaN pattern before filling
+gapMinSamples = round(6 / dt_hr);  % gaps > 6 hours are flagged
+
+% Find gap regions and extend flag by gapMinSamples on each side
+inGap = false;
+gapStart = 0;
+for j = 1:nReg
+    if isNaN_orig(j)
+        if ~inGap
+            gapStart = j;
+            inGap = true;
+        end
+    else
+        if inGap
+            gapLen = j - gapStart;
+            if gapLen >= gapMinSamples
+                flagStart = max(1, gapStart - gapMinSamples);
+                flagEnd = min(nReg, j + gapMinSamples);
+                gap_flag(flagStart:flagEnd) = true;
+            end
+            inGap = false;
+        end
+    end
+end
+
 %% Interpolate tidal predictions back to actual segment times
 L3.tidal.u = NaN(nSeg, 1);
 L3.tidal.v = NaN(nSeg, 1);
 L3.subtidal.u = NaN(nSeg, 1);
 L3.subtidal.v = NaN(nSeg, 1);
 L3.tidal.depth_pred = NaN(nSeg, 1);
+L3.tidal.reliable = false(nSeg, 1);
 
 % Interpolate from regular grid to segment times
 L3.tidal.u(validIdx) = interp1(t_reg, u_tidal_reg, t(validIdx), 'linear', NaN);
 L3.tidal.v(validIdx) = interp1(t_reg, v_tidal_reg, t(validIdx), 'linear', NaN);
-L3.tidal.depth_pred(validIdx) = interp1(t_reg, d_tidal_reg, t(validIdx), 'linear', NaN);
 
-% Subtidal = observed - tidal
+% Use NOAA for depth if available, otherwise t_tide
+if useNOAA
+    L3.tidal.depth_pred(validIdx) = interp1(t_reg, d_tidal_noaa, t(validIdx), 'linear', NaN);
+    L3.tidal.depth_source = 'NOAA';
+else
+    L3.tidal.depth_pred(validIdx) = interp1(t_reg, d_tidal_reg, t(validIdx), 'linear', NaN);
+    L3.tidal.depth_source = 't_tide';
+end
+
+% Reliability flag: false near large data gaps where t_tide current
+% predictions are unreliable (depth from NOAA is always reliable)
+gap_at_seg = interp1(t_reg, double(~gap_flag), t(validIdx), 'nearest', 0);
+L3.tidal.reliable(validIdx) = gap_at_seg > 0.5;
+
+% NaN out unreliable tidal current predictions
+unreliable = validIdx & ~L3.tidal.reliable;
+L3.tidal.u(unreliable) = NaN;
+L3.tidal.v(unreliable) = NaN;
+
+% Subtidal = observed - tidal (only where tidal prediction is reliable)
 L3.subtidal.u(validIdx) = uMean(validIdx) - L3.tidal.u(validIdx);
 L3.subtidal.v(validIdx) = vMean(validIdx) - L3.tidal.v(validIdx);
 
@@ -161,6 +245,11 @@ L3.subtidal.v(validIdx) = vMean(validIdx) - L3.tidal.v(validIdx);
 L3.tidal.vel_constituents = tidestruc_vel;
 L3.tidal.depth_constituents = tidestruc_depth;
 L3.tidal.mean_depth = d_mean;
+
+nReliable = sum(L3.tidal.reliable(validIdx));
+nValid = sum(validIdx);
+fprintf('    Tidal currents reliable: %d/%d segments (%.0f%%)\n', ...
+    nReliable, nValid, 100*nReliable/nValid);
 
 %% Summary
 fprintf('  L3d current decomposition:\n');
