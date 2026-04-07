@@ -197,3 +197,54 @@ the excess relative to the expected group frequency; and (4)~MOP model
 spectral peak broadening, quantified by comparing the Goda peakedness
 parameter $Q_p = (2/m_0^2) \int f\, S_\eta^2(f)\, df$ and the
 half-power spectral bandwidth between PUV and shoaled MOP spectra.
+
+\subsection{Level 3: Wave forcing characterization}
+
+\subsubsection{Frequency-band energy decomposition}
+
+The L2 surface elevation spectrum was integrated over three frequency
+bands to characterize wave energy partitioning: infragravity
+(0.004--0.04~Hz), swell (0.04--0.10~Hz), and sea (0.10--0.25~Hz).
+Band-specific significant wave height, energy flux, and mean period
+were computed for each 17-minute segment. A dominant band flag was
+assigned based on which band carried the largest energy flux.
+
+\subsubsection{Storm event detection}
+
+Storm events were identified from the $H_s$ time series using a
+threshold-exceedance method with configurable parameters (default:
+$H_s > 1.5$~m sustained for $\geq$6~hours, events separated by
+$<$12~hours merged). To characterize wave forcing during PUV data
+gaps (e.g., from instrument damage during storms), hourly MOP wave
+model data were loaded for a window extending 7~days beyond the PUV
+record. Storm events detected in the MOP record but absent from the
+PUV data were flagged as gap-period storms, providing continuous
+forcing context even when the in-situ instruments were compromised.
+
+\subsubsection{Transport proxies}
+
+Bottom energy flux was computed as the spectral integral of group
+velocity times surface elevation spectral density over the sea--swell
+band. The Shields parameter $\theta = \tau_b / [(\rho_s - \rho) g D_{50}]$
+was computed per segment, with the critical Shields threshold from the
+Soulsby--Whitehouse formula. A mobilization flag indicated segments
+exceeding the critical threshold. Cumulative bottom energy flux was
+integrated over the deployment duration for comparison with
+morphological change between beach surveys. The Rouse number
+$P = w_s / (\kappa u_*)$ classified the dominant transport mode
+(bedload vs.\ suspended load).
+
+\subsubsection{Tidal current decomposition}
+
+Tidal harmonic analysis was performed on the segment-mean velocities
+using the \texttt{t\_tide} package, with complex velocity input
+($u + iv$) enabling simultaneous analysis of cross-shore and
+alongshore tidal constituents. The tidal depth signal was obtained
+from NOAA tide predictions for the Scripps Pier gauge (station
+9410230), which provided a smooth, gap-free tidal reference that
+outperformed the \texttt{t\_tide} fit to the noisy PUV pressure
+record ($R = 0.995$ vs.\ $R = 0.987$ for TBR23). PUV instrument
+clocks were confirmed to be in UTC via cross-correlation with the
+NOAA record (optimal lag $= 0.0$~hours). Subtidal residual currents
+(observed minus tidal) captured wave-driven mean flows including
+undertow and longshore currents.

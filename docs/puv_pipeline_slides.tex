@@ -538,6 +538,65 @@
 \end{frame}
 
 % ==================================================================
+\section{L3 Forcing Characterization}
+% ==================================================================
+
+% ------------------------------------------------------------------
+\begin{frame}{L3 Architecture}
+  \begin{itemize}
+    \item \textbf{L3a}: Frequency-band energy decomposition (IG / swell / sea)
+    \item \textbf{L3b}: Storm event detection with MOP gap-filling
+    \item \textbf{L3c}: Transport proxies ($F_b$, Shields, Rouse, mobilization)
+    \item \textbf{L3d}: Tidal current decomposition (t\_tide + NOAA depth)
+    \item All components verified: $E_f\text{\_total} / \text{L2}.E_f = 1.0000$
+          for all 33 instruments
+  \end{itemize}
+\end{frame}
+
+% ------------------------------------------------------------------
+\begin{frame}{Seasonal Energy Partitioning}
+  \begin{itemize}
+    \item \textbf{Winter}: swell-dominated (65--90\% of energy flux)
+    \item \textbf{Summer}: sea-dominated or equal ($\sim$50/50)
+    \item \textbf{Spring}: transitional
+    \item Consistent across all 5 sites
+  \end{itemize}
+\end{frame}
+
+% ------------------------------------------------------------------
+\begin{frame}{Storm Detection + MOP Gap-Filling}
+  \begin{itemize}
+    \item NN24 Dec 28, 2023: $H_s$ up to 3.6~m, 74-hour duration
+    \item MOP fills data gaps from instrument damage during storms
+    \item Example: MOP651\_7m detected 0 PUV storms, MOP found 3
+          (86-hour event)
+    \item Critical for characterizing the forcing that damaged
+          the instruments
+  \end{itemize}
+\end{frame}
+
+% ------------------------------------------------------------------
+\begin{frame}{Transport Proxy Depth Dependence}
+  \begin{itemize}
+    \item Shields parameter decreases offshore: 0.24 (5.6~m) to
+          0.065 (15.5~m)
+    \item Mobilization: 100\% at 5~m, 78\% at 15~m (winter)
+    \item Rouse number: bedload-dominated across all sites
+    \item Cumulative $F_b$: winter $3\times$ summer at equivalent depth
+  \end{itemize}
+\end{frame}
+
+% ------------------------------------------------------------------
+\begin{frame}{Tidal Validation}
+  \begin{itemize}
+    \item NOAA Scripps Pier tide gauge: $R = 0.995$ with PUV depth
+    \item Confirms PUV clocks are UTC (lag $= 0.0$~hours)
+    \item Subtidal cross-shore current: consistently offshore (undertow)
+    \item Tidal currents small ($<$0.05~m/s) vs.\ wave-driven flows
+  \end{itemize}
+\end{frame}
+
+% ==================================================================
 \section{Key Findings and Next Steps}
 % ==================================================================
 
@@ -555,6 +614,9 @@
           narrower peak ($R = 0.44$ between $\Delta Q_p$ and bias)
     \item \textbf{Cross-deployment robustness}: pattern confirmed
           across 11 instruments, summer/winter, 5.5--15.5~m depth
+    \item \textbf{Full L1--L3 pipeline operational}: all 33 instruments
+          processed through forcing characterization, storm detection,
+          and transport proxy computation
   \end{enumerate}
 \end{frame}
 
