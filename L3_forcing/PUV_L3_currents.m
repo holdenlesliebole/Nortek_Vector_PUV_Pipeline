@@ -255,8 +255,56 @@ L3.tidal.mean_depth = d_mean;
 
 nReliable = sum(L3.tidal.reliable(validIdx));
 nValid = sum(validIdx);
-fprintf('    Tidal currents reliable: %d/%d segments (%.0f%%)\n', ...
-    nReliable, nValid, 100*nReliable/nValid);
+
+%% Detailed diagnostic output
+fprintf('\n  L3d current decomposition — detailed diagnostics:\n');
+fprintf('    Depth source: %s\n', L3.tidal.depth_source);
+fprintf('    Mean depth: %.2f m\n', d_mean);
+
+% Depth tidal signal
+dp = L3.tidal.depth_pred(validIdx);
+fprintf('    Tidal depth prediction:\n');
+fprintf('      min = %.2f m, max = %.2f m, range = %.2f m\n', ...
+    min(dp, [], 'omitnan'), max(dp, [], 'omitnan'), ...
+    max(dp, [], 'omitnan') - min(dp, [], 'omitnan'));
+fprintf('      NaN count: %d / %d\n', sum(isnan(dp)), length(dp));
+
+% Spot-check: print first 5 and last 5 tidal depth values with times
+fprintf('    First 5 tidal depth values:\n');
+vt = find(validIdx);
+for j = 1:min(5, length(vt))
+    fprintf('      %s  depth=%.3f m  tidal_pred=%.3f m\n', ...
+        datestr(L2.time(vt(j)), 'yyyy-mm-dd HH:MM'), ...
+        L2.depth(vt(j)), L3.tidal.depth_pred(vt(j)));
+end
+fprintf('    Last 5 tidal depth values:\n');
+for j = max(1, length(vt)-4):length(vt)
+    fprintf('      %s  depth=%.3f m  tidal_pred=%.3f m\n', ...
+        datestr(L2.time(vt(j)), 'yyyy-mm-dd HH:MM'), ...
+        L2.depth(vt(j)), L3.tidal.depth_pred(vt(j)));
+end
+
+% Correlation between PUV depth and tidal prediction
+goodD = ~isnan(dp) & ~isnan(L2.depth(validIdx));
+if sum(goodD) > 20
+    R_depth = corrcoef(L2.depth(vt(goodD)), dp(goodD));
+    fprintf('    PUV depth vs tidal pred: R = %.4f\n', R_depth(1,2));
+end
+
+% Velocity tidal signal
+fprintf('    Tidal currents:\n');
+fprintf('      u: range [%+.4f, %+.4f] m/s\n', ...
+    min(L3.tidal.u, [], 'omitnan'), max(L3.tidal.u, [], 'omitnan'));
+fprintf('      v: range [%+.4f, %+.4f] m/s\n', ...
+    min(L3.tidal.v, [], 'omitnan'), max(L3.tidal.v, [], 'omitnan'));
+fprintf('      Reliable segments: %d/%d (%.0f%%)\n', nReliable, nValid, 100*nReliable/nValid);
+
+% Subtidal residual
+fprintf('    Subtidal residual:\n');
+fprintf('      u mean = %+.4f m/s (cross-shore, - = offshore)\n', mean(L3.subtidal.u, 'omitnan'));
+fprintf('      v mean = %+.4f m/s (alongshore, + = north)\n', mean(L3.subtidal.v, 'omitnan'));
+fprintf('      u std  = %.4f m/s\n', std(L3.subtidal.u, 'omitnan'));
+fprintf('      v std  = %.4f m/s\n', std(L3.subtidal.v, 'omitnan'));
 
 %% Summary
 fprintf('  L3d current decomposition:\n');
