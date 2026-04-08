@@ -597,6 +597,74 @@
 \end{frame}
 
 % ==================================================================
+\section{TBR23 Paper Analysis}
+% ==================================================================
+
+% ------------------------------------------------------------------
+\begin{frame}{TBR23 Context: Post-Storm Recovery}
+  \begin{itemize}
+    \item Winter 2023 storms deposited $\sim$85~cm sand at 5~m depth
+    \item TBR23 deployment (May--Aug 2023) captures recovery phase
+    \item 22 jetski surveys + 4 PUV instruments at 5~m and 7~m depth
+    \item \textbf{Question}: what wave processes drive the recovery?
+  \end{itemize}
+\end{frame}
+
+% ------------------------------------------------------------------
+\begin{frame}{Wave Forcing and Bed Response}
+  \begin{center}
+    \includegraphics[width=0.95\textwidth]{/Users/holden/Documents/Scripps/Research/Paper_1/paper/figures/fig_forcing_response_v2.png}
+  \end{center}
+\end{frame}
+
+% ------------------------------------------------------------------
+\begin{frame}{Competing Transport Mechanisms}
+  \begin{itemize}
+    \item \textbf{Onshore: velocity skewness} ($S_{k} > 0$) ---
+          peaked crests drive bedload shoreward
+    \item \textbf{Offshore: undertow} (mean return flow) ---
+          opposes recovery
+    \item Both present simultaneously at all instruments
+    \item Balance determines net transport direction
+  \end{itemize}
+\end{frame}
+
+% ------------------------------------------------------------------
+\begin{frame}{Transport Analysis}
+  \begin{center}
+    \includegraphics[width=0.95\textwidth]{/Users/holden/Documents/Scripps/Research/Paper_1/paper/figures/fig_transport_mechanisms_v4.png}
+  \end{center}
+\end{frame}
+
+% ------------------------------------------------------------------
+\begin{frame}{Recovery Boundary at 6--7~m Depth}
+  \begin{itemize}
+    \item At 5.5~m: skewness flux 3--4$\times$ stronger than
+          undertow $\rightarrow$ net onshore (recovery)
+    \item At 8.3~m: undertow slightly dominates $\rightarrow$
+          near-equilibrium
+    \item Crossover at $\sim$6--7~m depth
+    \item Explains: mid-July recovery pulse at 5~m site but not
+          at 7~m sites
+    \item Tidal modulation provides depth range at each fixed
+          instrument
+  \end{itemize}
+\end{frame}
+
+% ------------------------------------------------------------------
+\begin{frame}{Key Physics}
+  \begin{itemize}
+    \item Skewness follows Ruessink et al.\ (2012) depth
+          parameterization
+    \item Undertow strengthens at high tide (more wave energy
+          at depth)
+    \item Low tide reduces undertow, enabling onshore recovery
+    \item MOP580\_5m excluded: kelp fouling produced artifact
+          negative $S_{k}$
+  \end{itemize}
+\end{frame}
+
+% ==================================================================
 \section{Key Findings and Next Steps}
 % ==================================================================
 
@@ -617,6 +685,8 @@
     \item \textbf{Full L1--L3 pipeline operational}: all 33 instruments
           processed through forcing characterization, storm detection,
           and transport proxy computation
+    \item \textbf{Full TBR23 analysis}: identified competing skewness
+          vs.\ undertow transport, recovery boundary at 6--7~m depth
   \end{enumerate}
 \end{frame}
 
@@ -636,19 +706,14 @@
 % ------------------------------------------------------------------
 \begin{frame}{Next Steps}
   \begin{itemize}
-    \item \textbf{Cross-deployment analysis}: expand when CDIP
-          THREDDS recovers (currently intermittent)
-    \item \textbf{IG / bound-wave quantification}: separate forced
+    \item \textbf{Bailard / Hoefel \& Elgar transport model}:
+          implementation for quantitative flux estimates
+    \item \textbf{L5 PUV--altimeter integration}: reconciled plan
+          ready for deployment
+    \item \textbf{IG / bound-wave analysis (L4)}: separate forced
           vs.\ free IG energy
-    \item \textbf{Tidal decomposition}: segment analysis by tidal
-          phase and water level
-    \item \textbf{Grain size integration}: laser diffraction
-          $D_{50}$ for site-specific bed roughness
-    \item \textbf{L3 transport calculations}: combine wave
-          statistics with morphology data
-    \item \textbf{Potential spinoff paper}: wave spectral shape
-          evolution during shoaling --- novel PUV-based
-          quantification of model spectral broadening
+    \item \textbf{TBR23 paper draft}: synthesize validation,
+          transport, and morphology results
   \end{itemize}
 \end{frame}
 

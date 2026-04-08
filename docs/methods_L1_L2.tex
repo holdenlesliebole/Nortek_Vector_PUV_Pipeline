@@ -25,7 +25,7 @@ gap were discarded.
 
 Quality control filters removed samples where: (1) pitch or roll exceeded
 $\pm\SI{5}{\degree}$; (2) pressure fell outside the range
-$[\bar{P}/2,\; 2\bar{P}]$, where $\bar{P}$ is the deployment median
+$[\overline{P}/2,\; 2\overline{P}]$, where $\overline{P}$ is the deployment median
 pressure; or (3) the minimum beam correlation dropped below 70\%, following
 Nortek recommendations. Flagged samples were set to NaN.
 
@@ -84,13 +84,13 @@ analysis, velocities were rotated to a shore-normal coordinate frame
 retrieved from the CDIP THREDDS server for the corresponding MOP station.
 
 For each valid segment, the mean pressure was used to compute the total
-water column depth $H = \bar{P} \times 10^4 / (\rho g) + z_s$, where
-$\bar{P}$ is the segment-mean pressure in \si{\deci\bar}, $\rho =
+water column depth $H = \overline{P} \times 10^4 / (\rho g) + z_s$, where
+$\overline{P}$ is the segment-mean pressure in dBar, $\rho =
 \SI{1025}{\kilogram\per\meter\cubed}$, $g = \SI{9.81}{\meter\per
 \second\squared}$, and $z_s$ is the pressure sensor height above the bed.
 Mean cross-shore, alongshore, and vertical velocities and temperature
 were recorded for each segment prior to detrending. The pressure time
-series was converted from \si{\deci\bar} to meters of water head, and
+series was converted from dBar to meters of water head, and
 all channels (pressure, $u$, $v$, $w$) were linearly detrended.
 
 \subsubsection{Spectral estimation}
