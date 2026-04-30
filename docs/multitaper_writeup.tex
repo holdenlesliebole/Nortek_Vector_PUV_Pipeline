@@ -1,0 +1,395 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath, amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage[hidelinks]{hyperref}
+
+\graphicspath{{../outputs/validation/}}
+
+\title{Multi-taper spectral estimation for PUV processing:\\
+       method comparison and recommendation}
+\author{Holden Leslie-Bole}
+\date{April 2026}
+
+\begin{document}
+\maketitle
+
+\section{Background}
+
+The PUV L2 spectral processor computes surface elevation spectra,
+directional coefficients, and derived wave parameters from 17-minute
+segments (2048 samples at 2~Hz). The original implementation uses
+Welch's method with a Hanning window, \texttt{nfft}~=~256, and 50\%
+overlap, giving a frequency resolution of $\Delta f = 0.0078$~Hz.
+This places approximately 3 frequency bins across a typical Southern
+California swell peak at 0.06--0.08~Hz.
+
+A multi-taper approach (Thomson, 1982) may be beneficial for
+two reasons: (1) DPSS tapers are optimal for minimizing spectral
+leakage, and (2) the variance reduction from multiple tapers enables
+longer FFT segments without sacrificing estimate stability, improving
+frequency resolution.
+
+\section{Methods}
+
+Three spectral estimation methods were tested on TBR23 MOP580\_7m
+(8.3~m depth, 4795 valid segments):
+
+\begin{enumerate}
+  \item \textbf{Hanning/Welch} (baseline): Hanning window,
+    \texttt{nfft}~=~256, 50\% overlap. Approximately 15 sub-segments
+    averaged per 17-minute record. $\Delta f = 0.0078$~Hz.
+
+  \item \textbf{Multi-taper hybrid}: DPSS tapers ($NW = 4$, $K = 7$
+    tapers) applied within Welch's framework using the same
+    \texttt{nfft}~=~256 sub-segments with 50\% overlap. Averages over
+    both tapers and sub-segments ($\sim$105 estimates per frequency
+    bin). $\Delta f = 0.0078$~Hz.
+
+  \item \textbf{Full multi-taper}: DPSS tapers ($NW = 4$, $K = 7$)
+    applied to the full 2048-sample segment. No sub-segment averaging;
+    variance controlled entirely by the 7 tapers.
+    $\Delta f = 0.00098$~Hz ($\sim$24 bins across the swell peak).
+\end{enumerate}
+
+All three methods use the same tapered-FFT machinery for both auto-
+and cross-spectra, preserving consistency between $S_{pp}$, $S_{uu}$,
+$S_{vv}$, $S_{pu}$, $S_{pv}$, and $S_{uv}$. Normalization was
+verified against Parseval's theorem using white noise (integral of PSD
+$= \sigma^2$ to within 1\% for all three methods). Downstream
+processing (pressure correction, bulk parameters, directional
+coefficients, radiation stress) is identical.
+
+\section{Spectral peakedness metric}
+
+The Goda peakedness parameter $Q_p$ (Goda, 1970) quantifies how
+concentrated spectral energy is around the peak frequency:
+\begin{equation}
+  Q_p = \frac{2}{m_0^2} \int_0^\infty f \, S_\eta^2(f) \, df
+\end{equation}
+where $m_0 = \int S_\eta(f)\,df$ is the zeroth spectral moment (total
+variance). $Q_p = 1$ for a flat (white noise) spectrum; narrow-banded
+swell produces $Q_p \sim 2$--4. A higher $Q_p$ indicates a sharper,
+more peaked spectrum. Because $Q_p$ depends on $S_\eta^2$, it is
+sensitive to the spectral estimator: a smoother PSD (e.g., Welch with
+coarse $\Delta f$) will produce lower $Q_p$ than a well-resolved
+estimate of the same wave field.
+
+\section{Results}
+
+\subsection{Bulk wave parameters}
+
+Table~\ref{tab:summary} compares median bulk parameters across all
+4795 valid segments. $H_s$ is essentially identical: the full
+multi-taper differs from Welch by 0.05~cm (0.08\%). Energy flux
+$E_f$ and radiation stress $S_{xx}$ are likewise unchanged. This
+confirms that integral quantities are insensitive to the spectral
+estimator, as expected from Parseval's theorem.
+
+\begin{table}[h]
+  \centering
+  \caption{Median bulk parameters for TBR23 MOP580\_7m (4795 segments).}
+  \label{tab:summary}
+  \begin{tabular}{@{}lccc@{}}
+    \toprule
+    Statistic & Welch & MTM hybrid & MTM full \\
+    \midrule
+    $H_s$ (m)             & 0.615 & 0.619 & 0.615 \\
+    $T_p$ (s)             & 12.80 & 10.67 & 13.30 \\
+    $E_f$ (W/m)           & 1560  & 1568  & 1561  \\
+    $S_{xx}$ (N/m)        & 240   & 231   & 241   \\
+    Z-test (SS)           & 0.789 & 0.806 & 0.791 \\
+    Spread (SS, deg)      & 17.6  & 19.1  & 16.6  \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Peak period $T_p$ is the one parameter that differs substantially.
+The Welch estimate (12.80~s) is quantized to $\Delta f = 0.0078$~Hz
+steps, meaning $T_p$ for 14-second swell can only take values of
+12.8, 14.2, or 15.9~s---jumps of more than a second. The full
+multi-taper ($\Delta f = 0.00098$~Hz) resolves $T_p$ to 13.30~s. The
+hybrid, despite using the same \texttt{nfft}~=~256, shifts $T_p$ to
+10.67~s because the DPSS taper shape alters the relative heights of
+adjacent spectral bins at coarse resolution.
+
+$H_s$ bias relative to Welch is +0.4~cm for the hybrid and +0.05~cm
+for the full multi-taper (Fig.~\ref{fig:bulk}).
+
+\subsection{Spectral shape}
+
+Figure~\ref{fig:spectra} shows the time-averaged surface elevation
+spectrum. The Welch estimate smears the swell peak across 3 bins. The
+full multi-taper resolves a sharp, narrow peak with fine structure
+that Welch cannot distinguish. The hybrid is intermediate---same
+frequency resolution as Welch but slightly different taper response.
+
+The single-segment comparison (Fig.~\ref{fig:single}) is more
+striking: at the peak segment ($H_s = 1.50$~m), the full multi-taper
+reveals a swell peak 2--3$\times$ taller and half the width of the
+Welch estimate. This is not additional energy---it is the same energy
+concentrated into a resolved peak rather than spread across adjacent
+bins.
+
+\subsection{Directional estimates}
+
+Swell-band directional spread narrows from 17.6$^\circ$ (Welch) to
+16.6$^\circ$ (full MTM). This $\sim$1$^\circ$ decrease is consistent
+with reduced cross-frequency averaging: finer resolution means each
+frequency bin samples a narrower directional window, reducing
+apparent spread. The hybrid gives wider spread (19.1$^\circ$), likely
+because DPSS tapers applied to short 256-sample sub-segments
+introduce more cross-frequency leakage than Hanning at this segment
+length.
+
+\subsection{Z-test}
+
+The pressure-velocity consistency ratio is unchanged across methods
+(median $\sim$0.79 in the SS band for all three;
+Fig.~\ref{fig:ztest}). The systematic departure from 1.0 is a
+property of the data (sensor geometry, non-hydrostatic effects), not
+the spectral estimator.
+
+\section{Implications for MOP comparison}
+
+The four-hypothesis analysis of the PUV--MOP spectral excess
+attributed the positive $H_s$ bias to MOP spectral peak broadening
+(H4). The MOP validation with full multi-taper processing is below
+to test whether the hypothesis results change. Table~\ref{tab:hyp}
+shows the comparison.
+
+\begin{table}[h]
+  \centering
+  \caption{MOP validation results: Welch vs.\ full multi-taper
+    (TBR23 MOP580\_7m).}
+  \label{tab:hyp}
+  \begin{tabular}{@{}lcc@{}}
+    \toprule
+    Metric & Welch & MTM full \\
+    \midrule
+    Median $Q_p$ (PUV)            & 1.88  & 2.15  \\
+    Median $Q_p$ (MOP)            & 1.75  & 1.74  \\
+    $Q_p$ ratio (PUV/MOP)         & 1.07  & 1.24  \\
+    H4: $R(\Delta Q_p,\;\text{Hs ratio})$ & 0.443 & 0.463 \\
+    H4: $R^2$                     & 0.197 & 0.214 \\
+    \midrule
+    H3: Low-swell ratio (PUV/MOP) & 1.048 & 1.060 \\
+    PUV spread (deg)              & 15.2  & 14.3  \\
+    MOP spread (deg)              & 9.8   & 9.8   \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The Welch/Hanning window estimator was broadening the PUV swell peak, partially
+masking the true peakedness difference. With full multi-taper, PUV
+$Q_p$ increases from 1.88 to 2.15 (14\% sharper) while MOP $Q_p$
+is unchanged (1.74--1.75). The $Q_p$ ratio nearly doubles from 1.07
+to 1.24: the PUV spectrum is 24\% more peaked than MOP, compared to
+the 7\% difference that Welch estimated. The H4 correlation
+strengthens from $R = 0.443$ to $R = 0.463$ ($R^2$: 0.197 to
+0.214).
+
+The other hypotheses are unaffected. H3 (bound long waves) remains
+ruled out: the low-swell ratio shifts marginally from 1.048 to
+1.060. H2 (directional narrowing) remains ruled out: PUV spread
+narrows slightly from 15.2$^\circ$ to 14.3$^\circ$ with MTM, but
+is still wider than MOP (9.8$^\circ$).
+
+The multi-taper result does not change which hypothesis is supported.
+H4 was and remains the only viable explanation. What it does
+change is the magnitude of the effect. The MOP model broadens the
+spectral peak by $\sim$24\% relative to the true spectrum, not
+$\sim$7\% as originally estimated with Welch processing.
+
+\section{Field validation against an independent prior pipeline}
+\label{sec:ruby2d}
+
+The internal MOP-comparison results in the previous section establish
+that switching to multi-taper changes spectral shape diagnostics in
+the expected direction without changing bulk parameters. To verify
+that the new estimator does not introduce biases relative to existing
+processing conventions in the lab, we ran a head-to-head test against
+an independent prior pipeline
+(\texttt{beachpeeps/PUV\_Processing}) on the Ruby2D deployment.
+
+\subsection{Setup}
+
+We reprocessed the Ruby2D MOP582\_6m record (Torrey Pines, October 2021
+to February 2022, $\sim$3,100~hours) by adapting the legacy archived
+L1 file directly into the new L2 processor. The L1 struct from the prior pipeline
+shares its key fields (\texttt{time}, \texttt{P}, \texttt{BuoyCoord},
+\texttt{fs}) with the new format, so the only adapter required was setting
+\texttt{label}, \texttt{deploymentName}, and \texttt{doffp}.
+
+The two pipelines differ in three relevant respects:
+\begin{enumerate}
+  \item \emph{Spectral estimator}: the new pipeline uses full multi-taper
+    ($NW = 4$, $K = 7$ DPSS tapers, $\Delta f = 0.000976$~Hz);
+    the legacy estimator is a single Hanning periodogram on the full 60-minute segment
+    ($\Delta f = 0.000278$~Hz).
+  \item \emph{Window consistency}: the new pipeline uses the same DPSS tapers for
+    both auto- and cross-spectra; the legacy code uses Hanning for auto-spectra
+    and Hamming for cross-spectra.
+  \item \emph{Pressure correction}: the new pipeline zeros frequencies where
+    $K_p < 0.1$; the legacy code caps $K_p^2 \le 10$ with no SNR-based cutoff.
+\end{enumerate}
+
+The legacy 60-minute segments were matched to the new 17-minute segments by
+midpoint nearest neighbor with a 30-minute tolerance, yielding 2,322
+matched pairs out of the 3,095 total legacy segments (75\%; the remaining
+25\% are hours that the new pipeline rejects under
+\texttt{nanMaxFrac} = 0.10 but that the legacy pipeline retains by
+zero-padding NaN gaps).
+
+\subsection{Bulk parameter agreement}
+
+\begin{table}[h]
+  \centering
+  \caption{Ruby2D MOP582\_6m: bulk wave parameter agreement, the new
+    multi-taper pipeline vs.\ the legacy archived L2. $T_p$ statistics
+    are computed after restricting both estimates to the SS band
+    (4--25~s); without this filter, three segments on January 15,
+    2022 in the prior pipeline report $T_p$ at the IG/DC bin
+    (1200, 1800, 3600~s) because the prior pipeline's peak picker is
+    not band-limited.}
+  \label{tab:ruby2d}
+  \begin{tabular}{@{}lccccc@{}}
+    \toprule
+    Metric & Legacy (med.) & Multi-taper (med.) & Bias (M$-$L) & RMS & $R^2$ \\
+    \midrule
+    $H_s$ (m)             & 0.771  & 0.757  & $-0.009$ & 0.053 & 0.981 \\
+    $T_p$ (s)             & 13.48  & 13.30  & $-0.02$  & 1.48  & 0.761 \\
+    Direction SS ($^\circ$)    & $-7.3$ & $-7.2$ & $+0.2$   & 1.2   & 0.927 \\
+    Spread SS ($^\circ$)       & 14.7   & 15.8   & $+1.0$   & 1.7   & 0.877 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The agreement is excellent (Table~\ref{tab:ruby2d}). $H_s$ matches
+to 5~cm RMS with a $-9$~mm median bias; direction matches to
+$1.2^\circ$~RMS. The spread is $1^\circ$ wider in the new pipeline on
+average, the largest systematic offset observed and well within
+segment-to-segment scatter. The window-mismatch issue in the prior
+pipeline (auto-Hanning, cross-Hamming) does not produce the
+order-20\% directional errors that we initially feared --- at Ruby2D
+MOP582\_6m, the practical impact is approximately $1^\circ$.
+
+\subsection{Spectral shape}
+
+Per-segment surface elevation spectra agree closely in shape.
+Figure~\ref{fig:ruby2d_spec} compares both pipelines at a representative
+median segment ($H_s = 0.77$~m) and at a storm peak
+($H_s = 2.78$~m, bimodal sea state). For the spectrum overlay, the
+17-minute multi-taper spectra were averaged over the three or four segments inside
+the prior pipeline's 60-minute window so that both estimates cover the
+same time period. Integrated $H_s$ from the spectra agrees to within
+4\% in both cases. The visible difference is the chi-square noise of a
+single-periodogram estimator versus the variance reduction from
+averaging seven DPSS tapers; the underlying peak shapes and locations
+agree.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.95\textwidth]{Ruby2D/ruby2d_582_6m_spectra.png}
+  \caption{Surface elevation spectra at two representative
+    segments for Ruby2D MOP582\_6m. Top: median segment
+    ($H_s = 0.77$~m, November 27, 2021). Bottom: storm peak
+    ($H_s = 2.78$~m, December 14, 2021). Left: log scale, full SS
+    band. Right: linear scale, swell band detail. The multi-taper
+    estimates (blue) are smoother than the prior single-periodogram
+    estimates (red); peak locations, peak heights, and total variance
+    agree.}
+  \label{fig:ruby2d_spec}
+\end{figure}
+
+\subsection{Implications}
+
+Two conclusions follow from the head-to-head test:
+
+\begin{itemize}
+  \item The multi-taper pipeline reproduces an independent prior
+    pipeline to within instrument noise on bulk wave parameters.
+    Prior Ruby2D bulk wave statistics --- and any analyses that rely
+    on them --- do not require revision.
+  \item The improvements that multi-taper provides are exactly the
+    expected ones: variance reduction in the spectral estimate and
+    the elimination of edge cases (the prior pipeline's
+    non-band-limited peak picker and inconsistent auto/cross
+    windowing). Bulk parameters were already converged.
+\end{itemize}
+
+The Ruby2D test also surfaced one open question worth flagging: the
+median Z-test (pressure-velocity consistency) ratio in the SS band
+is 1.02 in the prior pipeline and 0.76 in the new pipeline, the same systematic
+0.79 we observe across TBR23. The two pipelines use the same
+definition, so the most likely explanations are that the prior
+pipeline computes the diagnostic on uncorrected $S_{pp}$ rather than
+the pressure-corrected $S_{\eta}$, or that we have a normalization
+issue worth checking. This is on the followup list but does not
+affect any of the bulk parameters reported above.
+
+\section{Conclusions}
+
+The full multi-taper ($NW = 4$, \texttt{nfft}~=~2048) should be the
+default spectral method. The implementation is now a drop-in replacement
+controlled by a single option
+(\texttt{opts.spectralMethod~=~'mtm\_full'}). Backward compatibility
+is preserved since $H_s$, $E_f$, and $S_{xx}$ are unchanged to within
+0.1\%. $T_p$ improves from quantized 0.008~Hz steps to continuous
+0.001~Hz resolution. Spectral shape diagnostics ($Q_p$, bandwidth,
+spectral excess) are more physically meaningful.
+
+The hybrid approach (DPSS within Welch sub-segments) does not offer
+clear advantages at \texttt{nfft}~=~256 and introduces a spurious
+$T_p$ shift and thus is not recommended.
+
+Processing time increases from 0.7~min to 2.7~min per instrument
+(TBR23 MOP580\_7m, 5285 segments). For the full pipeline (33
+instruments), this adds $\sim$1 hour to a complete reprocessing run.
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=\textwidth]{spectral_method_comparison_spectra.png}
+  \caption{Time-averaged surface elevation spectra for TBR23
+    MOP580\_7m (8.3~m depth, 4795 segments). Left: full SS band.
+    Right: swell peak detail. The full multi-taper (green) resolves a
+    sharp swell peak that Welch (blue) smears across 3 frequency
+    bins.}
+  \label{fig:spectra}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=\textwidth]{spectral_method_comparison_bulk.png}
+  \caption{Bulk parameter comparison across 4795 segments. Top row:
+    scatter plots of MTM vs.\ Welch for $H_s$, $T_p$, directional
+    spread, and $S_{xx}$. Bottom row: difference histograms for $H_s$
+    and $T_p$. $H_s$ is identical across methods; $T_p$ shows
+    discrete quantization bands in Welch (horizontal stripes in
+    scatter) that the full multi-taper resolves continuously.}
+  \label{fig:bulk}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=\textwidth]{spectral_method_comparison_single_seg.png}
+  \caption{Single-segment spectral comparison at the peak energy
+    segment ($H_s = 1.50$~m). The full multi-taper resolves a swell
+    peak 2--3$\times$ taller than the Welch estimate. Total energy
+    (area under the curve) is identical.}
+  \label{fig:single}
+\end{figure}
+
+\begin{figure}[p]
+  \centering
+  \includegraphics[width=\textwidth]{spectral_method_comparison_ztest.png}
+  \caption{Z-test distributions (pressure--velocity consistency) for
+    the SS and IG bands. All three methods produce indistinguishable
+    distributions, confirming the systematic departure from 1.0 is a
+    data property, not a windowing artifact.}
+  \label{fig:ztest}
+\end{figure}
+
+\end{document}

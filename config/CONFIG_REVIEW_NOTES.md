@@ -1,10 +1,11 @@
 # Config Review Notes
 
-Items to revisit before running L1 processing on NN24 data.
+Items to revisit for the winter 2023-24 campaign instruments
+(TOR23W and SOL23, formerly bundled as NN24).
 
 ---
 
-## Clock drift — 7 of 9 NN24 instruments have `clockDrift = NaN`
+## Clock drift — 7 of 9 winter 2023-24 instruments have `clockDrift = NaN`
 
 The clock drift correction in `PUV_raw_process.m` will be skipped for any instrument
 with `NaN`. Check field notes/lab notebooks to see if any of these can be filled in:
@@ -23,17 +24,17 @@ Source: `/Volumes/group/DeploymentNotes/DeploymentNotes2023-2024.xls`, sheet 'Al
 
 ---
 
-## MOP580_5m (NN24) — battery depletion
+## MOP580_5m (TOR23W) — battery depletion
 
 Battery depleted before recovery. Data record is likely truncated. Verify the end of
 the time series before using this instrument in any analysis.
 
-File prefix: `TORREY02` (unusual — all other NN24 instruments follow the standard
+File prefix: `TORREY02` (unusual — all other TOR23W instruments follow the standard
 `{depth}M_{probeID}_MOP{line}` convention).
 
 ---
 
-## Time-varying headings — two NN24 instruments
+## Time-varying headings — two TOR23W instruments
 
 ### MOP586_15m
 - Heading shifted ~3 degrees during the Dec 28, 2023 storm event.
@@ -62,7 +63,7 @@ The TBR23_Notes.xlsx has no explicit serial number column. Serial numbers in
 `TBR23_config.m` come from folder names on the lab server. The file prefix numbers
 (e.g., 58002, 58602) appear to be Nortek **probe IDs**, not instrument serial numbers.
 The folder-name numbers (e.g., 16739, 17042) are consistent with the instrument
-serial numbers in the 2023 checkout spreadsheet and NN24 deployment notes.
+serial numbers in the 2023 checkout spreadsheet and TOR23W/SOL23 deployment notes.
 
 For instruments where these differ, both are recorded in the config comments.
 

@@ -62,14 +62,14 @@ Related directories:
 ## Key Design Decisions
 
 ### Segment length: 17 minutes (2048 samples @ 2 Hz)
-The original Athina Lange pipeline used 1-hour segments with tidal fitting.
+The original Ruby2D pipeline used 1-hour segments with tidal fitting.
 This was abandoned because tidal artifacts persisted even after fitting.
 The canonical approach is 17-min segments with detrending.
 **Do not reintroduce tidal fitting or 3-hour segments.**
 
 Tradeoffs documented:
-- 17 min: better temporal resolution, robust detrending, ~34 DOF (pwelch, 50% overlap),
-  df ≈ 0.001 Hz, standard in nearshore literature
+- 17 min: better temporal resolution, robust detrending, multi-taper estimator
+  with NW=4 (7 DPSS tapers), df ≈ 0.001 Hz, standard in nearshore literature
 - 1 hour: finer frequency resolution, better IG band coverage — not worth the
   tidal contamination at these depths
 
@@ -173,9 +173,10 @@ The function does `load('moplist.mat')` relying on MATLAB path. The file is in
 copy placed in `PUV_Pipeline/shared/`. The function also makes a live CDIP
 THREDDS call to get shore-normal angle — requires internet access at runtime.
 
-### NN24 instruments with NaN clock drift
-7 of 9 NN24 instruments have unknown clock drift (battery depletion or missing
-field notes). See `config/CONFIG_REVIEW_NOTES.md` for full list.
+### TOR23W/SOL23 instruments with NaN clock drift
+7 of 9 instruments from the winter 2023-24 campaign (formerly NN24) have
+unknown clock drift (battery depletion or missing field notes).
+See `config/CONFIG_REVIEW_NOTES.md` for full list.
 
 ---
 
@@ -195,7 +196,7 @@ field notes). See `config/CONFIG_REVIEW_NOTES.md` for full list.
 
 ---
 
-## Current Status (as of April 5, 2026)
+## Current Status (as of April 9, 2026)
 
 ### L1 — complete, 33/40 instruments processed
 - Variability-based tilt QC (2° rolling std threshold, 30° absolute cap)
@@ -205,20 +206,40 @@ field notes). See `config/CONFIG_REVIEW_NOTES.md` for full list.
 - See `docs/deployment_database_overview.md` for full instrument-by-instrument status
 
 ### L2 — complete, 33/33 instruments processed
-- 17-min (2048 @ 2 Hz) segments, detrend, Wu pressure correction, ~34 DOF pwelch
+- 17-min (2048 @ 2 Hz) segments, detrend, Wu pressure correction
+- **Spectral method: full multi-taper** (NW=4, 7 DPSS tapers, nfft=2048,
+  df ≈ 0.001 Hz). Welch with Hanning still available via
+  `opts.spectralMethod = 'welch'`. See `docs/multitaper_writeup.pdf` for
+  comparison and recommendation rationale.
+- Both auto-spectra (Spp, Suu, Svv) and cross-spectra (Spu, Spv, Suv)
+  computed with the same DPSS tapers — preserves spectral consistency
+  for directional analysis (a1, b1, a2, b2)
 - Shore-normal rotation via CDIP THREDDS with fallback to buoy coords
+- Z-test (pressure-velocity consistency) and radiation stress tensor
+  (Sxx, Syy, Sxy from a2/b2) computed and stored
 - **D50 = 0.25 mm placeholder** — real grain size data from Laser Particle Analyzer
   campaign expected soon. Bed stress can be recomputed from stored Ub and Tp.
 - **Wu pressure correction**: standard linear wave theory Kp = cosh(k*z)/cosh(k*H).
   Confirmed identical to Wu (1986) approximation and Bill O'Reilly's modified
   coefficients — all three methods produce same Kp to 4-5 decimal places.
 
-### Validation — complete, confirmed across TBR23 + NN24
+### Validation — complete, confirmed across TBR23 + TOR23W/SOL23
 - PUV-MOP comparison: Hs R² = 0.83–0.86 for good instruments
 - Spectral shape analysis: MOP spectral peak broadening identified as root cause
   of systematic positive Hs bias (R(Qp)=0.30–0.63 across 11 instruments)
 - Ruled out: nonlinear shoaling, directional narrowing, bound long waves
 - Full hypothesis testing suite in `validation/`
+- **Ruby2D head-to-head vs the legacy pipeline (April 9, 2026)**: 2,322 matched
+  60-min segments on MOP582_6m, Oct 2021 – Feb 2022. Hs RMS 5 cm (R² = 0.98),
+  direction RMS 1.2° (R² = 0.93), spread RMS 1.7° (R² = 0.88). Multi-taper
+  pipeline reproduces an independent prior pipeline within instrument noise;
+  the window mismatch we expected to find a strong directional signature
+  for is small in practice (~1°). Spectral shapes are visibly smoother
+  (variance reduction) but the underlying peak structure agrees. See
+  `docs/pipeline_comparison_legacy.md` for the full writeup and
+  `outputs/validation/Ruby2D/` for the figures and numeric summary.
+  Comparison scripts: `scripts/process_ruby2d_one.m`,
+  `scripts/extract_legacy_bulk.m`, `scripts/compare_ruby2d.m`.
 
 ### L3 / Paper 1 wrapper — not yet written
 Thin wrapper in `Paper 1/DataCodes/` calling shared pipeline with TBR23 config.

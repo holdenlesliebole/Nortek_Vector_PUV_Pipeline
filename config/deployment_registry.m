@@ -11,7 +11,8 @@ function registry = deployment_registry()
 %   Deployment naming convention:
 %     SITE + year(s) + optional season letter
 %     TBR23    = Torrey Black's Rock summer 2023
-%     NN24     = Nortek November 2023-2024 (multi-site winter deployment)
+%     TOR23W   = Torrey winter 2023-24 (was part of NN24)
+%     SOL23    = Solana winter 2023-24 (was part of NN24)
 %     TOR24S   = Torrey spring 2024
 %     TOR24W   = Torrey winter 2024-25
 %     TOR25S   = Torrey spring 2025
@@ -25,8 +26,9 @@ function registry = deployment_registry()
     registry = containers.Map();
 
     % --- Original configs (fully parameterized from DeploymentNotes) ---
-    registry('TBR23') = @TBR23_config;
-    registry('NN24')  = @NN24_config;
+    registry('TBR23')  = @TBR23_config;
+    registry('TOR23W') = @TOR23W_config;    % Nov 2023-Feb 2024, 6 instruments (was NN24 Torrey)
+    registry('SOL23')  = @SOL23_config;     % Nov 2023-Jan 2024, 3 instruments (was NN24 Solana)
 
     % --- Torrey Pines (post-TBR23/NN24) ---
     registry('TOR24S') = @TOR24S_config;     % Feb-May 2024, 5 instruments

@@ -12,7 +12,7 @@ function cfg = TBR23_config()
 %   Serial numbers: Taken from raw data folder names. Note that the file
 %   prefix numbers (e.g., 58602) may be Nortek probe IDs rather than
 %   instrument serial numbers. The folder-name serials (e.g., 17042) match
-%   redeployments in the NN24 winter deployment notes.
+%   redeployments in the TOR23W winter deployment notes.
 
     cfg.name        = 'TBR23';
     cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector/Torrey20230503-20230816';

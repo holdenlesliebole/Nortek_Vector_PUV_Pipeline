@@ -12,7 +12,7 @@ Use the at-deployment value.
 
 ## Already filled (no action needed)
 - TBR23: 0.75–0.77 m (from TBR23_Notes.xlsx)
-- NN24: 0.60–1.09 m (from DeploymentNotes2023-2024.xls)
+- TOR23W / SOL23: 0.60–1.09 m (from DeploymentNotes2023-2024.xls)
 
 ## Need lookup from DeploymentNotes2024-2025.xls
 

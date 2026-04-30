@@ -1,7 +1,7 @@
 # PUV Pipeline — Master To-Do List
 
 Tracks tasks across all processing levels. Grouped by priority.
-Updated: April 8, 2026
+Updated: April 9, 2026
 
 ---
 
@@ -24,6 +24,7 @@ Updated: April 8, 2026
 - [x] Hypothesis testing: 4 mechanisms tested, MOP peak broadening confirmed
 - [x] Tidal validation: NOAA Scripps Pier gauge R=0.995, UTC confirmed
 - [x] L2 product verification: 8/8 checks pass
+- [x] Ruby2D head-to-head vs legacy pipeline (MOP582_6m): Hs RMS 5 cm, R²=0.98; Dir RMS 1.2°, R²=0.93. See `pipeline_comparison_legacy.md` and `outputs/validation/Ruby2D/`
 
 ### TBR23 Paper Analysis — first pass complete
 - [x] Loaded MOPS survey data (22 jetski surveys during deployment)
@@ -78,6 +79,13 @@ Updated: April 8, 2026
 - [ ] Update Beamer slides with TBR23 analysis results
 - [ ] Brian meeting feedback: review failed instruments, any data recoverable?
 
+### Ruby2D follow-ups (from April 2026 head-to-head)
+- [ ] Investigate Z-test discrepancy: legacy ~1.0 vs ours ~0.76 (same systematic ~0.79 in TBR23). Check whether legacy computes Z on uncorrected vs corrected Spp, or whether ours has a normalization bug
+- [ ] Investigate 25% match-rate gap: which Ruby2D hours does our pipeline drop? Likely `nanMaxFrac = 0.10` rejection. Decide whether to relax for backward-compatibility runs
+- [ ] Confirm Ruby2D `doffp = 0.60 m` against `DeploymentNotes2021Torrey.xls` (currently a placeholder in `process_ruby2d_one.m`)
+- [ ] Run full Ruby2D campaign through our pipeline (other instruments beyond 582_6m) once doffp is confirmed
+- [ ] Optional: extend the head-to-head to other Ruby2D instruments to confirm the bulk-parameter agreement holds across the deployment
+
 ### L5: PUV-Altimeter Integration
 - [ ] Build L5 merge function (reconciled plan in docs/altimeter_correlation_plan.md)
 - [ ] Start with TOR24S MOP586 (co-located, multi-depth)
@@ -89,7 +97,7 @@ Updated: April 8, 2026
 ## Medium-term (spinoff papers)
 
 ### L4: IG / Bound Wave Dynamics
-- [ ] Review Athina Lange's Ruby2D code for methods
+- [ ] Review the legacy Ruby2D code for methods
 - [ ] Implement bispectral analysis (bicoherence)
 - [ ] Bound vs free IG wave separation
 - [ ] Cross-instrument IG coherence for multi-instrument arrays

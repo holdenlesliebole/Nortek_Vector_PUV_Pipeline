@@ -8,8 +8,8 @@ function cfg = Solana_config(deployment_name)
 %
 %   Note: SOL24 uses ENU coordinate system. SOL25A and SOL25B use XYZ.
 %
-%   For NN24-era Solana instruments (MOP651/654, Nov 2023 - Jan 2024),
-%   see NN24_config.m.
+%   For the winter 2023-24 Solana instruments (MOP651/654, Nov 2023 - Jan 2024),
+%   see SOL23_config.m (previously part of NN24).
 
     cfg.name      = deployment_name;
     cfg.fs        = 2;  % Hz

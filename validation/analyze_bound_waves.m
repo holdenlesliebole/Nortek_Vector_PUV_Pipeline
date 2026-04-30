@@ -304,15 +304,18 @@ legend('Location', 'northeast');
 xlim([0.01 0.3]); grid on;
 
 subplot(2,1,2)
-excess = meanPUV - meanMOP;
-area(f_puv, max(excess, 0), 'FaceColor', [0.3 0.6 1.0], 'FaceAlpha', 0.5, ...
+% Normalize to percent of total energy, then difference
+puvPct = meanPUV / trapz(f_puv, meanPUV) * 100;
+mopPct = meanMOP / trapz(f_puv, meanMOP) * 100;
+excessPct = puvPct - mopPct;
+area(f_puv, max(excessPct, 0), 'FaceColor', [0.3 0.6 1.0], 'FaceAlpha', 0.5, ...
     'EdgeColor', 'b', 'DisplayName', 'PUV excess'); hold on
-area(f_puv, min(excess, 0), 'FaceColor', [1.0 0.5 0.3], 'FaceAlpha', 0.5, ...
+area(f_puv, min(excessPct, 0), 'FaceColor', [1.0 0.5 0.3], 'FaceAlpha', 0.5, ...
     'EdgeColor', 'r', 'DisplayName', 'MOP excess');
 yline(0, 'k-');
 xlabel('Frequency (Hz)');
-ylabel('\DeltaS_\eta (m^2/Hz)');
-title('Mean spectral difference (PUV − MOP)');
+ylabel('\Delta energy (% / Hz)');
+title('Normalized spectral difference (PUV − MOP)');
 legend('Location', 'northeast');
 xlim([0.01 0.3]); grid on;
 

@@ -25,19 +25,28 @@ Please review the table below and the questions at the end. Any corrections or a
 | LPL25A | LPL_8m | 12412 | Mar -- Jun 2025 | ENU | 0.85 | NaN | OK | MOP D0591. Tilt correction applied (pitch = -1.4 deg). |
 | LPL25B | LPL_8m | 12412 | Dec 2025 -- Feb 2026 | XYZ | 0.80 | NaN | OK | MOP D0591. Tilt < 1 deg. |
 
-### North Nearshore (NN24) — Nov 2023 to Jan/Feb 2024
+### Torrey Pines Winter 2023-24 (TOR23W) — Nov 2023 to Jan/Feb 2024
+
+Previously bundled with the Solana Beach instruments as "NN24" (El Niño
+and Beach Nourishment campaign); split into TOR23W and SOL23 by location
+in April 2026.
 
 | Deployment | Instrument | S/N | Date Range | Coord | doffp (m) | Clock Drift | L1 Status | Notes |
 |---|---|---|---|---|---|---|---|---|
-| NN24 | MOP580_5m | 17047 | Nov 2023 -- Jan/Feb 2024 | XYZ | 0.60 | NaN (battery depleted) | OK | Tilt < 1 deg. |
-| NN24 | MOP580_7m | 17042 | Nov 2023 -- Jan/Feb 2024 | XYZ | 0.90 | NaN | OK | Tilt < 1 deg. |
-| NN24 | MOP586_5m | 17043 | Nov 2023 -- Jan/Feb 2024 | XYZ | 0.65 | 5s fast | OK | Tilt < 1 deg. |
-| NN24 | MOP586_7m | 16739 | Nov 2023 -- Jan/Feb 2024 | XYZ | 0.67 | 6s fast | OK | Tilt correction (pitch = 1.3 deg). |
-| NN24 | MOP586_10m | 16306 | Nov 2023 -- Jan/Feb 2024 | XYZ | 1.00 | NaN | OK | Single burst file. Tilt correction (pitch = 1.6 deg). |
-| NN24 | MOP586_15m | 15277 | Nov 2023 -- Jan/Feb 2024 | XYZ | 1.00 | NaN ("2 week clock drift!?") | OK | Tilt correction (pitch = 1.3 deg). |
-| NN24 | MOP651_5m | 17045 | Nov 2023 -- Jan/Feb 2024 | XYZ | 0.88 | NaN (battery depleted) | **FAILED** | No valid pressure data. Instrument lost 2 years, found Dec 2025 with severely bent pipe. |
-| NN24 | MOP651_7m | 16310 | Nov 2023 -- Jan/Feb 2024 | XYZ | 1.09 | NaN | OK | Tilt correction (pitch = -3.1 deg, roll = 4.7 deg). |
-| NN24 | MOP654_7m | 17036 | Nov 2023 -- Jan/Feb 2024 | XYZ | 1.08 | NaN | OK | Tilt correction (pitch = -0.5 deg, roll = -3.6 deg). |
+| TOR23W | MOP580_5m | 17047 | Nov 2023 -- Jan/Feb 2024 | XYZ | 0.60 | NaN (battery depleted) | OK | Tilt < 1 deg. |
+| TOR23W | MOP580_7m | 17042 | Nov 2023 -- Jan/Feb 2024 | XYZ | 0.90 | NaN | OK | Tilt < 1 deg. |
+| TOR23W | MOP586_5m | 17043 | Nov 2023 -- Jan/Feb 2024 | XYZ | 0.65 | 5s fast | OK | Tilt < 1 deg. |
+| TOR23W | MOP586_7m | 16739 | Nov 2023 -- Jan/Feb 2024 | XYZ | 0.67 | 6s fast | OK | Tilt correction (pitch = 1.3 deg). |
+| TOR23W | MOP586_10m | 16306 | Nov 2023 -- Jan/Feb 2024 | XYZ | 1.00 | NaN | OK | Single burst file. Tilt correction (pitch = 1.6 deg). |
+| TOR23W | MOP586_15m | 15277 | Nov 2023 -- Jan/Feb 2024 | XYZ | 1.00 | NaN ("2 week clock drift!?") | OK | Tilt correction (pitch = 1.3 deg). |
+
+### Solana Beach Winter 2023-24 (SOL23) — Nov 2023 to Jan 2024
+
+| Deployment | Instrument | S/N | Date Range | Coord | doffp (m) | Clock Drift | L1 Status | Notes |
+|---|---|---|---|---|---|---|---|---|
+| SOL23 | MOP651_5m | 17045 | Nov 2023 -- Jan 2024 | XYZ | 0.88 | NaN (battery depleted) | **FAILED** | No valid pressure data. Instrument lost 2 years, found Dec 2025 with severely bent pipe. |
+| SOL23 | MOP651_7m | 16310 | Nov 2023 -- Jan 2024 | XYZ | 1.09 | NaN | OK | Tilt correction (pitch = -3.1 deg, roll = 4.7 deg). |
+| SOL23 | MOP654_7m | 17036 | Nov 2023 -- Jan 2024 | XYZ | 1.08 | NaN | OK | Tilt correction (pitch = -0.5 deg, roll = -3.6 deg). |
 
 ### Scripps (SIO) Deployments
 
@@ -102,19 +111,19 @@ Please review the table below and the questions at the end. Any corrections or a
 
 | | Count |
 |---|---|
-| Total deployments | 20 |
+| Total deployments | 21 |
 | Total instruments | 38 |
 | L1 processing succeeded | 33 |
 | L1 processing failed | 5 |
 | Unique serial numbers | 16 |
-| Instruments with clock drift measured | 6 (TBR23 + two NN24 instruments) |
+| Instruments with clock drift measured | 6 (TBR23 + two TOR23W instruments) |
 | Instruments with tilt correction applied | 22 |
 
 ### Failed Instruments
 
 | Deployment | Instrument | S/N | Failure Reason |
 |---|---|---|---|
-| NN24 | MOP651_5m | 17045 | Battery depleted early. Instrument lost 2 years, pipe severely bent. |
+| SOL23 | MOP651_5m | 17045 | Battery depleted early. Instrument lost 2 years, pipe severely bent. |
 | SIO24B | SIO_6m | 16310 | Knocked over (32 deg tilt). Beam correlations < 10%. |
 | SIO24C | SIO_6m | 15033 | Battery depleted 12/31/2024. All beam correlations very low. |
 | SIO25A | SIO_6m | 15277 | Started upside down (pitch = -168 deg). Power pin corrosion. Beam correlations stayed low. |
@@ -136,7 +145,7 @@ Please review the table below and the questions at the end. Any corrections or a
 
 4. **TOR24S MOP586_15m (S/N 15277):** Can you confirm this instrument had no usable data? The deployment notes mention pipe issues but we want to make sure we are not missing a workaround.
 
-5. **NN24 MOP651_5m (S/N 17045):** Confirmed dead in our pipeline -- battery depleted early in the NN24 deployment, instrument was lost for 2 years, found Dec 2025 with severely bent pipe. Any chance of partial data recovery, or should we mark this as permanently lost?
+5. **SOL23 MOP651_5m (S/N 17045):** Confirmed dead in our pipeline -- battery depleted early in the winter 2023-24 Solana deployment, instrument was lost for 2 years, found Dec 2025 with severely bent pipe. Any chance of partial data recovery, or should we mark this as permanently lost?
 
 6. **General -- clock drift for battery-depleted instruments:** For instruments where clock drift = NaN because the battery died before recovery (no end-time comparison possible), is there any alternative source for drift estimation? Logbook entries, GPS checks, anything we could use?
 

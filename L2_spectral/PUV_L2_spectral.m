@@ -6,7 +6,10 @@ function L2 = PUV_L2_spectral(PUV, instr, opts)
 %   Segments the L1 QC'd timeseries into 17-minute (2048-sample @ 2 Hz)
 %   windows and computes:
 %     - Surface elevation spectrum (Wu pressure correction)
+%     - Directional coefficients (a1, b1, a2, b2)
 %     - Bulk wave parameters (Hs, Tp, mean direction, energy flux)
+%     - Z-test (pressure vs velocity spectral consistency)
+%     - Radiation stress tensor (Sxx, Syy, Sxy; Herbers & Guza 1989)
 %     - Near-bed orbital velocity (IFFT linear wave theory)
 %     - Bed shear stress (Swart 1974)
 %     - Reynolds stress and TKE
@@ -49,8 +52,10 @@ if ~isfield(opts, 'g'),          opts.g          = 9.81;          end
 if ~isfield(opts, 'D50'),        opts.D50        = 0.25e-3;       end  % TODO: replace with real grain size from Laser Particle Analyzer
 if ~isfield(opts, 'fIG'),        opts.fIG        = [0.004, 0.04]; end
 if ~isfield(opts, 'fSS'),        opts.fSS        = [0.04, 0.25];  end
-if ~isfield(opts, 'doRotate'),   opts.doRotate   = true;          end
-if ~isfield(opts, 'nanMaxFrac'), opts.nanMaxFrac = 0.10;          end
+if ~isfield(opts, 'doRotate'),       opts.doRotate       = true;          end
+if ~isfield(opts, 'nanMaxFrac'),     opts.nanMaxFrac     = 0.10;          end
+if ~isfield(opts, 'spectralMethod'), opts.spectralMethod = 'mtm_full';     end  % 'welch', 'mtm_hybrid', 'mtm_full'
+if ~isfield(opts, 'NW'),            opts.NW             = 4;              end  % time-bandwidth product for multi-taper
 
 fs     = PUV.fs;
 segLen = opts.segLen;
@@ -94,12 +99,29 @@ end
 W = PUV.BuoyCoord.W;
 
 %% ======================== PRE-ALLOCATE ========================
-% Get frequency vector from a dummy pwelch call
 nfft     = opts.nfft;
 noverlap = round(nfft * opts.overlap);
-win      = hanning(nfft);
-[~, f]   = pwelch(zeros(segLen, 1), win, noverlap, nfft, fs);
-nf       = length(f);
+
+switch opts.spectralMethod
+    case 'welch'
+        win = hanning(nfft);
+        [~, f] = pwelch(zeros(segLen, 1), win, noverlap, nfft, fs);
+    case 'mtm_hybrid'
+        % DPSS tapers used within Welch sub-segments (same nfft as welch)
+        win = [];  % not used; psd_multitaper handles its own tapers
+        [~, ~, f] = psd_multitaper(zeros(segLen, 1), [], nfft, fs, opts.NW);
+    case 'mtm_full'
+        % Full multi-taper on the entire segment (nfft = segLen)
+        nfft = segLen;
+        noverlap = 0;
+        win = [];
+        [~, ~, f] = psd_multitaper(zeros(nfft, 1), [], nfft, fs, opts.NW);
+    otherwise
+        error('PUV_L2_spectral:badMethod', ...
+            'Unknown spectralMethod: %s. Use welch, mtm_hybrid, or mtm_full.', ...
+            opts.spectralMethod);
+end
+nf = length(f);
 
 % Spectra [nf x nSeg]
 L2.S_eta = NaN(nf, nSeg);
@@ -109,6 +131,8 @@ L2.Svv   = NaN(nf, nSeg);
 L2.Kp    = NaN(nf, nSeg);
 L2.a1    = NaN(nf, nSeg);
 L2.b1    = NaN(nf, nSeg);
+L2.a2    = NaN(nf, nSeg);
+L2.b2    = NaN(nf, nSeg);
 
 % Scalars [nSeg x 1]
 nanVec = NaN(nSeg, 1);
@@ -148,6 +172,20 @@ L2.vmom.skewness  = nanVec;
 L2.vmom.asymmetry = nanVec;
 L2.vmom.u_abs3    = nanVec;
 L2.vmom.u_uabs2   = nanVec;
+% Added 2026-04-09 for Paper_1 transport model (Bailard suspended moment +
+% Drake-Calantoni a_spike). compute_velocity_moments already returns these.
+L2.vmom.u_uabs3   = nanVec;
+L2.vmom.a2        = nanVec;
+L2.vmom.a3        = nanVec;
+
+% Z-test: pressure vs velocity consistency (should be ~1.0)
+L2.ztest_SS = nanVec;
+L2.ztest_IG = nanVec;
+
+% Radiation stress (integrated over SS band, Pa·m = N/m)
+L2.Sxx = nanVec;
+L2.Syy = nanVec;
+L2.Sxy = nanVec;
 
 %% ======================== SEGMENT LOOP ========================
 tStart = tic;
@@ -203,14 +241,23 @@ for i = 1:nSeg
     vSeg   = detrend(vSeg);
     wSeg   = detrend(wSeg);
 
-    % --- Power spectral density (Welch) ---
-    [Spp, ~] = pwelch(pSeg_m, win, noverlap, nfft, fs);
-    [Suu, ~] = pwelch(uSeg,   win, noverlap, nfft, fs);
-    [Svv, ~] = pwelch(vSeg,   win, noverlap, nfft, fs);
-
-    % --- Cross-spectra for directional analysis ---
-    [Spu, ~] = cpsd(pSeg_m, uSeg, win, noverlap, nfft, fs);
-    [Spv, ~] = cpsd(pSeg_m, vSeg, win, noverlap, nfft, fs);
+    % --- Power spectral density and cross-spectra ---
+    switch opts.spectralMethod
+        case 'welch'
+            [Spp, ~] = pwelch(pSeg_m, win, noverlap, nfft, fs);
+            [Suu, ~] = pwelch(uSeg,   win, noverlap, nfft, fs);
+            [Svv, ~] = pwelch(vSeg,   win, noverlap, nfft, fs);
+            [Spu, ~] = cpsd(pSeg_m, uSeg, win, noverlap, nfft, fs);
+            [Spv, ~] = cpsd(pSeg_m, vSeg, win, noverlap, nfft, fs);
+            [Suv, ~] = cpsd(uSeg,   vSeg, win, noverlap, nfft, fs);
+        case {'mtm_hybrid', 'mtm_full'}
+            [Spp, ~,   ~] = psd_multitaper(pSeg_m, [],   nfft, fs, opts.NW);
+            [Suu, ~,   ~] = psd_multitaper(uSeg,   [],   nfft, fs, opts.NW);
+            [Svv, ~,   ~] = psd_multitaper(vSeg,   [],   nfft, fs, opts.NW);
+            [~,   Spu, ~] = psd_multitaper(pSeg_m, uSeg, nfft, fs, opts.NW);
+            [~,   Spv, ~] = psd_multitaper(pSeg_m, vSeg, nfft, fs, opts.NW);
+            [~,   Suv, ~] = psd_multitaper(uSeg,   vSeg, nfft, fs, opts.NW);
+    end
 
     % --- Pressure correction (Wu method) ---
     [S_eta, Kp_seg, fCut] = pressure_correction_wu(Spp, f, H, PUV.doffp, opts.KpMin);
@@ -229,6 +276,10 @@ for i = 1:nSeg
     L2.a1(:,i) = real(Spu) ./ sqrt(Spp .* Spp_uv + eps);
     L2.b1(:,i) = real(Spv) ./ sqrt(Spp .* Spp_uv + eps);
 
+    % Second-harmonic coefficients (from velocity spectra only)
+    L2.a2(:,i) = (Suu - Svv) ./ (Spp_uv + eps);
+    L2.b2(:,i) = 2 * real(Suv) ./ (Spp_uv + eps);
+
     % --- Bulk wave parameters ---
     bulk = compute_bulk_params(S_eta, Suu, Svv, Spu, Spv, f, H, opts);
     L2.Hs(i)      = bulk.Hs;
@@ -238,6 +289,53 @@ for i = 1:nSeg
     L2.Tm02(i)    = bulk.Tm02;
     L2.meanDir(i) = bulk.meanDir;
     L2.Ef(i)      = bulk.Ef;
+
+    % --- Z-test: pressure vs velocity consistency ---
+    % Convert velocity spectra to equivalent pressure units using linear
+    % wave theory transfer function, then compare with measured Spp.
+    % Z = Spp / (Suu_pres + Svv_pres). Values near 1.0 indicate
+    % consistent P-U-V measurements; departures flag sensor issues.
+    omega = 2*pi*f;
+    k_seg = get_wavenumber(omega(2:end), H);
+    vel2pres = zeros(nf, 1);
+    f_nz = f(2:end);
+    vel2pres(2:end) = (opts.g * k_seg(:)) ./ (2*pi*f_nz(:)) .* ...
+        cosh(k_seg(:) * PUV.doffp) ./ cosh(k_seg(:) * H);
+    Spp_from_vel = (Suu + Svv) .* vel2pres.^2;
+
+    iSS = f >= opts.fSS(1) & f <= opts.fSS(2);
+    iIG = f >= opts.fIG(1) & f <  opts.fIG(2);
+
+    % Energy-weighted Z-test per band
+    if sum(S_eta(iSS)) > 0
+        L2.ztest_SS(i) = sum(Spp(iSS) .* S_eta(iSS)) / ...
+                         sum(Spp_from_vel(iSS) .* S_eta(iSS) + eps);
+    end
+    if sum(S_eta(iIG)) > 0
+        L2.ztest_IG(i) = sum(Spp(iIG) .* S_eta(iIG)) / ...
+                         sum(Spp_from_vel(iIG) .* S_eta(iIG) + eps);
+    end
+
+    % --- Radiation stress (Herbers & Guza 1989, after Longuet-Higgins) ---
+    % Sxx = rho*g * integral{ S_eta * [n*(1 + a2)/2 + n/2 - 1/2] df }
+    % Simplified using n = cg/c:
+    %   Sxx(f) = S_eta(f) * [(1.5 + 0.5*a2)*n - 0.5]
+    %   Syy(f) = S_eta(f) * [(1.5 - 0.5*a2)*n - 0.5]
+    %   Sxy(f) = S_eta(f) * [0.5*b2*n]
+    n_ratio = zeros(nf, 1);
+    cg_seg = get_cg(k_seg, H);
+    c_seg  = omega(2:end) ./ k_seg(:);  % phase speed
+    n_ratio(2:end) = cg_seg(:) ./ c_seg(:);  % cg / c
+    a2_seg = L2.a2(:,i);
+    b2_seg = L2.b2(:,i);
+
+    Sxx_f = S_eta .* ((1.5 + 0.5*a2_seg) .* n_ratio - 0.5);
+    Syy_f = S_eta .* ((1.5 - 0.5*a2_seg) .* n_ratio - 0.5);
+    Sxy_f = S_eta .* (0.5 * b2_seg .* n_ratio);
+
+    L2.Sxx(i) = opts.rho * opts.g * trapz(f(iSS), Sxx_f(iSS));
+    L2.Syy(i) = opts.rho * opts.g * trapz(f(iSS), Syy_f(iSS));
+    L2.Sxy(i) = opts.rho * opts.g * trapz(f(iSS), Sxy_f(iSS));
 
     % --- Near-bed velocity (IFFT method) ---
     [uBed, vBed] = bed_velocity_ifft(uSeg, vSeg, fs, H, PUV.doffp, opts.g);
@@ -266,6 +364,9 @@ for i = 1:nSeg
     L2.vmom.asymmetry(i) = vmom.asymmetry;
     L2.vmom.u_abs3(i)    = vmom.u_abs3;
     L2.vmom.u_uabs2(i)   = vmom.u_uabs2;
+    L2.vmom.u_uabs3(i)   = vmom.u_uabs3;   % Bailard suspended moment
+    L2.vmom.a2(i)        = vmom.a2;        % Drake-Calantoni denominator
+    L2.vmom.a3(i)        = vmom.a3;        % Drake-Calantoni numerator
 
     % --- Progress ---
     if mod(i, 500) == 0

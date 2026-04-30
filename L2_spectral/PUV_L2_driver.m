@@ -74,6 +74,27 @@ for k = 1:nInstr
                 '%s: only %.0f%% of segments valid — check L1 QC diagnostics.', ...
                 instr.label, validPct);
         end
+
+        % Run MOP validation if this instrument has a MOP station
+        if isfield(instr, 'mopStation') && ~isempty(instr.mopStation)
+            fprintf('  Running bound wave validation...\n');
+            try
+                analyze_bound_waves(L2);
+                fprintf('  Bound wave figures saved.\n');
+            catch valME
+                warning('PUV_L2_driver:validationFailed', ...
+                    'Bound wave validation failed for %s: %s', instr.label, valME.message);
+            end
+
+            fprintf('  Running directional spread comparison...\n');
+            try
+                compare_directional_spread(L2);
+                fprintf('  Directional spread figures saved.\n');
+            catch valME
+                warning('PUV_L2_driver:validationFailed', ...
+                    'Directional spread comparison failed for %s: %s', instr.label, valME.message);
+            end
+        end
     catch ME
         warning('PUV_L2_driver:instrumentFailed', ...
             'FAILED: %s\nReason: %s\nStack: %s', ...

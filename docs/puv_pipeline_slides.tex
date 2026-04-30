@@ -1,5 +1,5 @@
 % PUV Pipeline — Beamer Slide Deck
-% Last updated: April 5, 2026
+% Last updated: April 8, 2026
 
 \documentclass[10pt, aspectratio=169]{beamer}
 \usetheme{Madrid}
@@ -10,8 +10,20 @@
 \usepackage{booktabs}
 \usepackage{amsmath}
 \usepackage{graphicx}
-\graphicspath{{../outputs/validation/}}
 \usepackage{xcolor}
+\usepackage{tikz}
+
+% Uncomment the next two lines to generate a PDF with speaker notes
+% \usepackage{pgfpages}
+% \setbeameroption{show notes on second screen=right}
+
+% ------------------------------------------------------------------
+% Graphics paths — search validation first, then L1 diagnostics
+% ------------------------------------------------------------------
+\graphicspath{
+  {../outputs/validation/}
+  {../outputs/L1/diagnostics/}
+}
 
 % ------------------------------------------------------------------
 % Metadata
@@ -23,20 +35,33 @@
 \date{April 2026}
 
 % Footer with last-updated stamp and frame numbers
-\setbeamertemplate{frame footer}{Last updated: April 5, 2026}
+\setbeamertemplate{frame footer}{Last updated: April 8, 2026}
 \setbeamertemplate{frame numbering}[fraction]
-
-% Shorthand for figure path
-\graphicspath{{../outputs/validation/}}
 
 % ------------------------------------------------------------------
 \begin{document}
 
 \maketitle
 
+\note{
+  Thanks for coming. This talk covers the PUV wave measurement pipeline
+  I've been building for the past two years --- how we go from raw ADV
+  data to validated wave statistics and transport proxies, and what
+  we've learned along the way about spectral bias between in-situ
+  measurements and the MOP wave model.
+}
+
 \begin{frame}{Outline}
   \tableofcontents
 \end{frame}
+
+\note{
+  I'll start with the motivation and instrument network, walk through
+  L1 and L2 processing with examples, then spend time on validation
+  against MOP and the hypothesis testing that came out of that.
+  Then L3 forcing products, what L4 and L5 will add, and finally
+  how all of this feeds into the TBR23 beach recovery paper.
+}
 
 % ==================================================================
 \section{Overview}
@@ -56,6 +81,17 @@
           raw Nortek Vector data to validated wave statistics
   \end{itemize}
 \end{frame}
+
+\note{
+  The core problem: we need wave forcing at the depths where sediment
+  actually moves, not just offshore buoy data. CDIP's MOP model gives
+  us spectral predictions at 10~m depth, but we had no systematic way
+  to validate those predictions or extract the higher-order products
+  --- bed velocity, stresses, skewness --- that drive transport.
+  PUV sensors on the bottom give us all three components
+  (pressure + two horizontal velocities) without the mooring
+  headaches of a surface buoy in the surfzone.
+}
 
 % ------------------------------------------------------------------
 \begin{frame}{Instrument Network}
@@ -77,30 +113,77 @@
     \end{column}
     \begin{column}{0.42\textwidth}
       \includegraphics[width=\textwidth]{site_map.png}
+
+      \vspace{0.3em}
+      {\scriptsize Five sites along the San Diego coast with MOP
+      transect lines. Symbols mark PUV instrument locations at
+      5--15~m depth.}
     \end{column}
   \end{columns}
 \end{frame}
 
+\note{
+  This map shows our five sites spanning about 30~km of the San Diego
+  coast. The colored lines are MOP transects --- those are the model
+  output locations we validate against. We've put instruments at
+  multiple depths along the same transect at Torrey Pines, which
+  gives us cross-shore arrays to look at depth dependence.
+  The SIO Pier site sits right at the edge of Scripps Canyon, which
+  turns out to produce some interesting focusing effects.
+  40 instruments total across 20 deployments --- not all survived,
+  as we'll see.
+}
+
 % ------------------------------------------------------------------
 \begin{frame}{Pipeline Architecture}
-  \begin{enumerate}
-    \item \textbf{L1 --- Raw to QC}\\
-          Ingest burst files $\rightarrow$ clock drift correction
-          $\rightarrow$ quality control $\rightarrow$ tilt correction
-          $\rightarrow$ coordinate rotation
-    \item \textbf{L2 --- Spectral Analysis}\\
-          Segmentation $\rightarrow$ Welch PSD / cross-spectra
-          $\rightarrow$ pressure correction $\rightarrow$ bulk
-          parameters, bed velocity, stresses
-    \item \textbf{Validation}\\
-          PUV vs.\ CDIP MOP wave model, spectral bias investigation
-    \item \textbf{Analysis scripts}\\
-          Cross-deployment diagnostics, hypothesis testing
-  \end{enumerate}
-  \vspace{0.5em}
+  \begin{center}
+  \begin{tikzpicture}[
+    box/.style={draw, rounded corners, minimum width=3.2cm,
+                minimum height=0.9cm, align=center, font=\small},
+    arr/.style={->, thick, >=stealth}
+  ]
+    \node[box, fill=blue!15] (L1) at (0,0)
+      {\textbf{L1} --- Raw to QC\\clock, tilt, rotation};
+    \node[box, fill=green!15] (L2) at (5,0)
+      {\textbf{L2} --- Spectral\\PSD, $K_p$, bulk params};
+    \node[box, fill=orange!15] (L3) at (10,0)
+      {\textbf{L3} --- Forcing\\bands, storms, transport};
+    \node[box, fill=red!8] (L4) at (2.5,-1.8)
+      {\textbf{L4} --- IG dynamics\\bispectral, bound/free};
+    \node[box, fill=purple!10] (L5) at (7.5,-1.8)
+      {\textbf{L5} --- Altimeter\\bed level + waves};
+    \node[box, fill=yellow!20] (val) at (10,-1.8)
+      {\textbf{Validation}\\vs.\ MOP model};
+    \draw[arr] (L1) -- (L2);
+    \draw[arr] (L2) -- (L3);
+    \draw[arr] (L1.south) -- (L4.north);
+    \draw[arr] (L2.south) -- (L4.north east);
+    \draw[arr] (L2.south) -- (L5.north);
+    \draw[arr] (L2.south east) -- (val.north);
+  \end{tikzpicture}
+  \end{center}
+  \vspace{0.3em}
+  \begin{itemize}
+    \item L1--L3: \textbf{universal} --- same outputs for any deployment
+    \item L4--L5: \textbf{analysis-specific} --- IG dynamics and
+          bed-level integration
+    \item All code: MATLAB, GitHub-tracked
+  \end{itemize}
+  \vspace{0.3em}
   \footnotesize
   GitHub: \texttt{holdenlesliebole/Nortek\_Vector\_PUV\_Pipeline}
 \end{frame}
+
+\note{
+  The pipeline is structured in levels. L1 through L3 are universal
+  --- you can run any deployment through them and get the same
+  standardized output struct. L4 and L5 are analysis-specific and
+  still in development. L4 does bispectral analysis to separate bound
+  and free infragravity waves. L5 merges PUV wave data with
+  co-located altimeter bed-level measurements. The validation branch
+  compares L2 outputs against the MOP wave model. Everything is in
+  MATLAB and version-controlled on GitHub.
+}
 
 % ==================================================================
 \section{L1 Processing}
@@ -122,6 +205,19 @@
   \end{itemize}
 \end{frame}
 
+\note{
+  Each instrument produces three file types. The .dat file has the
+  actual velocity and pressure samples, .sen has pitch/roll/heading
+  and diagnostics, and .hdr is the configuration header. A single
+  deployment can be 100 million samples at 2~Hz over several months,
+  so parsing speed matters --- textscan is significantly faster than
+  readtable for this. Clock drift is typically a few seconds over a
+  3-month deployment; we correct it by linear interpolation between
+  the deployment time and the recovery time recorded in the field
+  notes. When the battery dies, we often see a gap longer than 1
+  second, so everything after that gets discarded.
+}
+
 % ------------------------------------------------------------------
 \begin{frame}{Quality Control --- Old vs.\ New Approach}
   \begin{columns}[T]
@@ -133,8 +229,7 @@
         \item Problematic when pipes bend during storms ---
               stable but non-zero tilt is \emph{correctable}
       \end{itemize}
-    \end{column}
-    \begin{column}{0.48\textwidth}
+      \vspace{0.5em}
       \textbf{New: Variability-based QC}
       \begin{itemize}
         \item Rolling std of pitch/roll over 60~s windows
@@ -144,48 +239,130 @@
         \item Stable tilts \emph{retained} and corrected
       \end{itemize}
     \end{column}
+    \begin{column}{0.50\textwidth}
+      \includegraphics[width=\textwidth]{TBR23_MOP580_7m_L1_QC.png}
+
+      \vspace{0.3em}
+      {\scriptsize L1 QC diagnostic for TBR23 MOP580 at 8.3~m depth.
+      Top two panels: pitch and roll time series (blue) with QC flags (red).
+      Third panel: rolling standard deviation of tilt with the
+      $2^\circ$ variability threshold (dashed). Bottom: pressure
+      record confirming continuous data collection.}
+    \end{column}
   \end{columns}
 \end{frame}
 
+\note{
+  The old approach threw out any data where the instrument tilted more
+  than 5 degrees. The problem is that storm waves can bend the
+  mounting pipe, so the instrument sits at a stable 8 or 10 degree
+  tilt for the rest of the deployment. That tilt is constant and
+  correctable --- it's not noise. Our new approach looks at the
+  variability of pitch and roll in 60-second windows. If the
+  instrument is rocking back and forth by more than 2 degrees, that's
+  real instability and we flag it. But a steady tilt gets retained
+  and corrected in the next step. You can see in this diagnostic plot
+  that pitch and roll are stable throughout this deployment --- the
+  variability stays well below the threshold.
+}
+
 % ------------------------------------------------------------------
 \begin{frame}{Tilt Correction}
-  Sample-by-sample 3D rotation using measured pitch ($\phi$) and
-  roll ($\theta$):
-  %
-  \begin{equation*}
-    \mathbf{R} = \mathbf{R}_\text{roll}(\theta)\;\mathbf{R}_\text{pitch}(\phi)
-    = \begin{bmatrix}
-        1 & 0 & 0 \\
-        0 & \cos\theta & -\sin\theta \\
-        0 & \sin\theta &  \cos\theta
-      \end{bmatrix}
-      \begin{bmatrix}
-        \cos\phi & 0 & \sin\phi \\
-        0 & 1 & 0 \\
-        -\sin\phi & 0 & \cos\phi
-      \end{bmatrix}
-  \end{equation*}
-  %
-  \begin{itemize}
-    \item Applied \emph{before} heading rotation to buoy coordinates
-    \item Corrects velocity components for instrument tilt
-    \item Critical for instruments with bent mounting pipes
-          (post-storm)
-  \end{itemize}
+  \begin{columns}[T]
+    \begin{column}{0.55\textwidth}
+      Sample-by-sample 3D rotation using measured pitch ($\phi$) and
+      roll ($\theta$):
+      %
+      \begin{equation*}
+        \mathbf{R} = \mathbf{R}_\text{roll}(\theta)\;
+        \mathbf{R}_\text{pitch}(\phi)
+      \end{equation*}
+      %
+      \begin{equation*}
+        = \begin{bmatrix}
+            1 & 0 & 0 \\
+            0 & \cos\theta & -\sin\theta \\
+            0 & \sin\theta &  \cos\theta
+          \end{bmatrix}
+          \begin{bmatrix}
+            \cos\phi & 0 & \sin\phi \\
+            0 & 1 & 0 \\
+            -\sin\phi & 0 & \cos\phi
+          \end{bmatrix}
+      \end{equation*}
+      %
+      \begin{itemize}
+        \item Applied \emph{before} heading rotation to buoy
+              coordinates
+        \item Corrects velocity components for instrument tilt
+        \item Recovers data from bent mounting pipes (post-storm)
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.43\textwidth}
+      \includegraphics[width=\textwidth]{tilt_correction_example.png}
+
+      \vspace{0.3em}
+      {\scriptsize U--W scatter for SOL23 MOP651 (7~m) with
+      pitch~$= -5.8^\circ$, roll~$= 8.7^\circ$ (bent pipe).
+      (a)~Before correction: slope $= -0.084$, matching
+      $\sin(\text{tilt}) = -0.100$ (dotted). (b)~After rotation:
+      slope reduced to $+0.053$.}
+    \end{column}
+  \end{columns}
 \end{frame}
+
+\note{
+  This is a straightforward Euler rotation --- we apply the roll
+  matrix first, then pitch. The key detail is that this happens
+  before we rotate into geographic coordinates using the compass
+  heading. For instruments on bent pipes, this correction removes
+  a systematic bias in the vertical velocity component. Without it,
+  a 10-degree tilt projects about 17 percent of the horizontal
+  velocity into the vertical, which contaminates Reynolds stress
+  and TKE estimates. The correction is sample-by-sample, not
+  burst-averaged, because tilt can change within a burst during
+  storm conditions.
+}
 
 % ------------------------------------------------------------------
 \begin{frame}{Coordinate Rotation}
-  \begin{itemize}
-    \item Instrument XYZ $\rightarrow$ geographic buoy coordinates
-    \item Convention: $+x$ West, $+y$ North, $+z$ Up (left-handed,
-          MOP-consistent)
-    \item Heading from deployment notes $+$ magnetic declination via
-          IGRF-13 model at deployment location and epoch
-    \item Shore-normal rotation applied later in L2 using CDIP
-          THREDDS shore-normal angle for each MOP station
-  \end{itemize}
+  \begin{columns}[T]
+    \begin{column}{0.50\textwidth}
+      \begin{itemize}
+        \item Instrument XYZ $\rightarrow$ geographic buoy coordinates
+        \item Convention: $+x$ West, $+y$ North, $+z$ Up
+              (left-handed, MOP-consistent)
+        \item Heading from deployment notes $+$ magnetic declination
+              via IGRF-13 model at deployment location and epoch
+        \item Shore-normal rotation applied later in L2 using CDIP
+              THREDDS shore-normal angle for each MOP station
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \includegraphics[width=\textwidth]{TBR23_MOP580_7m_mean_direction.png}
+
+      \vspace{0.3em}
+      {\scriptsize Mean wave direction vs.\ frequency for TBR23
+      MOP580 at 8.3~m. Red: MOP model (10~m). Blue: PUV
+      observation (8.3~m). Dashed: shore-normal angle
+      ($264^\circ$). PUV direction converges toward shore-normal
+      at swell frequencies, consistent with refraction.}
+    \end{column}
+  \end{columns}
 \end{frame}
+
+\note{
+  After tilt correction, we rotate from instrument coordinates to
+  geographic coordinates using the compass heading and magnetic
+  declination from the IGRF-13 model. The convention follows MOP:
+  +x west, +y north, +z up. This is a left-handed coordinate system,
+  which matches what CDIP uses. The figure shows mean wave direction
+  as a function of frequency --- the PUV direction at swell
+  frequencies converges toward the shore-normal, exactly what you'd
+  expect from refraction bringing waves in toward the coast.
+  The shore-normal rotation happens later in L2, where we pull the
+  angle from CDIP's THREDDS server for each MOP station.
+}
 
 % ------------------------------------------------------------------
 \begin{frame}{L1 Processing Results}
@@ -194,15 +371,44 @@
     (\textbf{82.5\%})
   \end{center}
   \vspace{0.5em}
-  \textbf{7 failures} --- all hardware-related:
-  \begin{itemize}
-    \item Instrument burial (sand accretion)
-    \item Bent or broken mounting pipes
-    \item Dead / depleted batteries (no usable data)
-  \end{itemize}
-  \vspace{0.5em}
-  No failures attributable to the processing pipeline itself.
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \textbf{7 failures} --- all hardware-related:
+      \begin{itemize}
+        \item Instrument burial (sand accretion)
+        \item Bent or broken mounting pipes
+        \item Dead / depleted batteries (no usable data)
+      \end{itemize}
+      \vspace{0.5em}
+      No failures attributable to the processing pipeline itself.
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \small
+      \begin{tabular}{@{}lcc@{}}
+        \toprule
+        \textbf{Site} & \textbf{Processed} & \textbf{Failed} \\
+        \midrule
+        Torrey Pines & 23 & 3 \\
+        SIO Pier     &  6 & 3 \\
+        Solana Beach &  5 & 1 \\
+        Los Pe\~nasquitos & 4 & 0 \\
+        \bottomrule
+      \end{tabular}
+    \end{column}
+  \end{columns}
 \end{frame}
+
+\note{
+  33 out of 40 instruments made it through L1. Every failure was
+  hardware: sand burial, broken pipes from storm waves, or batteries
+  that died before recovery. SIO Pier had the worst survival rate ---
+  three of its instruments failed, likely because the canyon focuses
+  wave energy at that site. The pipeline itself never failed; every
+  instrument with recoverable data produced valid output. The 33
+  successful instruments span all five sites and depths from 5 to
+  15 meters, so we have good coverage for cross-site and
+  cross-depth comparisons.
+}
 
 % ==================================================================
 \section{L2 Spectral Analysis}
@@ -211,80 +417,205 @@
 % ------------------------------------------------------------------
 \begin{frame}{Segmentation}
   \begin{itemize}
-    \item \textbf{Segment length}: 2048 samples = 17.1~min
-          at 2~Hz
+    \item \textbf{Segment length}: 2048 samples = 17.1~min at 2~Hz
     \item Non-overlapping segments
     \item \textbf{NaN policy}: segments with $>$10\% NaN discarded;
           $\leq$10\% filled by linear interpolation
     \item Segment-mean pressure $\rightarrow$ water depth $H$
     \item All channels linearly detrended before spectral analysis
   \end{itemize}
+  \vspace{0.5em}
+  {\footnotesize
+  \textbf{Typical deployment yield}: TBR23 at 8.3~m depth
+  $\rightarrow$ 5228 valid segments over 63 days
+  ($\approx$83 segments/day, 99.7\% fill rate).}
 \end{frame}
+
+\note{
+  Each segment is 2048 samples, which at 2 Hz gives us 17.1 minutes.
+  That's long enough to get stable spectral estimates but short
+  enough to track tidal modulation of depth. Non-overlapping because
+  we want independent estimates. The NaN policy is practical ---
+  a few dropped samples from a communication glitch get interpolated,
+  but if more than 10 percent of a segment is missing, we throw it
+  out. Detrending removes any slow pressure drift or mean current
+  from the spectra. For a typical deployment like TBR23 at 8.3 m,
+  we get about 5200 segments over two months, so the fill rate
+  is excellent.
+}
 
 % ------------------------------------------------------------------
 \begin{frame}{Spectral Estimation}
-  \begin{itemize}
-    \item \textbf{Method}: Welch's averaged periodogram
-    \item Sub-segments: $N_\text{fft} = 256$ samples (128~s)
-    \item \textbf{Window}: Hanning, 50\% overlap
-    \item $\approx$\textbf{34 effective DOF} per segment
-    \item Frequency resolution: $\Delta f \approx
-          0.0078~Hz$, range 0--1~Hz
-    \item \textbf{Cross-spectra}: $S_{pu}$, $S_{pv}$ computed with
-          same windowing for directional coefficients $a_1$, $b_1$
-  \end{itemize}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \begin{itemize}
+        \item \textbf{Method}: Welch's averaged periodogram
+        \item Sub-segments: $N_\text{fft} = 256$ samples (128~s)
+        \item \textbf{Window}: Hanning, 50\% overlap
+        \item $\approx$\textbf{34 effective DOF} per segment
+        \item $\Delta f \approx 0.0078~\text{Hz}$,
+              range 0--1~Hz
+        \item \textbf{Cross-spectra}: $S_{pu}$, $S_{pv}$ for
+              directional coefficients $a_1$, $b_1$
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.50\textwidth}
+      \includegraphics[width=\textwidth]{TBR23_MOP580_7m_spectral_overlay.png}
+
+      \vspace{0.3em}
+      {\scriptsize Six example segments from TBR23 MOP580 (8.3~m).
+      Blue: PUV surface elevation spectrum $S_\eta(f)$ after
+      pressure correction. Red: MOP shoaled to PUV depth.
+      Vertical dashed lines mark $f_\text{cut}$ where $K_p < 0.1$.
+      Note the consistent excess at the swell peak (0.06--0.08~Hz).}
+    \end{column}
+  \end{columns}
 \end{frame}
+
+\note{
+  The spectral estimation is standard Welch with Hanning windows and
+  50\% overlap. With 256-sample sub-segments inside each 2048-sample
+  segment, we get about 34 effective degrees of freedom, which gives
+  reasonably tight confidence intervals. The figure shows six example
+  spectra comparing PUV against MOP. The key thing to notice is the
+  swell peak --- in almost every panel, the PUV spectrum (blue) sits
+  above the MOP spectrum (red) right at the peak frequency, around
+  0.06 to 0.08 Hz. That's the bias that motivated our hypothesis
+  testing. Also note the high-frequency cutoff: above about 0.3 Hz,
+  we zero out the spectrum because the pressure correction factor
+  $K_p$ drops below 0.1 and the signal is dominated by noise.
+}
 
 % ------------------------------------------------------------------
 \begin{frame}{Pressure Correction}
-  Surface elevation spectrum from pressure:
-  %
-  \begin{equation*}
-    S_\eta(f) = \frac{S_p(f)}{K_p^2(f)}, \qquad
-    K_p(f) = \frac{\cosh(k\, z_s)}{\cosh(k\, H)}
-  \end{equation*}
-  %
-  \begin{itemize}
-    \item Wavenumber $k(f)$: linear dispersion relation
-          $\omega^2 = g k \tanh(kH)$ solved via Newton's method
-    \item \textbf{Cutoff}: $K_p < 0.1$ $\Rightarrow$ set
-          $S_\eta(f) = 0$ (noise suppression)
-    \item Resulting $f_\text{cut}$ recorded per segment
-    \item Verified: Newton, Wu (1986), and O'Reilly formulations
-          produce identical $K_p$ (see Validation section)
-  \end{itemize}
+  \begin{columns}[T]
+    \begin{column}{0.50\textwidth}
+      Surface elevation spectrum from pressure:
+      %
+      \begin{equation*}
+        S_\eta(f) = \frac{S_p(f)}{K_p^2(f)}, \qquad
+        K_p(f) = \frac{\cosh(k\, z_s)}{\cosh(k\, H)}
+      \end{equation*}
+      %
+      \begin{itemize}
+        \item Wavenumber $k(f)$: linear dispersion relation
+              $\omega^2 = g k \tanh(kH)$ solved via Newton's method
+        \item \textbf{Cutoff}: $K_p < 0.1$ $\Rightarrow$ set
+              $S_\eta(f) = 0$ (noise suppression)
+        \item Resulting $f_\text{cut}$ recorded per segment
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \includegraphics[width=\textwidth]{wavenumber_comparison_H8m.png}
+
+      \vspace{0.3em}
+      {\scriptsize Wavenumber $k(f)$ at 8~m depth from three
+      formulations: Newton's method (baseline), Wu (1986)
+      approximation, and O'Reilly coefficients. All three
+      produce identical results, confirming that the pressure
+      correction is not sensitive to the wavenumber solver.}
+    \end{column}
+  \end{columns}
 \end{frame}
+
+\note{
+  The pressure correction is the most important step in PUV processing.
+  At the bottom, pressure fluctuations from surface waves are
+  attenuated exponentially with depth, so we need to amplify the
+  measured pressure spectrum to recover the surface spectrum. The
+  transfer function $K_p$ depends on the wavenumber, which we get
+  from the linear dispersion relation solved by Newton's method.
+  A natural concern is whether the wavenumber solver introduces bias.
+  The figure shows that three independent formulations give identical
+  results, so the solver is not the issue. The cutoff at $K_p = 0.1$
+  prevents noise amplification at high frequencies where the pressure
+  signal is essentially zero.
+}
 
 % ------------------------------------------------------------------
 \begin{frame}{Bulk Wave Parameters}
-  \begin{itemize}
-    \item $H_s = 4\sqrt{m_0}$, computed separately for:
+  \begin{columns}[T]
+    \begin{column}{0.50\textwidth}
       \begin{itemize}
-        \item Sea--swell: 0.04--0.25~Hz
-        \item Infragravity: 0.004--0.04~Hz
+        \item $H_s = 4\sqrt{m_0}$, computed separately for:
+          \begin{itemize}
+            \item Sea--swell: 0.04--0.25~Hz
+            \item Infragravity: 0.004--0.04~Hz
+          \end{itemize}
+        \item Peak period $T_p = 1/f_p$ (max $S_\eta$ in SS band)
+        \item Mean period $T_{m02} = \sqrt{m_0/m_2}$
+        \item Mean direction from $a_1$, $b_1$ (PUV cross-spectra)
+        \item Energy flux
+              $F = \rho g \int c_g(f)\, S_\eta(f)\, df$
       \end{itemize}
-    \item Peak period $T_p = 1/f_p$ (max $S_\eta$ in SS band)
-    \item Mean period $T_{m02} = \sqrt{m_0/m_2}$
-    \item Mean direction from $a_1$, $b_1$ (PUV cross-spectra)
-    \item Energy flux
-          $F = \rho g \int c_g(f)\, S_\eta(f)\, df$
-  \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \includegraphics[width=\textwidth]{annotated_spectrum_example.png}
+
+      \vspace{0.3em}
+      {\scriptsize Example $S_\eta(f)$ from TBR23 MOP580 (8.3~m).
+      Dashed lines mark IG/sea-swell band boundaries (0.04, 0.25~Hz).
+      Shaded area: $m_0$ integral. Arrows: $f_p$ ($T_p = 14.2$~s).
+      Red dotted: $f_\text{cut}$ where $K_p < 0.1$.
+      $H_s = 4\sqrt{m_0} = 0.77$~m.}
+    \end{column}
+  \end{columns}
 \end{frame}
+
+\note{
+  These are the standard bulk wave parameters. $H_s$ is four times
+  the square root of the zeroth moment of the spectrum, computed
+  separately for sea-swell and infragravity bands. The cutoff between
+  IG and sea-swell is 0.04 Hz, which is about 25 seconds. Peak period
+  comes from the frequency of maximum spectral density in the
+  sea-swell band. Direction comes from the first-order Fourier
+  coefficients $a_1$ and $b_1$, which we get from the
+  pressure-velocity cross-spectra. Energy flux integrates the
+  spectrum weighted by group velocity at each frequency.
+}
 
 % ------------------------------------------------------------------
 \begin{frame}{Additional L2 Products}
-  \begin{itemize}
-    \item \textbf{Near-bed velocity}: IFFT method ---
-          scale velocity FFT by
-          $\cosh(kH)/\cosh[k(H - z_s)]$, inverse transform
-    \item \textbf{Bed shear stress}: Swart (1974) friction factor,
-          $k_s = 2.5\, D_{50}$
-    \item \textbf{Reynolds stress}: $\overline{u'w'}$,
-          $\overline{v'w'}$, $\overline{u'v'}$; turbulent KE
-    \item \textbf{Velocity moments}: skewness $S_k$, asymmetry $A_s$
-          (Elgar 1985; Hoefel \& Elgar 2003)
-  \end{itemize}
+  \begin{columns}[T]
+    \begin{column}{0.45\textwidth}
+      \begin{itemize}
+        \item \textbf{Near-bed velocity}: IFFT method ---
+              scale velocity FFT by
+              $\cosh(kH)/\cosh[k(H - z_s)]$
+        \item \textbf{Bed shear stress}: Swart (1974)
+              friction factor, $k_s = 2.5\, D_{50}$
+        \item \textbf{Reynolds stress}: $\overline{u'w'}$,
+              $\overline{v'w'}$; turbulent KE
+        \item \textbf{Velocity moments}: skewness $S_k$,
+              asymmetry $A_s$ (Elgar 1985)
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.53\textwidth}
+      \includegraphics[width=\textwidth]{TBR23_MOP580_7m_L2_verification.png}
+
+      \vspace{0.3em}
+      {\scriptsize L2 product verification for TBR23 MOP580 (8.3~m).
+      Top row: bed velocity IFFT vs.\ spectral theory (1:1),
+      bed stress vs.\ orbital velocity, TKE vs.\ $H_s$.
+      Middle: skewness and asymmetry distributions.
+      Bottom: cross-shore and alongshore mean currents,
+      energy flux vs.\ $H_s$.}
+    \end{column}
+  \end{columns}
 \end{frame}
+
+\note{
+  Beyond bulk wave parameters, we extract several higher-order
+  products that matter for transport. The near-bed velocity uses an
+  inverse FFT method --- we take the measured velocity spectrum, apply
+  a depth transfer function to project it to the bed, then inverse
+  transform to get a time series. The bed stress uses Swart's 1974
+  friction factor with roughness tied to grain size. The verification
+  plot shows all these products checking out: bed velocity IFFT matches
+  spectral theory on a 1:1 line, the skewness distribution is
+  centered slightly positive as expected for shoaling waves, and
+  energy flux scales with $H_s$ squared as it should.
+}
 
 % ------------------------------------------------------------------
 \begin{frame}{Shore-Normal Rotation}
@@ -297,7 +628,23 @@
     \item Shore-normal frame required for cross-shore energy flux
           and transport calculations
   \end{itemize}
+  \vspace{0.5em}
+  {\footnotesize
+  Example: MOP580 shore-normal = $264^\circ$ (facing WSW).
+  After rotation, positive $u$ = onshore (toward $084^\circ$),
+  positive $v$ = alongshore toward north.}
 \end{frame}
+
+\note{
+  The shore-normal rotation is necessary because transport
+  calculations need cross-shore and alongshore components, not
+  geographic east-north. We pull the shore-normal angle from CDIP's
+  THREDDS server for each MOP transect. At Torrey Pines, the
+  shoreline faces roughly WSW, so the shore-normal is about 264
+  degrees. After rotation, positive u means onshore and positive v
+  means alongshore toward the north. This frame is what you need for
+  computing undertow and longshore currents.
+}
 
 % ==================================================================
 \section{Validation Against MOP}
@@ -305,21 +652,57 @@
 
 % ------------------------------------------------------------------
 \begin{frame}{MOP Wave Model}
-  \begin{itemize}
-    \item CDIP Monitoring and Prediction (MOP) spectral wave model
-    \item Initialized by offshore CDIP buoy observations
-    \item Provides $S_\eta(f)$ at 10~m depth, hourly
-    \item \textbf{Shoaling to PUV depth}:
-  \end{itemize}
-  \begin{equation*}
-    S_\eta(f,\, h_\text{PUV}) = S_\eta(f,\, 10\,\text{m})
-    \times \frac{c_g(f,\, 10\,\text{m})}{c_g(f,\, h_\text{PUV})}
-  \end{equation*}
-  \begin{itemize}
-    \item PUV segments (17~min) interpolated to MOP hourly
-          time base for comparison
-  \end{itemize}
+  \begin{columns}[T]
+    \begin{column}{0.50\textwidth}
+      \begin{itemize}
+        \item CDIP Monitoring and Prediction (MOP) spectral wave model
+        \item Initialized by offshore CDIP buoy observations
+        \item Provides $S_\eta(f)$ at 10~m depth, hourly
+        \item \textbf{Shoaling to PUV depth}:
+      \end{itemize}
+      \begin{equation*}
+        S_\eta(f,\, h_\text{PUV}) = S_\eta(f,\, 10\,\text{m})
+        \times \frac{c_g(f,\, 10\,\text{m})}{c_g(f,\, h_\text{PUV})}
+      \end{equation*}
+      \begin{itemize}
+        \item PUV segments (17~min) interpolated to MOP hourly
+              time base for comparison
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \includegraphics[width=\textwidth]{TBR23_MOP580_7m_spectral_excess.png}
+
+      \vspace{0.3em}
+      {\scriptsize Top: time-averaged PUV spectrum (blue) vs.\ MOP
+      shoaled to 8.3~m (red) for TBR23 MOP580. Bottom: spectral
+      difference after normalizing each spectrum to percent of total
+      energy. Blue shading marks frequencies where PUV carries a
+      larger share of energy; red where MOP does.}
+    \end{column}
+  \end{columns}
 \end{frame}
+
+\note{
+  The validation reference is CDIP's MOP model. MOP ingests offshore
+  buoy spectra and propagates them shoreward using linear wave theory.
+  It outputs spectra at 10~m depth, so we shoal those to the PUV
+  instrument depth using the group velocity ratio. The spectral
+  excess plot on the right is the key diagnostic that started this
+  whole investigation --- when you subtract the MOP spectrum from the
+  PUV spectrum, there's a clear positive excess right at the swell
+  peak, around 0.06 to 0.08 Hz. That excess is what drives the
+  positive $H_s$ bias we'll quantify next.
+
+  One limitation to keep in mind: MOP propagates energy forward from
+  offshore and cannot account for energy reflected off the beach back
+  seaward. PUVs at 5--8~m depth measure the superposition of incident
+  and reflected waves. At low frequencies (IG band), this reflection
+  can be substantial --- free IG waves generated at the breakpoint
+  reflect efficiently off the shoreline. MOP has no mechanism for this,
+  so any reflected energy appears as ``excess'' in the PUV--MOP comparison.
+  Distinguishing incident from reflected energy at a single cross-shore
+  location requires the L4 cross-shore array analysis.
+}
 
 % ------------------------------------------------------------------
 \begin{frame}{Bulk Comparison Results}
@@ -335,9 +718,27 @@
     \end{column}
     \begin{column}{0.48\textwidth}
       \includegraphics[width=\textwidth]{TBR23_MOP580_7m_PUV_vs_MOP.png}
+
+      \vspace{0.3em}
+      {\scriptsize $H_s$ scatter plot, PUV vs.\ MOP (shoaled) for
+      TBR23 MOP580 at 8.3~m. Each point is one hourly comparison.
+      Points fall slightly above the 1:1 line, indicating a
+      systematic positive PUV bias of $\sim$3--5\%.}
     \end{column}
   \end{columns}
 \end{frame}
+
+\note{
+  The bulk comparison is encouraging: $R^2$ between 0.83 and 0.86
+  and RMSE under 6 centimeters. The scatter plot shows the points
+  clustering tightly around the 1:1 line but sitting slightly above
+  it --- PUV consistently measures a bit more energy than MOP
+  predicts. The kelp-fouled instrument at 5~m depth is the outlier
+  with lower correlation, but even that shows $R^2$ of 0.66.
+  The question became: where does that small positive bias come from?
+  Is it an artifact of our processing, or is it telling us something
+  real about the MOP model?
+}
 
 % ------------------------------------------------------------------
 \begin{frame}{Frequency-Dependent Bias}
@@ -355,10 +756,28 @@
     \end{column}
     \begin{column}{0.48\textwidth}
       \includegraphics[width=\textwidth]{TBR23_spectral_ratio_all_instruments.png}
-      % fallback: TBR23_band_ratio_vs_depth.png
+
+      \vspace{0.3em}
+      {\scriptsize Mean spectral ratio (PUV/MOP) vs.\ frequency
+      for all TBR23 instruments. Ratio exceeds 1.0 at the swell
+      peak and is near unity at higher frequencies. $K_p > 0.9$
+      at peak frequencies, ruling out pressure correction as
+      the source.}
     \end{column}
   \end{columns}
 \end{frame}
+
+\note{
+  When we break the bias down by frequency, the answer is clear:
+  the excess energy sits right at the swell peak, between 0.04 and
+  0.08 Hz. At these frequencies, $K_p$ is above 0.9 --- meaning the
+  pressure correction is barely doing anything. The pressure signal
+  at 8 meters depth for a 14-second swell is attenuated by less than
+  10 percent. So this is not a pressure correction artifact. In the
+  mid-swell band, 0.08 to 0.14 Hz, the ratio is essentially 1.0.
+  The bias is frequency-specific and sits exactly where the pressure
+  correction is most benign.
+}
 
 % ------------------------------------------------------------------
 \begin{frame}{Pressure Correction Investigation}
@@ -378,9 +797,25 @@
     \end{column}
     \begin{column}{0.48\textwidth}
       \includegraphics[width=\textwidth]{wavenumber_comparison_H6m.png}
+
+      \vspace{0.3em}
+      {\scriptsize Same comparison as previous slide but for 6~m
+      depth, where $K_p$ attenuation is stronger. Three wavenumber
+      formulations remain identical. Even at shallower depth, the
+      solver choice does not introduce bias.}
     \end{column}
   \end{columns}
 \end{frame}
+
+\note{
+  To be thorough, we compared our Newton's method baseline against
+  two published approximations: Wu 1986 and the O'Reilly coefficients
+  used internally at CDIP. All three give the same wavenumber to
+  machine precision. This figure shows the comparison at 6~m depth,
+  where the pressure correction is more aggressive, and they still
+  overlap perfectly. So whatever is causing the bias, it is not the
+  pressure correction or the wavenumber solver.
+}
 
 % ==================================================================
 \section{Hypothesis Testing}
@@ -400,15 +835,32 @@
     \item \textbf{MOP spectral peak broadening} --- numerical
           diffusion in the wave model
   \end{enumerate}
+  \vspace{0.5em}
+  Each hypothesis predicts a specific correlation between
+  a physical parameter and the observed $H_s$ amplification
+  ratio (PUV/MOP).
 \end{frame}
+
+\note{
+  We tested four hypotheses for the bias. Each one predicts a
+  different mechanism and a different diagnostic correlation. The
+  approach is systematic: for each hypothesis, we identify the
+  relevant physical parameter, compute it for all 5200+ segments, and
+  test whether it correlates with the amplification ratio. Three of
+  these turn out to be dead ends; one is supported. Let me walk
+  through each one.
+}
 
 % ------------------------------------------------------------------
 \begin{frame}{H1: Nonlinear Shoaling}
   \begin{columns}[T]
     \begin{column}{0.50\textwidth}
       \begin{itemize}
-        \item Test: correlate spectral ratio with Ursell number
-              $\mathit{Ur} = H_s L_p^2 / h^3$
+        \item \textbf{Prediction}: nonlinear triad interactions
+              during shoaling transfer energy to harmonics,
+              increasing $H_s$ beyond linear theory
+        \item \textbf{Test}: correlate spectral ratio with Ursell
+              number $\mathit{Ur} = H_s L_p^2 / h^3$
         \item $N = 5228$ segment-hours
         \item \textbf{Result}: $R^2 = 0.004$
         \item Median $\mathit{Ur}$: 12 at 8.3~m,
@@ -418,35 +870,86 @@
     \end{column}
     \begin{column}{0.48\textwidth}
       \includegraphics[width=\textwidth]{TBR23_ursell_vs_ratio.png}
+
+      \vspace{0.3em}
+      {\scriptsize Spectral ratio (PUV/MOP in swell band) vs.\ Ursell
+      number for 5228 hourly segments. No correlation
+      ($R^2 = 0.004$). If nonlinear shoaling drove the bias, higher
+      $Ur$ would predict larger ratios.}
     \end{column}
   \end{columns}
 \end{frame}
 
+\note{
+  Hypothesis 1: nonlinear shoaling. The idea is that as waves shoal
+  into shallow water, triad interactions transfer energy from the
+  primary peak to harmonics, so the actual wave height exceeds what
+  linear theory predicts. The Ursell number quantifies how nonlinear
+  the wave field is. If this were the explanation, we'd see a positive
+  correlation between Ursell number and the amplification ratio.
+  The scatter plot shows absolutely nothing --- $R^2$ of 0.004. The
+  bias is just as large when Ursell is 5 as when it's 50. Ruled out.
+}
+
 % ------------------------------------------------------------------
 \begin{frame}{H2: Directional Narrowing}
-  \begin{itemize}
-    \item Refraction should \emph{narrow} directional spread during
-          shoaling $\Rightarrow$ energy focusing $\Rightarrow$ higher
-          $H_s$
-    \item \textbf{Result}: PUV spread is systematically
-          \emph{wider} than MOP at swell frequencies
-          ($15^\circ$ vs.\ $10^\circ$)
-    \item Opposite to prediction
-    \item Correlation with $H_s$ amplification: $R^2 < 0.001$
-    \item[$\Rightarrow$] \alert{RULED OUT}
-  \end{itemize}
-  \vspace{0.5em}
-  \footnotesize Wider PUV spread may reflect scattered energy at
-  shallow depth not captured by the forward-propagating MOP model.
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \begin{itemize}
+        \item \textbf{Prediction}: refraction narrows directional
+              spread during shoaling $\Rightarrow$ energy focusing
+              $\Rightarrow$ higher $H_s$
+        \item \textbf{Result}: PUV spread is systematically
+              \emph{wider} than MOP at swell frequencies
+              ($15^\circ$ vs.\ $10^\circ$)
+        \item Opposite to prediction
+        \item Correlation with $H_s$ amplification:
+              $R^2 < 0.001$
+        \item[$\Rightarrow$] \alert{RULED OUT}
+      \end{itemize}
+      \vspace{0.3em}
+      {\footnotesize Wider PUV spread may reflect scattered energy
+      at shallow depth not captured by the forward-propagating
+      MOP model. MOP directional spread is expected to have a
+      lower limit set by its angular resolution and propagation
+      scheme --- confirming this floor is an open item.}
+    \end{column}
+    \begin{column}{0.50\textwidth}
+      \includegraphics[width=\textwidth]{TBR23_MOP580_7m_spread_comparison.png}
+
+      \vspace{0.3em}
+      {\scriptsize Top: mean directional spread vs.\ frequency.
+      Red: MOP (10~m), Blue: PUV (8.3~m). PUV spread is wider
+      at all swell frequencies. Bottom: spread ratio (MOP/PUV);
+      values $>$1 mean PUV is wider. If directional narrowing drove
+      the bias, PUV would be \emph{narrower} (ratio $<$1).}
+    \end{column}
+  \end{columns}
 \end{frame}
+
+\note{
+  Hypothesis 2: directional narrowing from refraction. As waves shoal,
+  refraction bends them toward shore-normal, which should narrow the
+  directional spread and focus energy. If that focusing isn't captured
+  by MOP's linear shoaling, it could explain the bias. But the data
+  show the opposite: PUV directional spread is systematically wider
+  than MOP, about 15 degrees versus 10 degrees at swell frequencies.
+  The bottom panel shows the spread ratio is above 1 everywhere,
+  meaning PUV is less focused, not more. There's also no correlation
+  between the spread ratio and the $H_s$ amplification. The wider
+  PUV spread probably reflects scattered energy from bottom
+  irregularities and refraction over the real bathymetry, which the
+  forward-propagating MOP model doesn't capture.
+}
 
 % ------------------------------------------------------------------
 \begin{frame}{H3: Bound Long Waves}
   \begin{columns}[T]
     \begin{column}{0.50\textwidth}
       \begin{itemize}
-        \item Bound wave energy $\propto H_s^2$
-              (Longuet-Higgins \& Stewart 1962)
+        \item \textbf{Prediction}: bound wave energy
+              $\propto H_s^2$ (Longuet-Higgins \& Stewart 1962)
+              leaks into the swell band
         \item \textbf{Result}: no positive correlation with
               $H_s^2$ ($R = -0.14$)
         \item Excess in \emph{wrong frequency band} ---
@@ -457,41 +960,111 @@
     \end{column}
     \begin{column}{0.48\textwidth}
       \includegraphics[width=\textwidth]{TBR23_MOP580_7m_bound_wave_scaling.png}
+
+      \vspace{0.3em}
+      {\scriptsize Swell-band excess energy (PUV $-$ MOP) vs.\ $H_s^2$.
+      If bound long waves were responsible, excess energy would scale
+      positively with $H_s^2$. Instead, correlation is weakly
+      negative ($R = -0.14$). The excess also appears at swell
+      frequencies, not IG frequencies where bound waves reside.}
     \end{column}
   \end{columns}
 \end{frame}
+
+\note{
+  Hypothesis 3: bound long waves. These are forced infragravity
+  oscillations that travel locked to wave groups. Their energy
+  scales with $H_s$ squared. If some of that energy leaked into
+  the swell band --- maybe through spectral leakage or nonlinear
+  interactions --- it could explain the bias. Two problems: first,
+  the correlation with $H_s$ squared is actually slightly negative,
+  not positive. Second, the excess energy appears at the swell peak
+  around 0.06 Hz, not at the group frequencies below 0.03 Hz where
+  bound waves live. Wrong amplitude scaling, wrong frequency band.
+  Ruled out.
+
+  Note that this doesn't rule out \emph{free} IG waves reflected off
+  the beach, which is a separate mechanism. MOP treats the shoreline
+  as a sink and can't represent reflected energy propagating back
+  seaward past the PUV. A single cross-shore PUV can't decompose
+  incident vs.\ reflected energy --- that requires the L4 array work.
+}
 
 % ------------------------------------------------------------------
 \begin{frame}{H4: MOP Spectral Peak Broadening}
   \begin{columns}[T]
     \begin{column}{0.50\textwidth}
       \begin{itemize}
-        \item $Q_p$ (Goda peakedness): PUV 7\% higher than MOP
-        \item Half-power bandwidth: PUV \textbf{16.7\% narrower}
-        \item Peak spectral density: PUV 14.4\% higher
+        \item $Q_p$ (Goda peakedness): PUV \textbf{24\%} higher
+              than MOP (multi-taper processing)
+        \item Previous Welch estimate showed only 7\% ---
+              Welch was smoothing the PUV peak too
         \item $\Delta Q_p$ vs.\ $H_s$ amplification:
-              $R = 0.44$, $R^2 = 0.20$
+              $R = 0.46$, $R^2 = 0.21$
         \item[$\Rightarrow$] \textbf{\color{green!60!black}SUPPORTED}
       \end{itemize}
+      \vspace{0.3em}
+      {\footnotesize MOP model introduces numerical broadening of the
+      spectral peak during propagation. Multi-taper processing
+      resolves the true PUV peak shape, revealing a larger peakedness
+      gap than Welch estimated.}
+
+      \vspace{0.3em}
+      {\scriptsize $Q_p = \frac{2}{m_0^2}\int f\,S_\eta^2\,df$
+      (Goda, 1970). Higher $Q_p$ = sharper, more peaked spectrum.}
     \end{column}
     \begin{column}{0.48\textwidth}
       \includegraphics[width=\textwidth]{TBR23_MOP580_7m_normalized_shape.png}
+
+      \vspace{0.3em}
+      {\scriptsize Frequency-normalized spectral shape
+      (centered on $f_p$, normalized by peak density).
+      Blue: PUV. Red: MOP. The PUV peak is taller and narrower;
+      MOP spreads energy laterally. This shape difference
+      accounts for the integrated $H_s$ bias.}
     \end{column}
   \end{columns}
-  \vspace{0.3em}
-  \footnotesize MOP model introduces numerical broadening of the
-  spectral peak during propagation; PUV captures the true, narrower
-  peak shape.
 \end{frame}
+
+\note{
+  Hypothesis 4, and this is the one that works: MOP spectral peak
+  broadening. When we normalize the spectra by their peak frequency
+  and peak density, the shape difference is obvious --- PUV has a
+  taller, narrower peak, while MOP spreads that energy across a
+  wider frequency range. With multi-taper processing ($NW = 4$,
+  nfft = 2048), the Goda peakedness $Q_p$ shows PUV spectra are
+  24\% more peaked than MOP --- our original Welch estimate of 7\%
+  was understating the difference because Welch was also smoothing
+  the PUV peak. $Q_p$ is defined as
+  $2/m_0^2 \int f\,S_\eta^2\,df$; it equals 1 for white noise and
+  2--4 for narrow-banded swell. The correlation between the
+  peakedness difference and $H_s$ amplification is $R = 0.46$
+  ($R^2 = 0.21$). MOP propagates spectra through a numerical grid,
+  introducing frequency-space diffusion. The real ocean preserves
+  the narrow swell peak shape.
+}
 
 % ------------------------------------------------------------------
 \begin{frame}{Peakedness Diagnostic}
   \begin{center}
     \includegraphics[width=0.65\textwidth]{TBR23_MOP580_7m_peakedness.png}
   \end{center}
+  {\footnotesize
   Hours when PUV spectrum is more peaked relative to MOP correspond
-  to hours with larger positive $H_s$ bias.
+  to hours with larger positive $H_s$ bias. $\Delta Q_p$ vs.\
+  amplification ratio for TBR23 MOP580 (8.3~m). $R = 0.44$;
+  the tightest correlation among all four hypotheses.}
 \end{frame}
+
+\note{
+  This scatter plot is the cleanest diagnostic we have. Each point is
+  one hour: the x-axis shows how much more peaked the PUV spectrum is
+  compared to MOP, and the y-axis shows the $H_s$ amplification ratio.
+  The positive correlation is clear --- hours when the spectral shape
+  difference is largest are the hours when the $H_s$ bias is largest.
+  $R = 0.44$ is modest in an absolute sense, but it's an order of
+  magnitude stronger than any of the other three hypotheses.
+}
 
 % ------------------------------------------------------------------
 \begin{frame}{Hypothesis Summary}
@@ -514,28 +1087,197 @@
         $R = -0.14$ & Ruled out \\
       4. Peak broadening &
         $R(\Delta Q_p,\, \text{bias})$ &
-        $R = 0.44$ & \textbf{Supported} \\
+        $R = 0.46$ & \textbf{Supported} \\
       \bottomrule
     \end{tabular}
   \end{table}
+  \vspace{0.5em}
+  The bias is a \textbf{model artifact}, not a measurement artifact.
+  PUV data do not need correction; the MOP model introduces numerical
+  broadening of the spectral peak.
 \end{frame}
+
+\note{
+  The summary table. Three hypotheses ruled out, one supported. The
+  take-home message is that the small positive $H_s$ bias is a
+  property of the MOP model, not of our PUV processing. The model
+  broadens the spectral peak during numerical propagation, spreading
+  energy that should be concentrated at the peak frequency across a
+  wider band. When you integrate to get $H_s$, the PUV spectrum has
+  a bit more energy because its peak is taller and sharper. This
+  means the PUV data don't need correction --- they're actually
+  capturing the true spectral shape more faithfully than MOP.
+}
 
 % ------------------------------------------------------------------
 \begin{frame}{Cross-Deployment Confirmation}
-  \begin{itemize}
-    \item Pattern confirmed across \textbf{11 instruments}
-          from multiple deployments
-    \item Correlation $R(Q_p) = 0.30$--$0.63$ across instruments
-    \item Spans:
+  \begin{columns}[T]
+    \begin{column}{0.50\textwidth}
       \begin{itemize}
-        \item Summer and winter wave climates
-        \item Depths 5.5--15.5~m
-        \item Multiple MOP transects
+        \item Pattern confirmed across \textbf{11 instruments}
+              from multiple deployments
+        \item Correlation $R(Q_p) = 0.30$--$0.63$ across instruments
+        \item Spans:
+          \begin{itemize}
+            \item Summer and winter wave climates
+            \item Depths 5.5--15.5~m
+            \item Multiple MOP transects
+          \end{itemize}
+        \item Spectral peak broadening is a \textbf{robust, general}
+              feature of the MOP model --- not site- or
+              season-specific
       \end{itemize}
-    \item Spectral peak broadening is a \textbf{robust, general}
-          feature of the MOP model --- not site- or season-specific
-  \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \includegraphics[width=\textwidth]{TBR23_band_ratio_vs_depth.png}
+
+      \vspace{0.3em}
+      {\scriptsize Spectral ratio (PUV/MOP) by frequency band vs.\
+      total water depth for TBR23 instruments. Low-swell band
+      (0.04--0.08~Hz, triangles) shows the largest amplification
+      ($>$1.1), decreasing weakly with depth. Mid-swell and sea
+      bands cluster near 1.0.}
+    \end{column}
+  \end{columns}
 \end{frame}
+
+\note{
+  This isn't just one instrument at one site. We see the same pattern
+  across 11 instruments from TBR23, TOR23W, SOL23, TOR24, and SIO deployments.
+  The correlation ranges from 0.30 to 0.63, covering summer swell
+  from the southern hemisphere, winter North Pacific storms, and
+  depths from 5.5 to 15.5 meters. The depth-dependence plot shows
+  that the swell-peak amplification is strongest at shallower depths
+  and decreases offshore, but it's present everywhere. The mid-swell
+  and sea bands stay close to 1.0 regardless of depth. This confirms
+  that the peak broadening is a general property of MOP, not something
+  specific to one site or one season.
+}
+
+% ------------------------------------------------------------------
+\begin{frame}{Bulk $H_s$ Validation: All Deployments}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \includegraphics[width=\textwidth]{all_deployments_Hs_scatter.png}
+
+      \vspace{0.3em}
+      {\scriptsize PUV vs.\ MOP (shoaled) $H_s$ for all instruments,
+      colored by site. Points cluster along the 1:1 line with a
+      small positive bias across all sites and depths.}
+    \end{column}
+    \begin{column}{0.50\textwidth}
+      \includegraphics[width=\textwidth]{all_deployments_Hs_summary.png}
+
+      \vspace{0.3em}
+      {\scriptsize Per-instrument $R^2$, RMSE, and bias sorted by
+      depth. Positive bias (PUV $>$ MOP) is consistent across
+      instruments. RMSE is generally $<$~6~cm.}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\note{
+  This is the all-deployment bulk comparison Mark asked for. Every
+  instrument with a MOP station is shown on the same scatter plot,
+  colored by site. The summary bars on the right are sorted by depth.
+  The consistent positive bias across all sites and seasons reinforces
+  the spectral peak broadening explanation. Instruments at shallower
+  depths tend to have slightly larger bias, consistent with the
+  depth-dependence we showed earlier.
+}
+
+% ------------------------------------------------------------------
+\begin{frame}{Pipeline Cross-Validation: Ruby2D Head-to-Head}
+  \begin{columns}[T]
+    \begin{column}{0.46\textwidth}
+      \includegraphics[width=\textwidth]{Ruby2D/ruby2d_582_6m_scatter.png}
+
+      \vspace{0.3em}
+      {\scriptsize Ruby2D MOP582\_6m, Oct 2021 -- Feb 2022.
+      2,322 matched 60-min segments, the new pipeline (vertical)
+      vs.\ the legacy archived L2 (horizontal). Dashed line
+      is 1:1.}
+    \end{column}
+    \begin{column}{0.52\textwidth}
+      \begin{itemize}
+        \item Validates the new pipeline against an
+              \textbf{independent prior implementation}
+        \item $H_s$: RMS \textbf{5~cm}, $R^2 = 0.98$,
+              bias $-9$~mm
+        \item Direction: RMS \textbf{1.2$^\circ$}, $R^2 = 0.93$
+        \item Spread: RMS 1.7$^\circ$, $R^2 = 0.88$ (new pipeline
+              1$^\circ$ wider)
+        \item $T_p$: RMS 1.5~s, $R^2 = 0.76$ (after band-limit
+              filter)
+      \end{itemize}
+      \vspace{0.4em}
+      {\footnotesize \textbf{Bottom line:} the multi-taper
+      pipeline reproduces a working prior pipeline within
+      instrument noise. Prior Ruby2D bulk results stand.}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\note{
+  This is the head-to-head test against the legacy Ruby2D pipeline,
+  which we use as the reference for the lab's prior Ruby2D processing.
+  I ran the new multi-taper pipeline on the same Ruby2D L1 file from the
+  archive, then matched the legacy 60-minute segments to my 17-minute ones
+  by midpoint and computed pair statistics. The agreement is much
+  tighter than I expected: Hs to 5 cm RMS with R-squared 0.98, and
+  direction to 1.2 degrees. The window mismatch we identified in
+  the legacy cross-spectral code, which I worried could produce 20-40 percent
+  directional errors, actually only contributes about a degree at this
+  site. The headline for the lab is that the new pipeline doesn't
+  introduce biases relative to the old one --- it's a refinement, not
+  a methodological break --- so any prior Ruby2D bulk wave statistics
+  in publications stand. Tp shows a band of horizontal stripes because
+  the legacy code's finer frequency resolution lets it pick the peak
+  between the new pipeline's bins, but the median agrees.
+}
+
+% ------------------------------------------------------------------
+\begin{frame}{Ruby2D Spectral Shape Comparison}
+  \begin{columns}[T]
+    \begin{column}{0.62\textwidth}
+      \includegraphics[width=\textwidth]{Ruby2D/ruby2d_582_6m_spectra.png}
+    \end{column}
+    \begin{column}{0.36\textwidth}
+      \begin{itemize}
+        \item Two representative segments:
+          \begin{itemize}
+            \item Median, $H_s = 0.77$~m
+            \item Storm peak, $H_s = 2.78$~m
+                  (bimodal seas)
+          \end{itemize}
+        \item Integrated $H_s$ from spectra agrees within
+              \textbf{4\%} in both cases
+        \item Legacy spectra (red) carry single-periodogram
+              chi-square noise across the band
+        \item Multi-taper (blue) is smoother --- it averages
+              over $K = 7$ DPSS tapers, $\sim$7$\times$
+              variance reduction per bin
+        \item \textbf{Same physical spectrum, lower variance
+              estimate}
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\note{
+  This is what variance reduction looks like at the spectral level.
+  The two pipelines are estimating the same underlying spectrum, but
+  the legacy single-periodogram approach has chi-square noise in every
+  frequency bin --- you can see the high-frequency wiggles --- while
+  the multi-taper estimate, which averages seven DPSS tapers, is smoother. The peaks line
+  up, the bulk Hs from integrating each spectrum agrees within four
+  percent, and the storm-peak bimodal sea state is captured by both.
+  This is the visual proof that multi-taper isn't introducing anything
+  new --- it's just a less noisy estimator of the same physics. For
+  any analysis that depends on resolving spectral structure, like
+  peakedness Qp or distinguishing swell from locally-generated seas,
+  the smoother estimate is the right tool.
+}
 
 % ==================================================================
 \section{L3 Forcing Characterization}
@@ -543,58 +1285,370 @@
 
 % ------------------------------------------------------------------
 \begin{frame}{L3 Architecture}
-  \begin{itemize}
-    \item \textbf{L3a}: Frequency-band energy decomposition (IG / swell / sea)
-    \item \textbf{L3b}: Storm event detection with MOP gap-filling
-    \item \textbf{L3c}: Transport proxies ($F_b$, Shields, Rouse, mobilization)
-    \item \textbf{L3d}: Tidal current decomposition (t\_tide + NOAA depth)
-    \item All components verified: $E_f\text{\_total} / \text{L2}.E_f = 1.0000$
-          for all 33 instruments
-  \end{itemize}
+  L3 transforms L2 spectra into forcing metrics relevant to sediment
+  transport. Four sub-modules, each deployment-agnostic:
+  \vspace{0.5em}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \textbf{L3a: Band Decomposition}
+      \begin{itemize}
+        \item IG: 0.004--0.04~Hz
+        \item Swell: 0.04--0.10~Hz
+        \item Sea: 0.10--0.25~Hz
+        \item $E_f$ and $H_s$ per band, per segment
+      \end{itemize}
+      \vspace{0.5em}
+      \textbf{L3b: Storm Detection}
+      \begin{itemize}
+        \item Threshold exceedance + duration
+        \item MOP gap-filling for instrument failures
+        \item Event metrics: peak $H_s$, duration, cumulative $F$
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textbf{L3c: Transport Proxies}
+      \begin{itemize}
+        \item Bottom energy flux $F_b$
+        \item Shields parameter $\theta_s$
+        \item Rouse number $R_o$
+        \item Mobilization fraction (\% time $> \theta_{cr}$)
+      \end{itemize}
+      \vspace{0.5em}
+      \textbf{L3d: Current Decomposition}
+      \begin{itemize}
+        \item Tidal harmonics (\texttt{t\_tide})
+        \item Subtidal (wave-driven) residual
+        \item Undertow + longshore current
+      \end{itemize}
+    \end{column}
+  \end{columns}
+  \vspace{0.5em}
+  {\footnotesize Energy conservation verified:
+  $E_{f,\text{total}} / E_{f,\text{L2}} = 1.0000$ for all 33
+  instruments (no energy created or lost in band partitioning).}
 \end{frame}
+
+\note{
+  L3 takes the spectral output from L2 and computes everything we
+  need to characterize wave forcing for sediment transport. It's
+  organized into four sub-modules. L3a partitions energy into
+  infragravity, swell, and sea bands. L3b detects storm events from
+  the $H_s$ time series, and this is where MOP gap-filling is
+  critical --- when an instrument fails during a storm, we use MOP
+  to fill in what happened. L3c computes transport proxies: Shields
+  parameter, Rouse number, bottom energy flux. L3d decomposes
+  currents into tidal and subtidal components. A key verification:
+  when we sum the band-partitioned energy fluxes, they match the L2
+  total to four decimal places. No energy created or lost.
+}
 
 % ------------------------------------------------------------------
 \begin{frame}{Seasonal Energy Partitioning}
-  \begin{itemize}
-    \item \textbf{Winter}: swell-dominated (65--90\% of energy flux)
-    \item \textbf{Summer}: sea-dominated or equal ($\sim$50/50)
-    \item \textbf{Spring}: transitional
-    \item Consistent across all 5 sites
-  \end{itemize}
+  \begin{columns}[T]
+    \begin{column}{0.50\textwidth}
+      \begin{itemize}
+        \item \textbf{Winter}: swell-dominated
+              (65--90\% of energy flux)
+          \begin{itemize}
+            \item North Pacific swell, $T_p > 12$~s
+            \item $H_s$ routinely $> 1.5$~m at 8~m depth
+          \end{itemize}
+        \item \textbf{Summer}: sea-dominated or equal
+              ($\sim$50/50)
+          \begin{itemize}
+            \item Southern-hemisphere swell + local sea breeze
+            \item $H_s$ typically 0.4--0.8~m
+          \end{itemize}
+        \item \textbf{Spring}: transitional
+        \item Consistent across all 5 sites
+      \end{itemize}
+      \vspace{0.3em}
+      {\footnotesize
+      \begin{tabular}{@{}lll@{}}
+        \textbf{Band} & \textbf{Frequency} & \textbf{Period} \\
+        IG    & 0.004--0.04~Hz & 25--250~s \\
+        Swell & 0.04--0.10~Hz  & 10--25~s \\
+        Sea   & 0.10--0.25~Hz  & 4--10~s \\
+      \end{tabular}}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \includegraphics[width=\textwidth]{seasonal_energy_partitioning.png}
+
+      \vspace{0.3em}
+      {\scriptsize Daily-averaged energy flux (kW/m) at Torrey Pines
+      MOP586, 7~m depth. (a)~Winter (TOR24W): swell-dominated, peaks
+      to 30~kW/m. (b)~Summer (TOR24S): lower energy, higher sea-band
+      fraction. Black line: $H_s$ (right axis).}
+    \end{column}
+  \end{columns}
 \end{frame}
+
+\note{
+  The seasonal pattern is stark. In winter, swell dominates the energy
+  budget, accounting for 65 to 90 percent of the total energy flux.
+  These are North Pacific swells with peak periods above 12 seconds
+  and significant wave heights routinely above 1.5 meters at 8-meter
+  depth. In summer, it flips: local sea breeze generates wind waves
+  that split the energy budget roughly 50/50 with southern-hemisphere
+  swell. Wave heights drop to 0.4 to 0.8 meters. This matters for
+  transport because swell drives skewness-based onshore transport
+  while sea waves contribute more to turbulence and suspension.
+}
 
 % ------------------------------------------------------------------
 \begin{frame}{Storm Detection + MOP Gap-Filling}
-  \begin{itemize}
-    \item NN24 Dec 28, 2023: $H_s$ up to 3.6~m, 74-hour duration
-    \item MOP fills data gaps from instrument damage during storms
-    \item Example: MOP651\_7m detected 0 PUV storms, MOP found 3
-          (86-hour event)
-    \item Critical for characterizing the forcing that damaged
-          the instruments
-  \end{itemize}
+  \begin{columns}[T]
+    \begin{column}{0.50\textwidth}
+      \begin{itemize}
+        \item \textbf{Example}: TOR23W/SOL23 Dec 28, 2023 storm
+          \begin{itemize}
+            \item $H_s$ up to 3.6~m, 74-hour duration
+            \item Caused instrument failures at 2 sites
+          \end{itemize}
+        \item MOP fills data gaps from instrument damage during
+              storms
+        \item MOP651\_7m: detected 0 PUV storms, MOP found 3
+              (86-hour event)
+        \item Gap-filling uses the validated MOP spectra with
+              the known small bias
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \includegraphics[width=\textwidth]{storm_gap_filling_example.png}
+
+      \vspace{0.3em}
+      {\scriptsize SOL23 MOP651 (7~m). Blue: PUV $H_s$. Red: MOP $H_s$.
+      Gray bands: PUV data gaps. Pink bands: MOP-detected storms
+      (all 3 missed by PUV). Largest event: 86~hr, peak
+      $H_s = 3.09$~m. Bottom bar: data source (PUV vs.\ MOP).}
+    \end{column}
+  \end{columns}
 \end{frame}
+
+\note{
+  Storm detection is straightforward --- threshold exceedance in $H_s$
+  sustained for a minimum duration. But here's the problem: the storms
+  that matter most for morphology are exactly the ones that damage
+  instruments. The December 2023 event hit 3.6 meters at 7 meters
+  depth and knocked out instruments at two sites. For MOP651 at 7
+  meters depth, the PUV record has zero detected storms because the
+  instrument failed before the storm arrived. MOP detected three
+  events totaling 86 hours. The gap-filling uses MOP spectra, which
+  we've validated and whose bias we understand. We know MOP
+  underestimates the peak by a few percent, but for storm detection
+  and duration, that's acceptable.
+}
 
 % ------------------------------------------------------------------
 \begin{frame}{Transport Proxy Depth Dependence}
-  \begin{itemize}
-    \item Shields parameter decreases offshore: 0.24 (5.6~m) to
-          0.065 (15.5~m)
-    \item Mobilization: 100\% at 5~m, 78\% at 15~m (winter)
-    \item Rouse number: bedload-dominated across all sites
-    \item Cumulative $F_b$: winter $3\times$ summer at equivalent depth
-  \end{itemize}
+  \begin{columns}[T]
+    \begin{column}{0.50\textwidth}
+      \begin{itemize}
+        \item Shields parameter decreases offshore:
+          \begin{itemize}
+            \item $\theta_s = 0.24$ at 5.6~m
+            \item $\theta_s = 0.065$ at 15.5~m
+          \end{itemize}
+        \item Mobilization: 100\% at 5~m, 78\% at 15~m (winter)
+        \item Rouse number: bedload-dominated across all sites
+              ($R_o > 2.5$)
+        \item Cumulative $F_b$: winter $3\times$ summer at
+              equivalent depth
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \includegraphics[width=\textwidth]{shields_vs_depth.png}
+
+      \vspace{0.3em}
+      {\scriptsize (a)~Median Shields parameter vs.\ depth for all
+      33 instruments, colored by site. Dashed line: critical Shields
+      ($\theta_{cr} = 0.05$). (b)~Mobilization fraction (\% of
+      segments exceeding $\theta_{cr}$) vs.\ depth.}
+    \end{column}
+  \end{columns}
 \end{frame}
+
+\note{
+  The transport proxies show strong depth dependence, as you'd expect.
+  Shields parameter drops by nearly a factor of 4 from 5.6 to 15.5
+  meters. At 5 meters, the bed is mobilized 100 percent of the time
+  during winter --- there's always enough wave energy to move sand.
+  At 15 meters, mobilization drops to 78 percent. The Rouse number
+  stays above 2.5 everywhere, indicating bedload-dominated transport.
+  This is important for the TBR23 analysis: it means we should be
+  looking at skewness-driven bedload transport, not
+  suspension-dominated models. The seasonal contrast is a factor of 3
+  in cumulative bottom energy flux between winter and summer.
+}
 
 % ------------------------------------------------------------------
 \begin{frame}{Tidal Validation}
-  \begin{itemize}
-    \item NOAA Scripps Pier tide gauge: $R = 0.995$ with PUV depth
-    \item Confirms PUV clocks are UTC (lag $= 0.0$~hours)
-    \item Subtidal cross-shore current: consistently offshore (undertow)
-    \item Tidal currents small ($<$0.05~m/s) vs.\ wave-driven flows
-  \end{itemize}
+  \begin{columns}[T]
+    \begin{column}{0.45\textwidth}
+      \begin{itemize}
+        \item NOAA Scripps Pier tide gauge vs.\ PUV depth:
+              $R = 0.995$
+        \item Confirms PUV clocks are UTC
+              (lag $= 0.0$~hours)
+        \item Subtidal cross-shore current: consistently
+              offshore (undertow)
+        \item Tidal currents small ($<$0.05~m/s) vs.\
+              wave-driven flows ($\sim$0.10--0.30~m/s)
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.53\textwidth}
+      \includegraphics[width=\textwidth]{TBR23_MOP580_7m_tidal_validation.png}
+
+      \vspace{0.3em}
+      {\scriptsize Top: PUV depth anomaly (blue) vs.\ NOAA Scripps
+      Pier tide gauge (green) and t\_tide prediction (black).
+      Bottom left: PUV vs.\ NOAA scatter ($R = 0.995$).
+      Bottom right: t\_tide prediction vs.\ NOAA ($R = 0.987$).
+      Zero lag confirms PUV timestamps are UTC.}
+    \end{column}
+  \end{columns}
 \end{frame}
+
+\note{
+  The tidal validation serves two purposes: confirming our clocks are
+  correct and decomposing currents. PUV segment-mean pressure tracks
+  the NOAA Scripps Pier tide gauge with $R = 0.995$ and zero lag,
+  confirming our timestamps are UTC. The t\_tide harmonic fit
+  captures the tidal signal well at $R = 0.987$. After removing the
+  tidal component, the subtidal cross-shore current is consistently
+  offshore --- that's the undertow driven by wave breaking, which
+  becomes important in the TBR23 transport analysis. Tidal currents
+  are small, under 5 cm/s, compared to wave-driven flows of 10 to 30
+  cm/s. Tides modulate depth, which modulates wave forcing, but they
+  don't contribute much directly to transport.
+}
+
+% ==================================================================
+\section{L4 and L5: Planned Extensions}
+% ==================================================================
+
+% ------------------------------------------------------------------
+\begin{frame}{L4: Infragravity and Bound Wave Dynamics}
+  \begin{columns}[T]
+    \begin{column}{0.55\textwidth}
+      \textbf{Objective}: Separate forced (bound) and free
+      infragravity waves using the co-located pressure and
+      velocity measurements.
+      \vspace{0.5em}
+      \textbf{Approach}:
+      \begin{itemize}
+        \item Bispectral analysis --- bicoherence at swell-IG
+              coupling frequencies identifies energy transfer
+              from swell triads to the IG band
+        \item Phase relationship between IG pressure and wave
+              group envelope distinguishes bound (locked phase)
+              from free (random phase) IG waves
+        \item IG energy flux and direction from $S_{pu}$ and
+              $S_{pv}$ cross-spectra in the IG band
+        \item Reflection coefficient from shoreward/seaward
+              energy flux ratio
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.43\textwidth}
+      \textbf{Why it matters}:
+      \begin{itemize}
+        \item IG waves dominate inner-surfzone runup
+              and overwash
+        \item Bound IG energy transfers to free waves during
+              breaking --- the ratio controls IG amplitude
+              at the shoreline
+        \item MOP does not model IG waves; PUV measures them
+              directly
+        \item Multi-instrument arrays (TOR23W, TOR24) enable
+              cross-shore IG coherence analysis
+      \end{itemize}
+      \vspace{0.5em}
+      {\footnotesize Reference: Herbers et al.\ (1995);
+      implementation informed by Athina Lange's Ruby2D code.}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\note{
+  L4 is about infragravity dynamics. IG waves are forced by wave
+  groups through the radiation stress mechanism described by
+  Longuet-Higgins and Stewart. In deep water they're bound to the
+  groups, but during breaking the bound wave gets released as a free
+  wave that can reflect off the shoreline. The bound-to-free ratio
+  determines how much IG energy reaches the shoreline, which matters
+  for runup and overwash. Our PUV instruments measure pressure and
+  velocity in the IG band, and we have multi-instrument arrays at
+  Torrey Pines that let us look at cross-shore coherence. Bispectral
+  analysis quantifies the coupling between the swell peak and the IG
+  band. This connects to Paper 1 because the IG band showed up in
+  our spectral ratio analysis --- remember that the IG amplification
+  was large but didn't correlate with the swell-band bias.
+}
+
+% ------------------------------------------------------------------
+\begin{frame}{L5: PUV--Altimeter Integration}
+  \begin{columns}[T]
+    \begin{column}{0.55\textwidth}
+      \textbf{Objective}: Correlate wave forcing (L2/L3 products)
+      with bed-level change from co-located acoustic altimeters.
+      \vspace{0.5em}
+      \textbf{Data sources}:
+      \begin{itemize}
+        \item Aquatec AA400 altimeters (acoustic bed tracking)
+        \item Simrad EA400 echologgers
+        \item Co-located with PUV instruments at multiple
+              Torrey Pines and Solana Beach sites
+      \end{itemize}
+      \vspace{0.5em}
+      \textbf{Analysis plan}:
+      \begin{enumerate}
+        \item Time-align altimeter bed level with L2/L3 wave
+              forcing segments
+        \item Test 8 transport relationships: $F_b$, $\theta_s$,
+              Shields exceedance, $H_s$, $S_k \cdot U_b^3$,
+              storm cumulative flux, tidal phase, event-scale
+              response
+        \item Estimate transport rates from bed-level change
+              + continuity equation
+      \end{enumerate}
+    \end{column}
+    \begin{column}{0.43\textwidth}
+      \textbf{Key question}: Which wave forcing metric best
+      predicts observed bed-level change?
+      \vspace{0.5em}
+      \begin{itemize}
+        \item Is it total energy ($F_b$)?
+        \item Is it the nonlinear shape ($S_k \cdot U_b^3$)?
+        \item Does it depend on depth or grain size?
+      \end{itemize}
+      \vspace{0.5em}
+      \textbf{Feedback to L2}: Time-varying bed level from
+      altimeter corrects the pressure sensor offset
+      (\texttt{doffp}), improving $K_p$ accuracy as
+      sediment accretes or erodes around the instrument.
+      \vspace{0.5em}
+      {\footnotesize Starting point: TOR24S MOP586 (co-located,
+      multi-depth array). See
+      \texttt{docs/altimeter\_correlation\_plan.md}.}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\note{
+  L5 is the integration between PUV wave data and acoustic altimeter
+  bed-level measurements. We have co-located instruments at several
+  sites, and the question is straightforward: which wave forcing
+  metric best predicts how the bed moves? We'll test eight different
+  relationships --- from simple energy flux to nonlinear
+  skewness-velocity products. There's also a feedback loop: the
+  altimeter tells us how the bed level changes over time, and that
+  bed-level change affects the pressure sensor height above the
+  bottom, which in turn affects the pressure correction. So L5
+  actually improves L2 accuracy. We're starting with TOR24S at
+  MOP586, which has a multi-depth array of co-located PUV and
+  altimeter instruments. The full analysis plan is documented in
+  the repo.
+}
 
 % ==================================================================
 \section{TBR23 Paper Analysis}
@@ -602,67 +1656,221 @@
 
 % ------------------------------------------------------------------
 \begin{frame}{TBR23 Context: Post-Storm Recovery}
-  \begin{itemize}
-    \item Winter 2023 storms deposited $\sim$85~cm sand at 5~m depth
-    \item TBR23 deployment (May--Aug 2023) captures recovery phase
-    \item 22 jetski surveys + 4 PUV instruments at 5~m and 7~m depth
-    \item \textbf{Question}: what wave processes drive the recovery?
-  \end{itemize}
+  \begin{columns}[T]
+    \begin{column}{0.50\textwidth}
+      \textbf{Background}:
+      \begin{itemize}
+        \item Winter 2022--2023: sequence of atmospheric rivers
+              deposited $\sim$85~cm of sand at 5~m depth
+              (Torrey Pines)
+        \item Largest winter accretion in 25-year MOP survey record
+        \item TBR23 deployment (May--Aug 2023) captures the
+              subsequent summer recovery phase
+      \end{itemize}
+      \vspace{0.5em}
+      \textbf{Field campaign}:
+      \begin{itemize}
+        \item 22 jetski bathymetric surveys (every 3 days)
+        \item 4 PUV instruments: 2 at 5~m, 2 at 7~m depth
+        \item Co-located with MOPS truck lidar surveys (weekly)
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textbf{Central question}: \\[0.5em]
+      What wave processes drive post-storm bathymetric recovery,
+      and why does recovery only occur at certain depths?
+      \vspace{0.5em}
+
+      \includegraphics[width=\textwidth]{TBR23_profile_evolution.png}
+
+      \vspace{0.3em}
+      {\scriptsize Alongshore-averaged profiles at Torrey Pines
+      (MOP 580--586). Blue: Fall 2022 (pre-storm). Red: Spring 2023
+      (post-storm, $\sim$110~cm accretion at 5~m). Orange: Fall 2023
+      (partial recovery). Dashed lines mark PUV instrument depths.}
+    \end{column}
+  \end{columns}
 \end{frame}
+
+\note{
+  Now let me connect the pipeline to the science. The winter of
+  2022-2023 was exceptional --- a sequence of atmospheric rivers
+  brought North Pacific swell that deposited about 85 centimeters of
+  sand at 5 meters depth at Torrey Pines. That's the largest winter
+  accretion in CDIP's 25-year survey record at this site. The TBR23
+  deployment captures what happens next: summer recovery, where the
+  beach system relaxes back toward equilibrium. We had 22 jetski
+  surveys over three months, roughly every three days, plus 4 PUV
+  instruments at two depths along MOP transects 580 and 586. The
+  question is: what drives the recovery, and why did the 5-meter
+  sites recover while the 7-meter sites stayed roughly constant?
+}
 
 % ------------------------------------------------------------------
 \begin{frame}{Wave Forcing and Bed Response}
   \begin{center}
     \includegraphics[width=0.95\textwidth]{/Users/holden/Documents/Scripps/Research/Paper_1/paper/figures/fig_forcing_response_v2.png}
   \end{center}
+
+  \vspace{0.3em}
+  {\scriptsize Time series of wave forcing (L2/L3 products) and
+  bathymetric response at Torrey Pines during TBR23. Top panels: $H_s$,
+  energy flux, and skewness from PUV instruments. Bottom panels: bed
+  elevation change from jetski surveys at PUV cross-shore positions.
+  Vertical lines mark survey dates.}
 \end{frame}
+
+\note{
+  This figure ties the wave forcing to the bed response. The top
+  panels show L2 and L3 products from the PUV instruments: wave
+  height, energy flux, and velocity skewness over the deployment.
+  The bottom panels show what the bed is doing at the cross-shore
+  position of each instrument, extracted from the jetski surveys.
+  You can see distinct events: a mid-June swell pulse, a calm period
+  in early July, and a late July swell event. Each of these
+  corresponds to measurable bed-level changes. The question is:
+  what mechanism connects the wave forcing to the bed response?
+}
 
 % ------------------------------------------------------------------
 \begin{frame}{Competing Transport Mechanisms}
-  \begin{itemize}
-    \item \textbf{Onshore: velocity skewness} ($S_{k} > 0$) ---
-          peaked crests drive bedload shoreward
-    \item \textbf{Offshore: undertow} (mean return flow) ---
-          opposes recovery
-    \item Both present simultaneously at all instruments
-    \item Balance determines net transport direction
-  \end{itemize}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      Two processes act simultaneously:
+      \vspace{0.5em}
+
+      \textbf{Onshore: velocity skewness} ($S_k > 0$)
+      \begin{itemize}
+        \item Peaked wave crests produce stronger onshore
+              orbital velocities than troughs
+        \item Bedload transport scales as $U_b^3$ weighted
+              by skewness
+        \item Drives recovery (shoreward sand movement)
+      \end{itemize}
+      \vspace{0.5em}
+
+      \textbf{Offshore: undertow}
+      \begin{itemize}
+        \item Wave-driven mean return flow below trough level
+        \item Opposes recovery
+        \item Strengthens with increasing $H_s$
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.50\textwidth}
+      \includegraphics[width=\textwidth]{/Users/holden/Documents/Scripps/Research/Paper_1/paper/figures/fig_transport_mechanisms_v4.png}
+
+      \vspace{0.3em}
+      {\scriptsize Cross-shore transport decomposition for TBR23
+      instruments. Skewness-driven flux (blue, onshore) vs.\
+      undertow-driven flux (red, offshore). At 5.5~m depth,
+      skewness dominates; at 8.3~m, the two are roughly balanced.}
+    \end{column}
+  \end{columns}
 \end{frame}
 
-% ------------------------------------------------------------------
-\begin{frame}{Transport Analysis}
-  \begin{center}
-    \includegraphics[width=0.95\textwidth]{/Users/holden/Documents/Scripps/Research/Paper_1/paper/figures/fig_transport_mechanisms_v4.png}
-  \end{center}
-\end{frame}
+\note{
+  The transport story has two competing players. Velocity skewness
+  produces an asymmetry in the orbital velocities --- the crests are
+  faster and shorter than the troughs, so bedload transport is biased
+  onshore. Undertow is the mean offshore return flow driven by wave
+  breaking. Both are present at every instrument, every segment. The
+  net transport direction depends on which one wins. The figure shows
+  the decomposition: at the 5.5-meter instruments, skewness transport
+  is 3 to 4 times stronger than undertow, so the net flux is
+  onshore, which is recovery. At 8.3 meters, the two are roughly
+  balanced, so the net flux is near zero.
+}
 
 % ------------------------------------------------------------------
 \begin{frame}{Recovery Boundary at 6--7~m Depth}
-  \begin{itemize}
-    \item At 5.5~m: skewness flux 3--4$\times$ stronger than
-          undertow $\rightarrow$ net onshore (recovery)
-    \item At 8.3~m: undertow slightly dominates $\rightarrow$
-          near-equilibrium
-    \item Crossover at $\sim$6--7~m depth
-    \item Explains: mid-July recovery pulse at 5~m site but not
-          at 7~m sites
-    \item Tidal modulation provides depth range at each fixed
-          instrument
-  \end{itemize}
+  \begin{columns}[T]
+    \begin{column}{0.50\textwidth}
+      \begin{itemize}
+        \item At 5.5~m: skewness flux 3--4$\times$ stronger
+              than undertow $\rightarrow$ net onshore (recovery)
+        \item At 8.3~m: undertow slightly dominates
+              $\rightarrow$ near-equilibrium
+        \item Crossover at $\sim$6--7~m depth
+        \item Explains: mid-July recovery pulse at 5~m site
+              but not at 7~m sites
+        \item Tidal modulation provides depth range at each
+              fixed instrument
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \includegraphics[width=\textwidth]{recovery_boundary_transport.png}
+
+      \vspace{0.3em}
+      {\scriptsize Transport proxy decomposition for TBR23. Blue:
+      skewness flux $\langle u|u|^2 \rangle$ (onshore). Red:
+      undertow flux $\bar{u} \cdot U_b^2$ (offshore). Diamonds:
+      net. At 5.5~m skewness dominates 4:1; at 8.3~m the two
+      balance. Dashed lines: inferred 6--7~m crossover.}
+    \end{column}
+  \end{columns}
 \end{frame}
+
+\note{
+  The depth dependence creates a natural boundary around 6 to 7
+  meters. Above that depth, skewness wins and sand moves onshore ---
+  that's recovery. Below it, undertow roughly balances skewness and
+  the profile stays near equilibrium. This explains a specific
+  observation: in mid-July, the 5-meter instruments recorded a
+  recovery pulse --- about 15 cm of accretion in two weeks --- but
+  the 7-meter instruments saw essentially no change. The tidal range
+  at Torrey Pines is about 1.5 meters, so each fixed instrument
+  samples a range of effective depths over a tidal cycle, which
+  gives us some depth resolution beyond just the two instrument
+  depths.
+}
 
 % ------------------------------------------------------------------
 \begin{frame}{Key Physics}
-  \begin{itemize}
-    \item Skewness follows Ruessink et al.\ (2012) depth
-          parameterization
-    \item Undertow strengthens at high tide (more wave energy
-          at depth)
-    \item Low tide reduces undertow, enabling onshore recovery
-    \item MOP580\_5m excluded: kelp fouling produced artifact
-          negative $S_{k}$
-  \end{itemize}
+  \begin{columns}[T]
+    \begin{column}{0.55\textwidth}
+      \begin{itemize}
+        \item Skewness follows Ruessink et al.\ (2012) depth
+              parameterization
+          \begin{itemize}
+            \item $S_k$ increases with decreasing $kh$
+            \item Observed values match predicted curve
+          \end{itemize}
+        \item Undertow strengthens at high tide (more wave energy
+              reaches instrument depth)
+        \item Low tide reduces undertow, enabling onshore recovery
+        \item MOP580\_5m excluded: kelp fouling produced artifact
+              negative $S_k$
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.43\textwidth}
+      \includegraphics[width=\textwidth]{skewness_vs_ursell.png}
+
+      \vspace{0.3em}
+      {\scriptsize Velocity skewness vs.\ Ursell number for all
+      TBR23 segments. Binned medians (black dots) from 3 clean
+      instruments track the Ruessink et al.\ (2012) curve (red,
+      surface-elevation $S_k$). Gray: kelp-fouled MOP580\_5m
+      with anomalous negative skewness.}
+    \end{column}
+  \end{columns}
 \end{frame}
+
+\note{
+  Two pieces of physics anchor the interpretation. First, the
+  skewness values we measure match the Ruessink et al.\ 2012
+  parameterization, which predicts skewness as a function of the
+  relative depth parameter $kh$. That gives us confidence that the
+  PUV skewness measurements are physically reasonable, not artifacts.
+  Second, there's a tidal modulation effect: at high tide, the water
+  is deeper, so more wave energy reaches the instrument depth, which
+  strengthens undertow and opposes recovery. At low tide, undertow
+  weakens and onshore skewness transport can dominate. This tidal
+  modulation of the transport balance is something we can quantify
+  segment by segment with L3d's tidal decomposition. One
+  instrument, MOP580 at 5 meters, was fouled by kelp during the
+  deployment, which produced unphysical negative skewness values.
+  We excluded it from the transport analysis.
+}
 
 % ==================================================================
 \section{Key Findings and Next Steps}
@@ -685,10 +1893,24 @@
     \item \textbf{Full L1--L3 pipeline operational}: all 33 instruments
           processed through forcing characterization, storm detection,
           and transport proxy computation
-    \item \textbf{Full TBR23 analysis}: identified competing skewness
-          vs.\ undertow transport, recovery boundary at 6--7~m depth
+    \item \textbf{TBR23 transport balance}: competing skewness
+          vs.\ undertow, recovery boundary at 6--7~m depth
   \end{enumerate}
 \end{frame}
+
+\note{
+  Six take-home messages. First, the pipeline works: 33 instruments
+  processed with no pipeline failures and strong MOP validation.
+  Second, we found a systematic bias and traced it to the spectral
+  peak. Third, the bias is a MOP model artifact, not a measurement
+  problem --- MOP numerically broadens the spectral peak. Fourth,
+  this isn't one site; it's across 11 instruments spanning seasons
+  and depths. Fifth, L3 is fully operational, giving us transport
+  proxies, storm detection, and tidal decomposition for all 33
+  instruments. Sixth, the TBR23 analysis identified the depth-dependent
+  competition between skewness and undertow, with a recovery boundary
+  at 6 to 7 meters.
+}
 
 % ------------------------------------------------------------------
 \begin{frame}{Implications for TBR23 Paper}
@@ -700,26 +1922,89 @@
           ground truth for nearshore wave characterization
     \item L2 products (bed velocity, stress, moments) are ready
           for sediment transport analysis
+    \item L3 forcing characterization provides storm context,
+          seasonal partitioning, and transport proxies
+    \item Next: quantitative transport model (Bailard / Hoefel \&
+          Elgar) to compare computed fluxes against observed
+          bed change
   \end{itemize}
 \end{frame}
+
+\note{
+  For the TBR23 paper specifically: the pipeline is validated, the
+  bias is understood and doesn't affect our analysis, and the L2/L3
+  products give us everything we need for transport calculations.
+  The spectral shape finding actually strengthens our case for using
+  PUV data as ground truth: the in-situ measurements capture spectral
+  details that the model smooths out. The next step is implementing
+  a quantitative transport model --- Bailard's energetics model or the
+  Hoefel and Elgar acceleration-skewness formulation --- to compute
+  actual sediment fluxes and compare them against the observed
+  bed-level changes from the jetski surveys.
+}
 
 % ------------------------------------------------------------------
 \begin{frame}{Next Steps}
-  \begin{itemize}
-    \item \textbf{Bailard / Hoefel \& Elgar transport model}:
-          implementation for quantitative flux estimates
-    \item \textbf{L5 PUV--altimeter integration}: reconciled plan
-          ready for deployment
-    \item \textbf{IG / bound-wave analysis (L4)}: separate forced
-          vs.\ free IG energy
-    \item \textbf{TBR23 paper draft}: synthesize validation,
-          transport, and morphology results
-  \end{itemize}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \textbf{Immediate (TBR23 Paper)}:
+      \begin{itemize}
+        \item Implement Bailard / Hoefel \& Elgar transport
+              model using L2 products
+        \item Compare computed transport rates against
+              survey-to-survey bed change
+        \item Draft results and discussion sections
+        \item Process grain size data (laser particle
+              analyzer) for site-specific $D_{50}$
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textbf{Pipeline extensions}:
+      \begin{itemize}
+        \item \textbf{L4}: Bispectral analysis for bound/free
+              IG wave separation
+        \item \textbf{L5}: PUV--altimeter integration (8
+              transport relationships to test)
+        \item \textbf{Wave dynamics paper}: MOP peak broadening
+              across all deployments, SIO canyon focusing,
+              depth trends
+      \end{itemize}
+    \end{column}
+  \end{columns}
 \end{frame}
+
+\note{
+  Two tracks of next steps. For the TBR23 paper, the immediate
+  priority is implementing a quantitative transport model to go from
+  'skewness is stronger at 5 meters' to 'the computed onshore flux
+  is X cubic meters per meter per day and matches the observed
+  accretion rate.' We also need the grain size data from the laser
+  particle analyzer to get site-specific $D_{50}$ values instead of
+  the generic 0.2 mm we're currently using. For the pipeline itself,
+  L4 bispectral analysis and L5 altimeter integration are the two
+  main extensions. There's also a standalone wave dynamics paper
+  in the works that expands the MOP peak broadening result across
+  all 33 instruments, including the SIO Pier canyon focusing effect.
+}
 
 % ------------------------------------------------------------------
 \begin{frame}
-  Questions?
+  \begin{center}
+    {\Huge Questions?}
+
+    \vspace{1em}
+    {\large Holden Leslie-Bole}\\
+    Scripps Institution of Oceanography\\[0.5em]
+    {\footnotesize
+    GitHub: \texttt{holdenlesliebole/Nortek\_Vector\_PUV\_Pipeline}\\
+    All data, code, and figures reproducible from the repository.}
+  \end{center}
 \end{frame}
+
+\note{
+  Thanks for listening. Happy to take questions on any part of the
+  pipeline, the validation, or the TBR23 transport analysis. The code
+  and all figures are on GitHub if you want to dig into the details.
+}
 
 \end{document}

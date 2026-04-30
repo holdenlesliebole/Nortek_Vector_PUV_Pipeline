@@ -116,6 +116,102 @@ site-specific or seasonally dependent artifact.
 % TODO: Insert Table \ref{tab:hypotheses} summarizing hypothesis,
 % test metric, result, and verdict for each of the four mechanisms
 
+\subsubsection{Pipeline cross-validation: Ruby2D head-to-head}
+\label{sec:ruby2d-validation}
+
+To verify that the multi-taper L2 implementation does not introduce
+biases relative to an established processing pipeline, we reprocessed
+the Ruby2D MOP582\_6m record (Torrey Pines, October 2021 to February 2022,
+$\sim$3,100 hours) and compared it segment-by-segment against the
+archived L2 product produced by an independent prior pipeline
+(\texttt{beachpeeps/PUV\_Processing}). The prior
+pipeline uses a single-periodogram estimator (Hanning window, full
+60-minute segments, $\Delta f = 0.000278$~\si{\hertz}) and applies a
+fixed cap of $K_p^2 \le 10$ to the pressure transfer function. The legacy
+record has 3,095 60-min segments; the new pipeline produces 10,903 17-min
+segments over the same record. Segments were matched on midpoint
+nearest neighbor with a tolerance of 30~minutes, yielding 2,322 matched
+pairs (75\%). The remaining 25\% are hours that the new pipeline rejects
+under the segment-validity criterion (\texttt{nanMaxFrac} = 0.10) but
+that the prior pipeline retains by zero-padding small NaN gaps.
+
+\begin{table}[h]
+  \centering
+  \caption{Ruby2D MOP582\_6m: bulk wave parameter agreement between
+    the new multi-taper pipeline and the legacy archived L2. $T_p$ statistics
+    are computed after restricting both estimates to the SS band
+    (\SIrange{4}{25}{\second}); without this filter, three segments on
+    January 15, 2022 in the prior pipeline report $T_p$ at the IG/DC
+    bin ($T_p = 1200$, 1800, 3600~\si{\second}) because the prior
+    pipeline's peak picker is not band-limited.}
+  \label{tab:ruby2d}
+  \begin{tabular}{@{}lccccc@{}}
+    \toprule
+    Metric & Legacy (med.) & Multi-taper (med.) & Bias (M$-$L) & RMS & $R^2$ \\
+    \midrule
+    $H_s$ (\si{\meter})        & 0.771  & 0.757  & $-0.009$ & 0.053 & 0.981 \\
+    $T_p$ (\si{\second})       & 13.48  & 13.30  & $-0.02$  & 1.48  & 0.761 \\
+    Direction SS (\si{\degree})    & $-7.3$ & $-7.2$ & $+0.2$   & 1.2   & 0.927 \\
+    Spread SS (\si{\degree})       & 14.7   & 15.8   & $+1.0$   & 1.7   & 0.877 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Bulk wave parameter agreement is excellent across all four metrics
+(Table~\ref{tab:ruby2d}; Figure~\ref{fig:ruby2d_scatter}). $H_s$ agrees
+to 5~cm RMS with a $-9$~mm median bias
+($R^2 = 0.98$), and direction agrees to within
+1.2$^\circ$~RMS ($R^2 = 0.93$). The directional spread is
+1$^\circ$ wider in the new pipeline on average; this is the largest
+systematic offset observed and remains within the segment-to-segment
+scatter. The new $T_p$ shows the discrete quantization bands expected from
+$\Delta f = 0.000976$~\si{\hertz} versus the prior pipeline's
+$0.000278$~\si{\hertz}, but no systematic bias.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.85\textwidth]{Ruby2D/ruby2d_582_6m_scatter.png}
+  \caption{Bulk parameter agreement between the new multi-taper pipeline
+    (vertical axis) and the legacy archived L2 (horizontal axis) for
+    Ruby2D MOP582\_6m, 2,322 matched 60-minute segments,
+    October 2021 to February 2022. The dashed line is 1:1.}
+  \label{fig:ruby2d_scatter}
+\end{figure}
+
+Per-segment surface elevation spectra agree closely in shape
+(Figure~\ref{fig:ruby2d_spectra}). At a representative median segment
+($H_s = 0.77$~\si{\meter}, November 27, 2021) and at a storm peak
+($H_s = 2.78$~\si{\meter}, December 14, 2021, bimodal sea state), the
+integrated $H_s$ values from the two pipelines agree to within 4\%.
+The visible difference between the spectra is the chi-square noise
+characteristic of a single-periodogram estimator in the prior pipeline,
+versus the variance reduction provided by averaging $K = 7$ DPSS tapers
+in the new pipeline. The underlying peak shapes and locations agree.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.95\textwidth]{Ruby2D/ruby2d_582_6m_spectra.png}
+  \caption{Representative surface elevation spectra for Ruby2D
+    MOP582\_6m. Top: median segment ($H_s = 0.77$~\si{\meter}). Bottom:
+    storm peak ($H_s = 2.78$~\si{\meter}). Left column: log scale,
+    full SS band. Right column: linear scale, swell band detail. The
+    multi-taper estimates (blue) are smoother than the prior single-periodogram
+    estimates (red); peak locations and total variance agree.}
+  \label{fig:ruby2d_spectra}
+\end{figure}
+
+This cross-validation establishes two things. First, the multi-taper
+implementation reproduces an independent prior pipeline to within
+instrument noise on bulk wave parameters, confirming that the
+estimator change is a refinement rather than a methodological break.
+Prior published Ruby2D bulk wave statistics do not require revision.
+Second, the consistency-of-windows fix in the new cross-spectral
+calculations (auto- and cross-spectra both use the same DPSS tapers,
+unlike the prior pipeline which mixed Hanning and Hamming) does not
+produce the order-20\% directional errors that the bug analysis
+suggested were possible at this site --- the practical impact at
+Ruby2D MOP582\_6m is approximately $1^\circ$ in spread.
+
 \subsubsection{Site-specific amplification at SIO Pier}
 
 The SIO Pier instruments (MOP 511, ~7m depth) exhibited dramatically
@@ -153,7 +249,7 @@ amplification that is unique to that location.
 \subsubsection{Energy band decomposition}
 
 Frequency-band analysis revealed clear seasonal patterns across all
-deployments. Winter deployments (NN24, TOR24W, SOL24) were
+deployments. Winter deployments (TOR23W, SOL23, TOR24W, SOL24) were
 swell-dominated (65--90\% of total energy flux in the 0.04--0.10~Hz
 band), while summer deployments (TBR23, SIO25B--D) showed
 approximately equal swell and sea contributions. The energy flux
@@ -164,10 +260,10 @@ fluxes and the total L2 energy flux ($F_\mathrm{total}/F_\mathrm{L2}
 \subsubsection{Storm characterization with MOP gap-filling}
 
 Storm detection identified 0 events during the calm summer TBR23
-deployment and up to 11 events during winter NN24, including the
+deployment and up to 11 events during winter TOR23W, including the
 major December 28, 2023 storm sequence ($H_s$ up to 3.6~m at 7~m
 depth, sustained over 74~hours). MOP gap-filling proved essential:
-the NN24 MOP651 7m instrument detected 0 storms from PUV data
+the SOL23 MOP651 7m instrument detected 0 storms from PUV data
 (55\% valid segments) but MOP identified 3 events during data gaps,
 including an 86-hour storm with $H_s = 3.09$~m. Across all
 deployments, MOP supplemented 1--8 additional storm events per
@@ -178,7 +274,7 @@ energetic conditions.
 
 The Shields parameter showed clear depth and seasonal dependence.
 Median Shields numbers decreased from 0.24 at 5.6~m to 0.065 at
-15.5~m depth (NN24 MOP586 cross-shore array), with corresponding
+15.5~m depth (TOR23W MOP586 cross-shore array), with corresponding
 mobilization fractions decreasing from 100\% to 78\%. Winter
 deployments showed approximately 3$\times$ the cumulative bottom
 energy flux of summer deployments at equivalent depths. The Rouse
