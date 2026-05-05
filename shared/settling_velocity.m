@@ -14,6 +14,7 @@ function ws = settling_velocity(D, rho_s, rho, nu)
 %
 %   REFERENCE
 %     Ferguson & Church (2004), J. Sedimentary Res. 74(6):933-937.
+% Author: Holden Leslie-Bole, 2026
 
 g  = 9.81;
 R  = rho_s / rho - 1;   % submerged specific gravity

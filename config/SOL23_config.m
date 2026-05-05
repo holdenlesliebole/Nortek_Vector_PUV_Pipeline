@@ -10,6 +10,7 @@ function cfg = SOL23_config()
 %   MOP651_5m failed (battery depleted, pipe bent, recovered 12/08/2025).
 %
 %   Source: DeploymentNotes2023-2024.xls, sheet 'All Data'
+% Author: Holden Leslie-Bole, 2026
 
     cfg.name        = 'SOL23';
     cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector';

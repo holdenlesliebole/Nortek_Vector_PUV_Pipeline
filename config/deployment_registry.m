@@ -22,6 +22,7 @@ function registry = deployment_registry()
 %     SOL25A-B = Solana 2025 (A=spring, B=winter)
 %     LPL23    = Los Penasquitos 2023-24
 %     LPL24-25 = Los Penasquitos subsequent deployments
+% Author: Holden Leslie-Bole, 2026
 
     registry = containers.Map();
 

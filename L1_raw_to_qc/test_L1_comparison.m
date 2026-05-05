@@ -6,6 +6,7 @@
 % Run from the PUV_Pipeline/ directory:
 %   >> cd /Users/holden/Documents/Scripps/Research/PUV_Pipeline
 %   >> test_L1_comparison
+% Author: Holden Leslie-Bole, 2026
 
 %% ======================== SETUP ========================
 startup_puv

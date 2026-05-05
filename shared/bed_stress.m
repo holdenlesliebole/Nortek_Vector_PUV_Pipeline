@@ -16,6 +16,7 @@ function [tau_b, fric_w, Aw] = bed_stress(Ub, Tp, D50, rho)
 %
 %   REFERENCE
 %     Swart (1974), Coastal Engineering Proc. 14.
+% Author: Holden Leslie-Bole, 2026
 
 ks = 10 * D50;               % Nikuradse roughness (m)
 Aw = (Ub .* Tp) / (2 * pi); % orbital excursion amplitude (m)

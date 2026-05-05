@@ -7,6 +7,7 @@
 %   Run from PUV_Pipeline/:
 %     >> cd /Users/holden/Documents/Scripps/Research/PUV_Pipeline
 %     >> PUV_L2_run_all
+% Author: Holden Leslie-Bole, 2026
 
 %% ======================== SETUP ========================
 startup_puv

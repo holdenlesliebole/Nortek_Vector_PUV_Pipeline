@@ -4,6 +4,7 @@
 %   and prints a summary table of comparison statistics.
 %
 %   To run a different deployment, change deployment_name below.
+% Author: Holden Leslie-Bole, 2026
 
 %% ======================== USER SETTINGS ========================
 deployment_name = 'TBR23';

@@ -13,6 +13,7 @@ function cfg = TBR23_config()
 %   prefix numbers (e.g., 58602) may be Nortek probe IDs rather than
 %   instrument serial numbers. The folder-name serials (e.g., 17042) match
 %   redeployments in the TOR23W winter deployment notes.
+% Author: Holden Leslie-Bole, 2026
 
     cfg.name        = 'TBR23';
     cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector/Torrey20230503-20230816';

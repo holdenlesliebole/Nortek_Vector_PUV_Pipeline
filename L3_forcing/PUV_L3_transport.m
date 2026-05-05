@@ -17,6 +17,7 @@ function L3 = PUV_L3_transport(L3, L2)
 %     Mobilization flag: above critical Shields threshold
 %     Cumulative bottom flux: running integral of Fb over deployment
 %     Rouse number: suspension vs bedload classification
+% Author: Holden Leslie-Bole, 2026
 
 g   = 9.81;
 rho = 1025;

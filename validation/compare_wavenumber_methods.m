@@ -7,6 +7,7 @@
 %
 %   Also shows the resulting Hs correction factor (1/Kp^2 integrated)
 %   to quantify the practical impact on wave height estimates.
+% Author: Holden Leslie-Bole, 2026
 
 startup_puv
 

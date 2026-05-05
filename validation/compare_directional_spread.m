@@ -25,6 +25,7 @@ function results = compare_directional_spread(L2, toolboxPath)
 %     shore-normal, NOT compass bearing. To recover compass direction
 %     from PUV, add L2.shorenormal to the atan2 result. The mean
 %     direction comparison (Figure 3) accounts for this offset.
+% Author: Holden Leslie-Bole, 2026
 
 if nargin < 2 || isempty(toolboxPath)
     toolboxPath = fullfile(getenv('HOME'), 'Documents', 'Scripps', 'Research', 'toolbox');

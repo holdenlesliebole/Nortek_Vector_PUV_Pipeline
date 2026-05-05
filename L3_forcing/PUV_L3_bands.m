@@ -17,6 +17,7 @@ function L3 = PUV_L3_bands(L2)
 %     Swell: 0.04  – 0.10  Hz  (swell)
 %     Sea:   0.10  – 0.25  Hz  (local wind seas)
 %     Total: 0.004 – 0.25  Hz  (full sea-swell + IG)
+% Author: Holden Leslie-Bole, 2026
 
 g   = 9.81;
 rho = 1025;

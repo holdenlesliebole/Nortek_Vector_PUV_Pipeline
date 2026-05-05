@@ -3,6 +3,15 @@ function L2 = PUV_L2_spectral(PUV, instr, opts)
 %
 %   L2 = PUV_L2_spectral(PUV, instr, opts)
 %
+% TODO (May 2026): adapt to use 1-hour segments (segLen = 7200 @ 2 Hz)
+% as the default. Current default is the legacy 17-min (2048) value.
+% Cross-deployment mean-flow validation and the within-hour-
+% stationarity audit support 1-hour as the better choice for bulk
+% parameters and segment-mean velocity (matches MOP cadence, finer
+% Δf, longer N for ū). See docs/mean_flow_validation_plan.md.
+% Until that migration lands, callers should pass `opts.segLen=7200`
+% explicitly when 1-hour output is wanted.
+%
 %   Segments the L1 QC'd timeseries into 17-minute (2048-sample @ 2 Hz)
 %   windows and computes:
 %     - Surface elevation spectrum (Wu pressure correction)
@@ -39,6 +48,7 @@ function L2 = PUV_L2_spectral(PUV, instr, opts)
 %     On MATLAB path: pressure_correction_wu, compute_bulk_params,
 %     bed_velocity_ifft, bed_stress, compute_reynolds_stress,
 %     compute_velocity_moments, rotate_shorenormal, get_wavenumber, get_cg
+% Author: Holden Leslie-Bole, 2026
 
 %% ======================== DEFAULTS ========================
 if nargin < 3, opts = struct(); end

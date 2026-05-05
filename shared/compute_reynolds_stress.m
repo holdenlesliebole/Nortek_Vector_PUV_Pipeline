@@ -14,6 +14,7 @@ function stress = compute_reynolds_stress(u, v, w)
 %               .uu, .vv, .ww   - normal stress components (m^2/s^2)
 %               .u_rms, .v_rms, .w_rms - RMS velocities (m/s)
 %               .TKE            - turbulent kinetic energy (m^2/s^2)
+% Author: Holden Leslie-Bole, 2026
 
 u = u(:); v = v(:); w = w(:);
 

@@ -10,6 +10,7 @@ function verify_L2_products(L2)
 %     4. Velocity moments: skewness/asymmetry ranges and depth dependence
 %     5. Mean currents: check magnitudes are physically reasonable
 %     6. Internal consistency: Hs vs Ub vs tau_b correlations
+% Author: Holden Leslie-Bole, 2026
 
 g = 9.81;
 rho = 1025;

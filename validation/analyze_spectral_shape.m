@@ -12,6 +12,7 @@ function results = analyze_spectral_shape(L2, toolboxPath)
 %     2. Peak energy density ratio vs bandwidth difference
 %     3. Normalized spectral shape comparison (shape vs total energy)
 %     4. Excess vs peak period — does bias depend on wave type?
+% Author: Holden Leslie-Bole, 2026
 
 if nargin < 2 || isempty(toolboxPath)
     toolboxPath = fullfile(getenv('HOME'), 'Documents', 'Scripps', 'Research', 'toolbox');

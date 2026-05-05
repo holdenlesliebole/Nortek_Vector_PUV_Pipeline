@@ -4,6 +4,7 @@
 %   transport proxies, etc.). Saves one L3 .mat file per instrument.
 %
 %   To process a different deployment, change deployment_name below and re-run.
+% Author: Holden Leslie-Bole, 2026
 
 %% ======================== USER SETTINGS ========================
 deployment_name = 'TBR23';  % change to process a different deployment

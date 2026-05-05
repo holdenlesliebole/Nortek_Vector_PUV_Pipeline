@@ -17,6 +17,7 @@ function results = analyze_depth_dependence(deployment_name, toolboxPath)
 %   INPUTS
 %     deployment_name - e.g. 'TBR23'
 %     toolboxPath     - path to toolbox/ with read_MOPline2.m
+% Author: Holden Leslie-Bole, 2026
 
 if nargin < 2 || isempty(toolboxPath)
     toolboxPath = fullfile(getenv('HOME'), 'Documents', 'Scripps', 'Research', 'toolbox');

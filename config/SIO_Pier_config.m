@@ -16,6 +16,7 @@ function cfg = SIO_Pier_config(deployment_name)
 %     clockDrift = NaN (unknown unless filled from DeploymentNotes)
 %     doffp     = NaN (fill from DeploymentNotes before running L2)
 %     latlon    = approximate site center (sufficient for mag declination)
+% Author: Holden Leslie-Bole, 2026
 
     cfg.name      = deployment_name;
     cfg.fs        = 2;  % Hz

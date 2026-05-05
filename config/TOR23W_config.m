@@ -13,6 +13,7 @@ function cfg = TOR23W_config()
 %     Spans multiple deployment folders (different recovery dates), so
 %     rawDataRoot is set to the common parent directory. Each instrument's
 %     rawSubfolder includes the deployment folder name.
+% Author: Holden Leslie-Bole, 2026
 
     cfg.name        = 'TOR23W';
     cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector';

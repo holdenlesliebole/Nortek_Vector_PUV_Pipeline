@@ -6,6 +6,7 @@ function cfg = TOR24W_config()
 %   Deployment: Torrey20241125-20250220
 %   4 instruments: MOP586 5m/7m/10m/15m (no MOP580 this deployment)
 %   All XYZ coordinate system, subfolder layout.
+% Author: Holden Leslie-Bole, 2026
 
     cfg.name        = 'TOR24W';
     cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector/Torrey20241125-20250220';

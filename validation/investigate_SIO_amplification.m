@@ -7,6 +7,7 @@
 %   3. MOP spectral resolution check — does MOP D0511 have different
 %      frequency spacing than D0580/D0586?
 %   4. Shore-normal angle effect — SIO is 283° vs TP 264°
+% Author: Holden Leslie-Bole, 2026
 
 startup_puv
 toolboxPath = fullfile(getenv('HOME'), 'Documents', 'Scripps', 'Research', 'toolbox');

@@ -36,6 +36,7 @@ function results = compare_PUV_MOP(L2, toolboxPath)
 %       Integration uses the MOP bandwidth vector (fbw), not constant df.
 %     - Shoaling uses linear wave theory: S(f,h) = S(f,10) * Cg(10) / Cg(h)
 %     - PUV 17-min segments are interpolated to the MOP hourly grid for comparison.
+% Author: Holden Leslie-Bole, 2026
 
 %% ======================== SETUP ========================
 if nargin < 2 || isempty(toolboxPath)

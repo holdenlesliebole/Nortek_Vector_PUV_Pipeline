@@ -19,6 +19,7 @@ function stats = compute_velocity_moments(u, fs)
 %       .a2        - mean(a^2)   — mean squared acceleration
 %       .a3        - mean(a^3)   — mean cubed acceleration
 %       .a_spike   - max(|a|) / (2*pi*max(|u|)) — spike indicator
+% Author: Holden Leslie-Bole, 2026
 
 u = u(~isnan(u));
 dt = 1 / fs;

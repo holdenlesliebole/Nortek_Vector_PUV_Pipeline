@@ -21,6 +21,7 @@ function PUV = PUV_raw_process(instr, cfg)
 %
 %   Original code: Athina Lange, SIO July 2021
 %   Rewritten for config-driven pipeline April 2026
+% Author: Holden Leslie-Bole, 2026
 
     %% ========== GEOGRAPHICAL INFO ==========
     LAT = instr.latlon(1);

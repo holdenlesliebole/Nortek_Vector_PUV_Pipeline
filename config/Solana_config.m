@@ -10,6 +10,7 @@ function cfg = Solana_config(deployment_name)
 %
 %   For the winter 2023-24 Solana instruments (MOP651/654, Nov 2023 - Jan 2024),
 %   see SOL23_config.m (previously part of NN24).
+% Author: Holden Leslie-Bole, 2026
 
     cfg.name      = deployment_name;
     cfg.fs        = 2;  % Hz

@@ -30,6 +30,7 @@ function bulk = compute_bulk_params(S_eta, Suu, Svv, Spu, Spv, f, H, opts)
 %
 %   REQUIRES
 %     get_wavenumber.m, get_cg.m on the MATLAB path
+% Author: Holden Leslie-Bole, 2026
 
 % Defaults
 if ~isfield(opts, 'fIG'),  opts.fIG  = [0.004, 0.04]; end

@@ -13,6 +13,7 @@ function validate_tidal_decomposition(L3, L2)
 %
 %   REQUIRES
 %     getztide2.m on the MATLAB path (in toolbox/)
+% Author: Holden Leslie-Bole, 2026
 
 toolboxPath = fullfile(getenv('HOME'), 'Documents', 'Scripps', 'Research', 'toolbox');
 if ~exist('getztide2', 'file')
@@ -22,9 +23,12 @@ end
 validIdx = L3.segValid;
 
 %% Get time range
+% Assume L2.time is UTC (verified during pipeline-validation work).
+% If a future record carries a non-empty TimeZone field, it should be
+% converted to UTC before querying NOAA — handle that case explicitly.
 t = L2.time;
-if isempty(t.TimeZone)
-    t_for_noaa = t;  % assume UTC for NOAA query
+if ~isempty(t.TimeZone) && ~strcmpi(t.TimeZone, 'UTC')
+    t_for_noaa = datetime(t, 'TimeZone', 'UTC');
 else
     t_for_noaa = t;
 end

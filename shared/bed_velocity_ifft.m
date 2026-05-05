@@ -36,6 +36,7 @@ function [uBed, vBed] = bed_velocity_ifft(segU, segV, fs, hValue, offset, g)
 %     The conjugate symmetry enforcement sets U_fft(N-k) = conj(U_fft(k+1))
 %     after scaling. The 'symmetric' flag in ifft() handles any residual
 %     imaginary components.
+% Author: Holden Leslie-Bole, 2026
 
 N = length(segU);
 

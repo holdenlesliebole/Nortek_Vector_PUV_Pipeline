@@ -23,6 +23,7 @@ function cfg = copy_raw_to_local(cfg, localRoot)
 %     cfg = TBR23_config();
 %     cfg = copy_raw_to_local(cfg);   % copy files, update cfg
 %     PUV_L1_driver  % now reads from local disk
+% Author: Holden Leslie-Bole, 2026
 
     if nargin < 2
         localRoot = fullfile(fileparts(fileparts(mfilename('fullpath'))), 'raw_cache');

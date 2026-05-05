@@ -15,6 +15,7 @@ function L3 = PUV_L3_storms(L3, L2, toolboxPath)
 %
 %   OUTPUTS
 %     L3 - updated struct with storm detection and MOP context fields
+% Author: Holden Leslie-Bole, 2026
 
 if nargin < 3 || isempty(toolboxPath)
     toolboxPath = fullfile(getenv('HOME'), 'Documents', 'Scripps', 'Research', 'toolbox');

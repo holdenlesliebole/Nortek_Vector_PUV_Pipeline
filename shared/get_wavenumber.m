@@ -11,6 +11,7 @@
 %
 % OUTPUT
 %   k      - wavenumber (rad/m)
+% Author: Holden Leslie-Bole, 2026
 
 function k = get_wavenumber(omega, h)
 

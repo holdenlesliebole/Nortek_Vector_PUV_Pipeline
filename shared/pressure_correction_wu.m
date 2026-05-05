@@ -35,6 +35,7 @@ function [S_eta, Kp, fCut] = pressure_correction_wu(Spp_m, f, H, z_sensor, KpMin
 %         form of Kp (e.g., non-hydrostatic corrections, depth-dependent
 %         modifications). Current implementation uses standard linear wave
 %         theory. See also Jones & Monismith (2007), Bishop & Donelan (1987).
+% Author: Holden Leslie-Bole, 2026
 
 if nargin < 5 || isempty(KpMin)
     KpMin = 0.1;

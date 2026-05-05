@@ -22,6 +22,7 @@ function [Uprime, Vprime, shorenormal] = rotate_shorenormal(U, V, mopStation)
 %
 %   Original: Athina Lange, SIO July 2021
 %   Canonical copy: PUV_Pipeline/shared/
+% Author: Holden Leslie-Bole, 2026
 
 ncfile = strcat('http://thredds.cdip.ucsd.edu/thredds/dodsC/cdip/model/', ...
     'MOP_alongshore/', string(mopStation), '_nowcast.nc');

@@ -17,6 +17,7 @@ function compare_PUV_MOP_spectra(L2, nExamples, toolboxPath)
 %     L2          - L2 struct from PUV_L2_spectral
 %     nExamples   - number of example spectra to plot (default 6)
 %     toolboxPath - path to toolbox/ with read_MOPline2.m
+% Author: Holden Leslie-Bole, 2026
 
 if nargin < 2 || isempty(nExamples), nExamples = 6; end
 if nargin < 3 || isempty(toolboxPath)

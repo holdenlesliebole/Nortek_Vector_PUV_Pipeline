@@ -12,6 +12,7 @@
 %   or copy individual deployments:
 %     >> reg = deployment_registry(); cfg = reg('SIO24A')();
 %     >> copy_raw_to_local(cfg);
+% Author: Holden Leslie-Bole, 2026
 
 %% ======================== SETUP ========================
 startup_puv

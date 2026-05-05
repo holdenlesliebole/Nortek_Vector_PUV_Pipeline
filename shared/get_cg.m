@@ -10,6 +10,7 @@
 %
 % OUTPUT
 %   cg  - group velocity (m/s)
+% Author: Holden Leslie-Bole, 2026
 
 function cg = get_cg(k, h)
 

@@ -6,6 +6,7 @@
 %   the shore-normal angle from the config.
 %
 %   Saves to outputs/validation/site_map.png at 300 DPI.
+% Author: Holden Leslie-Bole, 2026
 
 startup_puv
 

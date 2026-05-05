@@ -22,6 +22,7 @@ function L3 = PUV_L3_currents(L3, L2)
 %   NOTE
 %     t_tide needs the t_tide toolbox directory on the path. If not found,
 %     this function will attempt to add it from a known location.
+% Author: Holden Leslie-Bole, 2026
 
 %% Ensure t_tide is available
 if ~exist('t_tide', 'file')

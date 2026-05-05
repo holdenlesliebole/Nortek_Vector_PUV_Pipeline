@@ -15,6 +15,7 @@ function cfg = TOR25S_config()
 %   accommodate both folders.
 %
 %   All XYZ coordinate system.
+% Author: Holden Leslie-Bole, 2026
 
     cfg.name        = 'TOR25S';
     cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector';

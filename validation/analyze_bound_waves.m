@@ -18,6 +18,7 @@ function results = analyze_bound_waves(L2, toolboxPath)
 %   INPUTS
 %     L2          - L2 struct from PUV_L2_spectral
 %     toolboxPath - path to toolbox/ with read_MOPline2.m
+% Author: Holden Leslie-Bole, 2026
 
 if nargin < 2 || isempty(toolboxPath)
     toolboxPath = fullfile(getenv('HOME'), 'Documents', 'Scripps', 'Research', 'toolbox');

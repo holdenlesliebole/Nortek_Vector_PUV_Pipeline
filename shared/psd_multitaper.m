@@ -24,6 +24,7 @@ function [Pxx, Pxy, f] = psd_multitaper(x, y, nfft, fs, NW)
 %
 %   The normalization matches MATLAB's pwelch convention: integrating Pxx
 %   over frequency gives the variance of x.
+% Author: Holden Leslie-Bole, 2026
 
 if nargin < 5 || isempty(NW), NW = 4; end
 
