@@ -67,6 +67,8 @@ if ~isfield(opts, 'doRotate'),       opts.doRotate       = true;          end
 if ~isfield(opts, 'nanMaxFrac'),     opts.nanMaxFrac     = 0.10;          end
 if ~isfield(opts, 'spectralMethod'), opts.spectralMethod = 'mtm_full';     end  % 'welch', 'mtm_hybrid', 'mtm_full'
 if ~isfield(opts, 'NW'),            opts.NW             = 4;              end  % time-bandwidth product for multi-taper
+if ~isfield(opts, 'HsMaxToHRatio'), opts.HsMaxToHRatio  = 1.5;            end  % unphysical Hs/h threshold; segValid=false if exceeded
+if ~isfield(opts, 'depthDeviationMax'), opts.depthDeviationMax = 0.5;     end  % |H - depth_nominal|/depth_nominal threshold; 0 to disable
 
 fs     = PUV.fs;
 segLen = opts.segLen;
@@ -300,6 +302,32 @@ for i = 1:nSeg
     L2.Tm02(i)    = bulk.Tm02;
     L2.meanDir(i) = bulk.meanDir;
     L2.Ef(i)      = bulk.Ef;
+
+    % --- Sanity check: unphysical Hs or depth ---
+    % Two ways a segment can be contaminated by sensor noise:
+    %   (1) Hs > HsMaxToHRatio * h: violates depth-limited breaking
+    %       (γ_b ≈ 0.4–0.6 in shallow water).
+    %   (2) Segment-mean depth far from depth_nominal: a segment whose
+    %       pressure record includes a sensor-failure period will report
+    %       an inflated mean pressure and therefore an inflated depth.
+    %       For RUBY22/MOP579_6m, contaminated segments showed depth
+    %       ~13 m at a 6 m site — both Hs AND depth scaled together so
+    %       their ratio stayed plausible, but the absolute depth gives
+    %       it away.
+    bad_seg = false;
+    if isfinite(bulk.Hs) && H > 0 && bulk.Hs > opts.HsMaxToHRatio * H
+        bad_seg = true;
+    end
+    if isfield(instr,'depth_nominal') && ~isnan(instr.depth_nominal) ...
+            && opts.depthDeviationMax > 0
+        if abs(H - instr.depth_nominal) > opts.depthDeviationMax * instr.depth_nominal
+            bad_seg = true;
+        end
+    end
+    if bad_seg
+        L2.segValid(i) = false;
+        nValid = nValid - 1;
+    end
 
     % --- Z-test: pressure vs velocity consistency ---
     % Convert velocity spectra to equivalent pressure units using linear

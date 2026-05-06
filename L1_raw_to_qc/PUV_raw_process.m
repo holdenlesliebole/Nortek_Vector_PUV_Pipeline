@@ -453,13 +453,68 @@ function PUV = PUV_raw_process(instr, cfg)
     roll_qc(bad_tilt_abs)  = NaN;
     pressure_qc(bad_tilt_abs) = NaN;
 
-    % Stage 2: Pressure anomalies (deployment/recovery/exposure)
-    pMed = nanmedian(pressure_qc); %#ok<NANMEDIAN> — backwards compat
+    % Stage 1c: Compute pMed from a HEALTHY reference window — the first
+    % burst's in-water samples — instead of the full record. Rationale:
+    % some instruments (e.g., RUBY22/MOP579_6m) suffered mid-deployment
+    % sensor-block failure where pressure saturates at the firmware
+    % overflow code (~239.679 dBar) AND temperature/sound-speed read
+    % unphysical values. When >50% of samples are corrupted, the global
+    % median lands in the bad band and the [pMed/2, 2*pMed] filter below
+    % inverts — keeping noise and rejecting good data.
+    %
+    % Reference-window strategy:
+    %   - Use the first burst (~the first 1/nBursts of full_date, but more
+    %     robustly we use the first ~10% of valid samples).
+    %   - Restrict to in-water samples (P > 0.5 dBar) so deployment-time
+    %     zeros don't pull pMed toward 0.
+    %   - If the reference window is empty (instrument failed at deploy),
+    %     fall back to depth_nominal as a prior.
+    nValid_init = sum(~isnan(pressure_qc));
+    refN = max(round(0.10 * numel(pressure_qc)), 1000);
+    refN = min(refN, numel(pressure_qc));
+    refSlice = pressure_qc(1:refN);
+    refIn   = refSlice(refSlice > 0.5 & ~isnan(refSlice));
+    if numel(refIn) >= 100
+        pMed_ref = median(refIn);
+        fprintf('  pMed reference: first %d samples, %d in-water → pMed_ref=%.2f dBar\n', ...
+            refN, numel(refIn), pMed_ref);
+    elseif isfield(instr,'depth_nominal') && ~isnan(instr.depth_nominal)
+        pMed_ref = instr.depth_nominal;
+        warning('PUV_raw_process:noRefWindow', ...
+            'No healthy reference window — falling back to depth_nominal=%.1f m as pMed prior.', pMed_ref);
+    else
+        error('PUV_raw_process:noRefWindow', ...
+            'Cannot estimate pMed: no healthy early samples and no depth_nominal.');
+    end
+
+    % Sanity-check the reference pMed against expected depth.
+    if isfield(instr, 'depth_nominal') && ~isnan(instr.depth_nominal)
+        h_expect = instr.depth_nominal;
+        if pMed_ref > 3 * h_expect + 5 || pMed_ref < 0.2 * h_expect
+            error('PUV_raw_process:pressureSanity', ...
+                ['pMed_ref = %.2f dBar is implausible for nominal depth %.1f m. ' ...
+                 'Likely sensor failed at deployment; check L1 diagnostic plot.'], ...
+                pMed_ref, h_expect);
+        end
+    end
+
+    % Stage 2: Use the reference pMed to filter the WHOLE record. Samples
+    % outside [pMed_ref/2, 2*pMed_ref] are treated as failed-sensor data —
+    % even if they look "consistent" later in the record (e.g., a sensor
+    % that saturates at 239 dBar for weeks). The row-level NaN'ing below
+    % at line ~510 will propagate this to velocities, which is the right
+    % call when the failure is sensor-block-wide (pressure + temperature +
+    % sound-speed all corrupt → ADV velocities are also unreliable).
+    pMed = pMed_ref;
     bad = pressure_qc < pMed/2;
     pitch_qc(bad) = NaN; roll_qc(bad) = NaN; pressure_qc(bad) = NaN;
 
     bad = pressure_qc > pMed*2;
     pitch_qc(bad) = NaN; roll_qc(bad) = NaN; pressure_qc(bad) = NaN;
+
+    nValid_post = sum(~isnan(pressure_qc));
+    fprintf('  Pressure QC: %d → %d samples valid (%.1f%% of original valid)\n', ...
+        nValid_init, nValid_post, 100*nValid_post/max(nValid_init,1));
 
     % --- Save diagnostic plot ---
     diagDir = fullfile(cfg.outputDir, 'L1', 'diagnostics');
@@ -500,7 +555,8 @@ function PUV = PUV_raw_process(instr, cfg)
     bad = bad_tilt_var | bad_tilt_abs;
     DAT(bad,:) = NaN; SEN(bad,:) = NaN;
 
-    pMed = nanmedian(DAT(:,15)); %#ok<NANMEDIAN>
+    % Apply the same reference-pMed pressure QC to DAT (uses pMed = pMed_ref
+    % computed above from the healthy first-burst window).
     bad = DAT(:,15) < pMed/2;
     DAT(bad,:) = NaN; SEN(bad,:) = NaN;
 
