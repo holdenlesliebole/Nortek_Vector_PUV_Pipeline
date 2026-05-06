@@ -10,23 +10,32 @@
 \usepackage{hyperref}
 \usepackage[utf8]{inputenc}
 
-% Use siunitx if available, otherwise define stubs
+% Use siunitx if available, otherwise define stubs.
+% Notes:
+%   - When defining \newcommand inside \IfFileExists arguments, # markers
+%     must be doubled (##) to survive the outer macro scan.
+%   - Math-context-safe: \cubed, \squared, \degree use \ensuremath so they
+%     can appear inside or outside an existing math env without breaking.
 \IfFileExists{siunitx.sty}{%
   \usepackage{siunitx}
 }{%
-  \newcommand{\SI}[2]{#1~#2}
-  \newcommand{\SIrange}[3]{#1--#2~#3}
-  \newcommand{\si}[1]{#1}
+  \newcommand{\SI}[2]{##1~##2}
+  \newcommand{\SIrange}[3]{##1--##2~##3}
+  \newcommand{\si}[1]{##1}
   \newcommand{\hertz}{Hz}
   \newcommand{\meter}{m}
   \newcommand{\second}{s}
   \newcommand{\minute}{min}
-  \newcommand{\degree}{$^\circ$}
+  \newcommand{\hour}{hr}
+  \newcommand{\degree}{\ensuremath{^{\circ}}}
+  \newcommand{\percent}{\%}
   \newcommand{\deci}{}
+  \newcommand{\centi}{c}
+  \newcommand{\kilo}{k}
   \newcommand{\kilogram}{kg}
   \newcommand{\per}{/}
-  \newcommand{\cubed}{$^3$}
-  \newcommand{\squared}{$^2$}
+  \newcommand{\cubed}{\ensuremath{^{3}}}
+  \newcommand{\squared}{\ensuremath{^{2}}}
   \newcommand{\milli}{m}
 }
 
