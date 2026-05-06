@@ -458,6 +458,41 @@ were re-processed with 1-hour segments (`segLen=7200`, NW=4) using
 - Aggregate: **median α/α_theory rises from +0.53 → +0.71, α<0 fraction
   rises from 66% → 81%.**
 
+#### 38-instrument re-run (May 5, after pre-2023 ingestion)
+
+After Catalina (CAT21A, CAT21B) and the Ruby2D 2021-2022 cross-shore
+array (RUBY22 → 3 instruments) joined the catalog, the 1-hour Phase 2
+re-run reinforces every headline conclusion:
+
+| Metric                       | 33-inst (1-hour) | 38-cat / 33 in headline (1-hour) |
+|------------------------------|------------------|----------------------------------|
+| median α / α_theory          | +0.71            | **+0.82**                        |
+| α < 0 fraction               | 81%              | **85%**                          |
+| |β| < 2 cm/s                 | 94%              | **97%**                          |
+
+The 33 headline instruments come from the 38-record catalog after
+excluding TBR23/MOP580_5m (kelp-flagged), SIO25C and CAT21B
+(partial deployments with too few wave-forcing-dominant segments
+to fit), and two RUBY22 instruments (MOP582_30m at 30 m where
+wave-driven mean flow is below detection limits, MOP579_6m with
+an L2 data-quality artifact under separate investigation —
+Hs reports 23 m at a 6 m depth instrument).
+
+Per site (1-hour, headline):
+
+| Site         | N  | median α/α_th | α<0 frac | |β|<2 cm/s |
+|--------------|----|---------------|----------|------------|
+| Catalina     | 1  | +1.60         | 100%     | 100%       |
+| LPL lagoon   | 4  | +0.89         | 75%      | 100%       |
+| SIO Pier     | 4  | +0.64         | 100%     | 100%       |
+| Solana       | 5  | +0.82         | 100%     | 100%       |
+| Torrey       | 19 | +0.76         | 79%      | 95%        |
+
+Adding out-of-sample geographic diversity (Catalina at 33.45° N,
+totally different wave climate from SD County) and the historical
+Ruby2D 2021-2022 record does not weaken the wave-driven-undertow
+case; it strengthens every aggregate metric.
+
 #### Segmentation comparison figure
 
 `outputs/validation/mean_flow/_aggregate/seglen_compare_alpha_beta.png`
