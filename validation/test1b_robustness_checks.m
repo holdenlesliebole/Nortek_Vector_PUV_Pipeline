@@ -229,13 +229,14 @@ siteName = strings(n,1);
 siteCol = zeros(n,3);
 colors = struct('Torrey',[0.20 0.45 0.85],'Solana',[0.85 0.30 0.20], ...
                 'SIO_Pier',[0.95 0.65 0.10],'LPL_lagoon',[0.30 0.65 0.30], ...
-                'other',[0.5 0.5 0.5]);
+                'Catalina',[0.55 0.40 0.75], 'other',[0.5 0.5 0.5]);
 for k = 1:n
     d = results.deployment{k};
-    if startsWith(d,'TBR')||startsWith(d,'TOR'), siteName(k) = "Torrey";       siteCol(k,:) = colors.Torrey;
+    if startsWith(d,'TBR')||startsWith(d,'TOR') || startsWith(d,'RUBY'), siteName(k) = "Torrey";       siteCol(k,:) = colors.Torrey;
     elseif startsWith(d,'SOL'),                  siteName(k) = "Solana";       siteCol(k,:) = colors.Solana;
     elseif startsWith(d,'SIO'),                  siteName(k) = "SIO Pier";     siteCol(k,:) = colors.SIO_Pier;
-    elseif startsWith(d,'LPL'),                  siteName(k) = "LPL lagoon";   siteCol(k,:) = colors.LPL_lagoon;
+    elseif startsWith(d,'LPL'),                  siteName(k) = "LPL lagoon";
+    elseif startsWith(d,'CAT'),                  siteName(k) = "Catalina";    siteCol(k,:) = colors.Catalina;   siteCol(k,:) = colors.LPL_lagoon;
     else,                                        siteName(k) = "other";        siteCol(k,:) = colors.other;
     end
 end

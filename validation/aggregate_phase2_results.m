@@ -52,10 +52,11 @@ end
 site = strings(numel(s.label),1);
 for k = 1:numel(s.label)
     d = s.deployment{k};
-    if startsWith(d,'TBR') || startsWith(d,'TOR'), site(k) = "Torrey";
+    if startsWith(d,'TBR') || startsWith(d,'TOR') || startsWith(d,'RUBY'), site(k) = "Torrey";
     elseif startsWith(d,'SOL'),                    site(k) = "Solana";
     elseif startsWith(d,'SIO'),                    site(k) = "SIO Pier";
     elseif startsWith(d,'LPL'),                    site(k) = "LPL lagoon";
+    elseif startsWith(d,'CAT'),                    site(k) = "Catalina";
     else,                                          site(k) = "other";
     end
 end
@@ -81,6 +82,7 @@ siteColors('Torrey')     = [0.20 0.45 0.85];
 siteColors('Solana')     = [0.85 0.30 0.20];
 siteColors('SIO Pier')   = [0.95 0.65 0.10];
 siteColors('LPL lagoon') = [0.30 0.65 0.30];
+siteColors('Catalina')   = [0.55 0.40 0.75];
 siteColors('other')      = [0.50 0.50 0.50];
 
 % ============================== FIGURE 1: alpha vs depth =====================

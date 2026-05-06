@@ -20,10 +20,11 @@ isBad = strcmp(s.deployment,'TBR23') & strcmp(s.label,'MOP580_5m');
 site = strings(numel(s.label),1);
 for k = 1:numel(s.label)
     d = s.deployment{k};
-    if startsWith(d,'TBR') || startsWith(d,'TOR'), site(k) = "Torrey";
+    if startsWith(d,'TBR') || startsWith(d,'TOR') || startsWith(d,'RUBY'), site(k) = "Torrey";
     elseif startsWith(d,'SOL'),                    site(k) = "Solana";
     elseif startsWith(d,'SIO'),                    site(k) = "SIO Pier";
     elseif startsWith(d,'LPL'),                    site(k) = "LPL lagoon";
+    elseif startsWith(d,'CAT'),                    site(k) = "Catalina";
     end
 end
 sites = unique(site);

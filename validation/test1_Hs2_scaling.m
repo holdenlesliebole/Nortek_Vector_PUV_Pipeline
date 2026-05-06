@@ -58,6 +58,12 @@ for iI = 1:nI
 
     valid = L2.segValid(:) & ~isnan(L2.uMean(:)) & ~isnan(L2.Hs(:)) & ...
             L2.Hs(:) >= opts.HsMin;
+    if sum(valid) < 30
+        warning('test1:tooFewSegments', ...
+            '%s: only %d segments with Hs >= %.2f m — skipping fit (likely deep-water instrument).', ...
+            label, sum(valid), opts.HsMin);
+        continue
+    end
     Hs    = L2.Hs(valid);
     uMean = L2.uMean(valid);
     h_seg = L2.depth(valid);

@@ -200,10 +200,11 @@ end
 
 
 function s = site_for(dep)
-if startsWith(dep,'TBR') || startsWith(dep,'TOR'), s = "Torrey";
+if startsWith(dep,'TBR') || startsWith(dep,'TOR') || startsWith(dep,'RUBY'), s = "Torrey";
 elseif startsWith(dep,'SOL'),                       s = "Solana";
 elseif startsWith(dep,'SIO'),                       s = "SIO Pier";
 elseif startsWith(dep,'LPL'),                       s = "LPL lagoon";
+elseif startsWith(dep,'CAT'),                       s = "Catalina";
 else,                                               s = "other";
 end
 end

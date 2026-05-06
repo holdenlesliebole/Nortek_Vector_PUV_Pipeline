@@ -62,10 +62,11 @@ hmed = s17.h_med(i17);
 site = strings(numel(shared),1);
 for k = 1:numel(shared)
     d = s17.deployment{i17(k)};
-    if startsWith(d,'TBR')||startsWith(d,'TOR'), site(k)="Torrey";
+    if startsWith(d,'TBR')||startsWith(d,'TOR') || startsWith(d,'RUBY'), site(k)="Torrey";
     elseif startsWith(d,'SOL'),                  site(k)="Solana";
     elseif startsWith(d,'SIO'),                  site(k)="SIO Pier";
     elseif startsWith(d,'LPL'),                  site(k)="LPL lagoon";
+    elseif startsWith(d,'CAT'),                    site(k) = "Catalina";
     else,                                        site(k)="other";
     end
 end
@@ -84,6 +85,7 @@ siteColors('Torrey')     = [0.20 0.45 0.85];
 siteColors('Solana')     = [0.85 0.30 0.20];
 siteColors('SIO Pier')   = [0.95 0.65 0.10];
 siteColors('LPL lagoon') = [0.30 0.65 0.30];
+siteColors('Catalina')   = [0.55 0.40 0.75];
 
 % ============== FIGURE: 4 panels =============================
 fig = figure('Visible','off','Position',[100 100 1500 1100]);

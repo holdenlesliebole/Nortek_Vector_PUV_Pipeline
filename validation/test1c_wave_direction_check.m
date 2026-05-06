@@ -53,6 +53,9 @@ for iD = 1:numel(deployments)
         label = regexprep(files(iF).name,'_L2\.mat$','');
         L60 = load(fullfile(depDir, [label '_L2.mat']));  L60 = L60.L2;
         if ~isfield(L60,'vMean') || ~isfield(L60,'meanDir') || ~isfield(L60,'Hs'), continue; end
+        % Skip records without shore-normal rotation — meanDir is then in
+        % buoy frame, not shore-normal-relative, so sin(2θ_rel) is wrong.
+        if ~isfield(L60,'shorenormal') || isnan(L60.shorenormal), continue; end
         valid = L60.segValid(:) & ~isnan(L60.uMean(:)) & ~isnan(L60.vMean(:)) ...
               & ~isnan(L60.Hs(:)) & ~isnan(L60.meanDir(:)) ...
               & L60.Hs(:) >= opts.HsMin ...
@@ -224,13 +227,14 @@ siteName = strings(n,1);
 siteCol = zeros(n,3);
 colors = struct('Torrey',[0.20 0.45 0.85], 'Solana',[0.85 0.30 0.20], ...
                 'SIO_Pier',[0.95 0.65 0.10], 'LPL_lagoon',[0.30 0.65 0.30], ...
-                'other',[0.5 0.5 0.5]);
+                'Catalina',[0.55 0.40 0.75], 'other',[0.5 0.5 0.5]);
 for k = 1:n
     d = results(k).deployment;
-    if startsWith(d,'TBR')||startsWith(d,'TOR'), siteName(k) = "Torrey";       siteCol(k,:) = colors.Torrey;
+    if startsWith(d,'TBR')||startsWith(d,'TOR') || startsWith(d,'RUBY'), siteName(k) = "Torrey";       siteCol(k,:) = colors.Torrey;
     elseif startsWith(d,'SOL'),                  siteName(k) = "Solana";       siteCol(k,:) = colors.Solana;
     elseif startsWith(d,'SIO'),                  siteName(k) = "SIO Pier";     siteCol(k,:) = colors.SIO_Pier;
-    elseif startsWith(d,'LPL'),                  siteName(k) = "LPL lagoon";   siteCol(k,:) = colors.LPL_lagoon;
+    elseif startsWith(d,'LPL'),                  siteName(k) = "LPL lagoon";
+    elseif startsWith(d,'CAT'),                  siteName(k) = "Catalina";    siteCol(k,:) = colors.Catalina;   siteCol(k,:) = colors.LPL_lagoon;
     else,                                        siteName(k) = "other";        siteCol(k,:) = colors.other;
     end
 end
