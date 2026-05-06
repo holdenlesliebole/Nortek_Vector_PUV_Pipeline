@@ -64,7 +64,7 @@ configs can be added.
 | `CoronadoJan_2017/` | Coronado | Jan 2017 | 2 | Almost certainly incomplete (only 2 files) |
 | `20190422_IB_North/`, `20190422_IB_South/` | Imperial Beach | Apr 2019 | 10, 9 | Likely partial / failed deployments |
 | `2019-2020-IB-Cortez/` | Imperial Beach (Cortez) | 2019-2020 | 7 | Likely partial |
-| `Sarah_LPL_2014-2023/` | Los Penasquitos Lagoon | 2014-2023 | nested by year | 9 yearly sub-folders, format unknown — needs separate survey |
+| `Sarah_LPL_2014-2023/` | **Mislabeled — actually Torrey Pines** (per `.hdr` content `C:\PROJECTS\SoCal2014\TorreyPines\`) | 2014-2023 | nested by year, multiple deployments per season | **Has full `.dat`/`.hdr`/`.VEC` set, but at 8 Hz (not 2 Hz) with hour-named files**. See "Sarah archive notes" below. |
 
 Special folders to check separately:
 - `RechargeableBattTest/` — battery test records, not field data
@@ -88,6 +88,67 @@ Special folders to check separately:
 Beach, Catalina. The Catalina deployment in particular is in a very
 different wave-climate context (offshore island, lower-energy) and
 could enrich cross-deployment analysis.
+
+---
+
+## Sarah archive notes (May 5, 2026 survey)
+
+The `Sarah_LPL_2014-2023/` folder is **mislabeled** — its contents are
+Torrey Pines deployments, not Los Pe\~nasquitos lagoon. The `.hdr`
+files inside identify the source as
+`C:\PROJECTS\SoCal2014\TorreyPines\<file>.vec`. This was a multi-year
+Torrey Pines record kept by Sarah (2014--2023).
+
+Key constraints for ingesting this archive:
+
+1. **8 Hz sampling rate**, not the pipeline's standard 2 Hz. Adapting
+   `PUV_L2_spectral` to handle 8 Hz means rethinking segment-length
+   defaults (1 hour = 28800 samples instead of 7200) and downstream
+   spectral parameters, or downsampling to 2 Hz on ingest.
+2. **Hour-named files.** Each `.dat`/`.hdr`/`.VEC` triplet covers
+   1 hour of data with file naming like `12091100.dat`. The pipeline
+   currently expects multi-burst single-record deployments with
+   `_N`-indexed bursts; hour-named files would need either a directory
+   restructure or a new code path.
+3. **Embedded RTC date is wrong.** All files claim
+   `1/1/2000 12:35 AM` start time. The actual deployment date is
+   encoded in the filename (likely `YYMMDDHH` format). Recovering true
+   timestamps requires parsing the filename and cross-referencing to
+   the checkout spreadsheet `VectorPUV_Winter2019-2020Checkout.xlsx`
+   etc.
+4. **Sub-structure:** each season folder (e.g., `2014-2015/Raw Data/`)
+   contains multiple physically-distinct deployments
+   (e.g., `141209_deployment/`, `150127_deployment/`, `150306_deployment/`).
+   Each is a separate continuous record at one location with hourly
+   roll-over files.
+5. The Sarah archive has its own checkout xlsx files inside the folder
+   (`VectorPUV_Winter2019-2020Checkout.xlsx`,
+   `VectorPUV_Winter2020-2021Checkout.xlsx`) that contain the
+   deployment metadata (instrument S/N, lat/lon, doffp, date ranges).
+   The 2014-2018 vintage years lack obvious checkout files in the
+   archive; metadata may need to come from `SoCal_instruments_201*.xls`
+   in `/Volumes/group/DeploymentNotes/`.
+
+**Bottom line:** the Sarah archive is *not* drop-in compatible with
+the existing pipeline. Bringing it in is a multi-day effort: pipeline
+adaptation for 8 Hz + hour-files, plus filename → date parsing, plus
+metadata reconstruction from spreadsheets. The 2023 LPSDYE deployment
+(`2023Jan_LPL_DYE01_ADV/`) appears to be a separate single-record
+file set with the standard naming convention and is closer to
+drop-in.
+
+## Tier reassignment after May 5 survey
+
+Based on the actual file inventory:
+
+| Tier | Deployments | Status |
+|------|-------------|--------|
+| 1 ✅ | CAT21A, CAT21B, RUBY22 (3 instruments) | Ingested. |
+| 2A   | `Sarah_LPL_2014-2023/2023Jan_LPL_DYE01_ADV/` | Drop-in single-record. Needs config + L1 only. |
+| 2B   | Sarah's 2014-2021 multi-deployment seasons | Pipeline adaptation required (8 Hz, hour-files, RTC recovery). Multi-day effort. |
+| 3    | `Cardiff*`, `Coronado*`, `Torrey1181_2015`, `Torrey1053_2016`, `Torrey1049_2017`, `Torrey0806_2018`, `TorreyPines2019-2020*`, `TorreyPines2020-2021*`, the Ruby2D `Torrey_*` empty folders | Need Nortek ExploreV manual conversion of `.VEC → .dat/.sen/.hdr` first (Windows-only). |
+| 4    | `Imperial Beach 2019` deployments | Likely partial / failed deployments; survey before committing time. |
+| Skip | `Cardiff1049_2015-2016/` `.049` files | Pre-Vector firmware; very old format. |
 
 ---
 
