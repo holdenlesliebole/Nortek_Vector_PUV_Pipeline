@@ -25,6 +25,7 @@ for k = 1:numel(s.label)
     elseif startsWith(d,'SIO'),                    site(k) = "SIO Pier";
     elseif startsWith(d,'LPL'),                    site(k) = "LPL lagoon";
     elseif startsWith(d,'CAT'),                    site(k) = "Catalina";
+    elseif startsWith(d,'IB'),                     site(k) = "Imperial Beach";
     end
 end
 sites = unique(site);

@@ -62,4 +62,8 @@ function registry = deployment_registry()
     registry('CAT21B') = @CAT21B_config;                 % Catalina, Aug 2021 (CATISL02)
     registry('RUBY22') = @RUBY22_config;                 % Ruby2D Torrey cross-shore array, Nov 2021-Mar 2022
 
+    % --- Pre-2023 archive (recopied/) — Tier 2 (new sites) ---
+    registry('IB18W')  = @IB18W_config;                  % Imperial Beach winter 2018-19 (Nov 2018-Mar 2019)
+    registry('IB19S')  = @IB19S_config;                  % Imperial Beach spring 2019 (Mar 2019-Apr 2019)
+
 end

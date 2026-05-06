@@ -205,6 +205,7 @@ elseif startsWith(dep,'SOL'),                       s = "Solana";
 elseif startsWith(dep,'SIO'),                       s = "SIO Pier";
 elseif startsWith(dep,'LPL'),                       s = "LPL lagoon";
 elseif startsWith(dep,'CAT'),                       s = "Catalina";
+elseif startsWith(dep,'IB'),                        s = "Imperial Beach";
 else,                                               s = "other";
 end
 end

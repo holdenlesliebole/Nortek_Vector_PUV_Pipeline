@@ -57,6 +57,7 @@ for k = 1:numel(s.label)
     elseif startsWith(d,'SIO'),                    site(k) = "SIO Pier";
     elseif startsWith(d,'LPL'),                    site(k) = "LPL lagoon";
     elseif startsWith(d,'CAT'),                    site(k) = "Catalina";
+    elseif startsWith(d,'IB'),                     site(k) = "Imperial Beach";
     else,                                          site(k) = "other";
     end
 end
@@ -83,6 +84,7 @@ siteColors('Solana')     = [0.85 0.30 0.20];
 siteColors('SIO Pier')   = [0.95 0.65 0.10];
 siteColors('LPL lagoon') = [0.30 0.65 0.30];
 siteColors('Catalina')   = [0.55 0.40 0.75];
+siteColors('Imperial Beach') = [0.10 0.65 0.65];
 siteColors('other')      = [0.50 0.50 0.50];
 
 % ============================== FIGURE 1: alpha vs depth =====================
