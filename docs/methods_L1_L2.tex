@@ -75,11 +75,20 @@ deployment location and epoch.
 \subsubsection{Segmentation and preprocessing}
 
 The continuous L1 time series were divided into non-overlapping
-\SI{17.1}{\minute} segments of 2048 samples at \SI{2}{\hertz}. Segments
-in which more than 10\% of pressure or velocity samples were flagged as
-NaN were discarded; for segments with $\leq$10\% NaN, gaps were filled
-by linear interpolation before further processing. Prior to spectral
-analysis, velocities were rotated to a shore-normal coordinate frame
+\SI{1}{\hour} segments of 7200 samples at \SI{2}{\hertz}. The 1-hour
+segment length matches the cadence of the regional CDIP MOP wave
+hindcast and gives the longer averaging window that segment-mean
+velocity diagnostics benefit from (random Doppler error in
+ū decreases as $1/\sqrt{N}$, so the 7200-sample segment-mean noise
+floor is approximately $1.87\times$ smaller than the legacy
+2048-sample 17-minute alternative). A within-hour stationarity audit
+on the existing record confirmed that bulk wave parameters
+($H_s$, $T_p$, $T_{m02}$) are stable on the 1-hour scale at the
+sites and depths considered here. Segments in which more than 10\%
+of pressure or velocity samples were flagged as NaN were discarded;
+for segments with $\leq$10\% NaN, gaps were filled by linear
+interpolation before further processing. Prior to spectral analysis,
+velocities were rotated to a shore-normal coordinate frame
 ($+x$ onshore, $+y$ alongshore north) using the shore-normal angle
 retrieved from the CDIP THREDDS server for the corresponding MOP station.
 
@@ -95,14 +104,20 @@ all channels (pressure, $u$, $v$, $w$) were linearly detrended.
 
 \subsubsection{Spectral estimation}
 
-Power spectral densities were estimated using Welch's method
-\citep{welch1967} with 256-sample sub-segments (\SI{128}{\second}),
-a Hanning window, and 50\% overlap, yielding approximately 34 effective
-degrees of freedom per segment. This configuration provides a frequency
-resolution of $\Delta f \approx \SI{0.0078}{\hertz}$ over the range
-0--\SI{1}{\hertz}. Cross-spectra between pressure and the two horizontal
-velocity components were computed using the same windowing parameters
-for directional analysis.
+Power spectral densities were estimated using the multi-taper method
+of \citet{thomson1982} with time-bandwidth product $NW = 4$, giving
+$K = 7$ orthogonal Slepian tapers and approximately
+$2K = 14$ degrees of freedom per frequency bin. The
+1-hour segment provides a native frequency resolution of
+$\Delta f \approx \SI{2.78e-4}{\hertz}$ across the full
+0--\SI{1}{\hertz} range. Cross-spectra between pressure and the two
+horizontal velocity components were computed using the same tapers
+for directional analysis. The multi-taper choice was made for its
+optimal bias--variance trade-off relative to the legacy Welch
+estimator: at constant total record length, MTM with $NW=4$ on
+the 1-hour record gives an effective bandwidth and bias comparable
+to Welch with 256-sample sub-segments while preserving fine
+frequency structure that Welch averaging smears \citep{percival1993}.
 
 \subsubsection{Pressure correction}
 
@@ -248,3 +263,95 @@ clocks were confirmed to be in UTC via cross-correlation with the
 NOAA record (optimal lag $= 0.0$~hours). Subtidal residual currents
 (observed minus tidal) captured wave-driven mean flows including
 undertow and longshore currents.
+
+\subsection{Mean cross-shore flow validation}
+\label{sec:mean_flow_validation}
+
+The segment-mean cross-shore velocity $\overline{u}$ was tested
+against three competing hypotheses---real wave-driven Stokes
+return flow, a constant per-instrument calibration offset, or
+random Doppler noise---using a multi-test framework on every PUV
+deployment in the catalog (38 instruments across Torrey Pines, Los
+Pe\~nasquitos lagoon, Solana Beach, SIO Pier, Catalina Island, and
+the legacy Ruby2D cross-shore array).
+
+\subsubsection{Linear scaling against $H_s^2$}
+For each instrument, the segment-mean cross-shore velocity was fit
+as a linear function of significant wave height squared:
+%
+\begin{equation}
+  \overline{u} = \alpha\, H_s^2 + \beta + \varepsilon,
+  \label{eq:mean_flow_fit}
+\end{equation}
+%
+restricted to segments with $H_s \geq \SI{0.2}{\meter}$. The slope
+$\alpha$ and intercept $\beta$ provide the discriminating
+coefficients. Stokes return-flow theory \citep{longuethiggins1953}
+predicts a depth-averaged Eulerian compensation flow
+$\overline{u} \approx -gH_s^2 / (16ch)$ for shallow water with
+$c = \sqrt{gh}$, giving $\alpha_\text{theory} = -g/(16ch)$, which
+ranges from $\approx -0.018$ at $h = \SI{5}{\meter}$ to
+$\approx -0.003$ at $h = \SI{15}{\meter}$ in m/s per
+m\textsuperscript{2}\,of $H_s^2$. The theoretical intercept is
+$\beta_\text{theory} = 0$. The three hypotheses make different
+predictions: real Stokes return flow gives $\alpha$ matching theory
+in sign and within an order-1 factor with $\beta$ centered on zero
+across many instruments; a constant per-instrument offset gives
+$\alpha \approx 0$ with $\beta$ scattering at the offset magnitude;
+random Doppler noise leaves both coefficients unconstrained but
+shrinking toward zero with longer averaging.
+
+\subsubsection{Three robustness checks}
+Three follow-up fits address potential rebuttals to the
+$H_s^2$-scaling argument. First, the same fit is run on the
+alongshore component $\overline{v}$ to test whether $\alpha$ is
+specific to cross-shore physics or reflects generic storm-coherent
+forcing (wind stress, atmospheric pressure setup, alongshore
+gradients) that also correlates with $H_s$. Second, the fit is
+restricted to $H_s \geq \SI{1}{\meter}$, the wave-forcing-dominant
+regime where Stokes theory applies most cleanly, and the change in
+$R^2$ is reported. Third, an explicit wave-direction-discrimination
+test extends the alongshore model to
+%
+\begin{equation}
+  \overline{v} = \alpha_{v0}\, H_s^2 + \alpha_{v1}\, \sin(2\theta_\text{rel})\, H_s^2 + \beta_v,
+  \label{eq:wave_dir_check}
+\end{equation}
+%
+where $\theta_\text{rel}$ is the wave incidence angle relative to
+shore normal (taken directly from the L2 mean wave direction, which
+is computed in the rotated frame). A coordinate-rotation error
+$\theta_\text{err}$ in the shore-normal angle predicts
+$\alpha_{v0} = \alpha_u \tan(\theta_\text{err})$ with
+$\alpha_{v1} \approx 0$, while a real radiation-stress-driven
+longshore current predicts $\alpha_{v1}$ dominant with the sign
+matching local wave climatology. The implied
+$\theta_\text{err} = \arctan(\alpha_{v0}/\alpha_u)$ provides an
+upper bound on any actual rotation error.
+
+\subsubsection{Auxiliary diagnostics}
+Three additional tests provide independent corroboration. (1)~Tidal
+phase modulation of $\overline{u}$ was computed by binning
+segment-mean velocities into 16 phase bins of band-passed depth
+(\SIrange{0.0019}{0.0093}{\hertz}, $\sim$30~min to 3~hr period),
+stratified by $H_s$. A constant instrumental offset has zero
+modulation amplitude in any $H_s$ stratum. (2)~Cross-instrument
+correlations of $\overline{u}(t)$ between independently-calibrated
+Vectors at common timestamps test whether shared time-varying
+variance exists; independently-calibrated instruments cannot
+produce coincidentally biased records. (3)~The Reynolds-stress
+component $\overline{u'w'}$, derived from the same record via an
+independent processing path (segment-mean of fluctuating velocity
+covariance rather than the segment mean itself), was correlated
+with $\overline{u}$. Independent random noise in either path would
+push the correlation toward zero.
+
+\subsubsection{Segmentation independence}
+The mean-flow validation is run at both the canonical 1-hour
+segmentation and the legacy 17-minute segmentation. Random
+instrument noise predicts that $\overline{u}$ estimates drift
+toward zero as the averaging window grows; if the signal is real
+wave-driven flow, $\alpha$ is approximately segmentation-
+independent (kinematic relationship) while $|\beta|$ tightens
+slightly toward zero. The segmentation comparison is therefore a
+direct falsification test against the noise hypothesis.

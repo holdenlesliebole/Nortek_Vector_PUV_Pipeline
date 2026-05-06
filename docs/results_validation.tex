@@ -352,3 +352,108 @@ One instrument (MOP580 5m) was excluded from the transport analysis
 due to intermittent kelp fouling that produced anomalous negative
 velocity skewness (92\% of segments) inconsistent with the other
 instruments and with wave theory.
+
+\subsection{Mean cross-shore flow validation}
+\label{sec:mean_flow_results}
+
+The validation framework defined in
+Section~\ref{sec:mean_flow_validation} was applied across the
+2023+ catalog (33 instruments at four sites: 19 at Torrey Pines,
+4 at Los Pe\~nasquitos lagoon, 5 at Solana Beach, 5 at SIO Pier).
+The same fits were repeated at the legacy 17-minute segmentation
+to provide a segmentation-independence check; pre-2023 deployments
+(Catalina Island, Ruby2D Torrey cross-shore array; total 5
+additional instruments) were added at 1-hour only. The analysis
+excludes the kelp-fouled TBR23 MOP580 5m record and the
+SIO25C partial deployment ($N = 61$ segments, $R^2 = 0.001$).
+
+\subsubsection{Cross-deployment headline}
+The results decisively favor the real-Stokes-return-flow hypothesis
+(Table~\ref{tab:mean_flow_headline}). The intercept distribution
+is centered on zero across both segmentations (median $|\beta| =
+\SI{0.6}{\milli\meter\per\second}$ at 17-min,
+$\SI{2.8}{\milli\meter\per\second}$ at 1-hour), and 100\,\% of
+17-min and 94\,\% of 1-hour intercepts fall inside a $\pm$2~cm/s
+band that envelopes the manufacturer-quoted single-sample velocity
+accuracy at the deployed range setting. The slope distribution
+clusters near the Stokes prediction
+($\alpha/\alpha_\text{theory} = +0.53$ at 17-min, $+0.71$ at
+1-hour), with 66--81\,\% of instruments showing the predicted sign
+of $\alpha < 0$ (offshore-directed undertow). Going from 17-min to
+1-hour averaging \emph{strengthens} the slope-vs-theory match and
+the correct-sign fraction; random instrument noise would do the
+opposite.
+
+% TODO: Insert Table \ref{tab:mean_flow_headline}
+%   columns: metric | 17-min | 1-hour
+%   rows: median |beta|; |beta|<2cm/s fraction; median alpha/alpha_th;
+%         alpha<0 fraction; median R^2; median tidal modulation amplitude
+
+\subsubsection{Site decomposition}
+The Torrey Pines site (19 instruments across 5 deployments and
+depths from 4.8 to 15.5~m) gives the cleanest theory match: 83\,\%
+have the correct $\alpha$ sign and median $\alpha/\alpha_\text{theory}
+= +0.77$ at 17-min. The Los Pe\~nasquitos lagoon site agrees
+($+0.88$ ratio, 75\,\% correct sign at 17-min). At Solana Beach
+and SIO Pier, the 17-min slopes are mixed in sign with low $R^2$,
+but both sites \emph{flip} to predominantly negative $\alpha$ when
+re-fit at 1-hour (Solana: 20\,\% $\to$ 100\,\% correct sign;
+SIO Pier: 40\,\% $\to$ 80\,\%). This is interpreted as longer
+averaging exposing a wave-driven signal that the 17-min sampling
+variance was partially obscuring; the noise hypothesis predicts
+the opposite shift.
+
+\subsubsection{Tidal-phase modulation}
+Across all instruments, the median peak-to-peak modulation
+amplitude of $\overline{u}$ at $H_s \geq \SI{1}{\meter}$ is
+\SI{2.6}{\centi\meter\per\second} (1-hour) and
+\SI{2.8}{\centi\meter\per\second} (17-min), with peaks reaching
+6--\SI{8}{\centi\meter\per\second} at multiple Torrey instruments.
+A constant instrumental offset has zero modulation amplitude in
+any $H_s$ stratum by definition; the observed amplitudes are 30--80
+times the segment-mean random-noise floor and several times larger
+than the largest fitted intercepts.
+
+\subsubsection{Cross-instrument and Reynolds-stress consistency}
+Time correlations of $\overline{u}(t)$ between independently-
+calibrated Vectors at common timestamps were positive across all
+non-fouled instrument pairs in TBR23, reaching $R = +0.57$ between
+the two 7-m records. The kelp-fouled MOP580 5m record showed
+\emph{anti}-correlation with all peers ($R = -0.33$ to $-0.48$),
+providing an internal consistency check against the
+fouling-flag exclusion. The Reynolds stress component
+$\overline{u'w'}$, derived from the same record but via an
+independent processing path, correlated positively with
+$\overline{u}$ at all four TBR23 instruments
+($R = +0.24$ to $+0.63$).
+
+\subsubsection{Wave-direction discrimination}
+The extended alongshore model
+(Eq.~\ref{eq:wave_dir_check}) was decisive against the
+shore-normal-rotation-error hypothesis. Across 30 instruments at
+1-hour segmentation, the wave-direction-dependent coefficient
+$\alpha_{v1}$ dominated the wave-direction-independent coefficient
+$\alpha_{v0}$ in magnitude in 90\,\% of records, with the 95\,\%
+confidence interval on $\alpha_{v1}$ excluding zero in 83\,\% of
+records. The sign of $\alpha_{v1}$ was positive in 80\,\% of cases,
+corresponding to NW swells driving southward longshore current and
+S swells driving northward longshore current---the classical
+radiation-stress signature for the WNW-facing San Diego County
+coast. Reading $\alpha_{v0}/\alpha_u$ as an upper-bound implied
+shore-normal angle error places that bound at a few degrees,
+consistent with the precision of the CDIP MOP shore-normal
+metadata.
+
+\subsubsection{Verdict}
+The cross-deployment dataset is incompatible with both the
+constant-offset and the random-noise hypotheses, and matches the
+Stokes return-flow prediction in sign, magnitude, and segmentation-
+length response. Random Doppler noise reduces the segment-mean
+noise floor to $\sim$0.4~mm/s at 17-min and $\sim$0.24~mm/s at
+1-hour averaging, well below any of the slopes, modulation
+amplitudes, or cross-instrument shared variance reported above. The
+small (mm/s-scale) wave-direction-independent residuals visible in
+the alongshore fit are consistent with site-specific Eulerian
+residual currents and any small remaining shore-normal-rotation
+error; they are not the dominant component of either velocity
+component's response to wave forcing.

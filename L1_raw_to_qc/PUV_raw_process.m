@@ -52,11 +52,24 @@ function PUV = PUV_raw_process(instr, cfg)
             'Instrument directory not found: %s', instrDir);
     end
 
-    % Discover all .dat files (one per burst) and extract the common prefix
-    datFiles = dir(fullfile(instrDir, '*.dat'));
-    if isempty(datFiles)
-        error('PUV_raw_process:noFiles', ...
-            'No .dat files found in %s', instrDir);
+    % Discover all .dat files (one per burst) and extract the common prefix.
+    % If instr.filePrefix is specified, restrict to .dat files matching it —
+    % this is necessary when one folder holds files from multiple deployments
+    % with different prefixes (e.g., Catalina_2021 has both CATISL02.dat and
+    % CATISL03_*.dat from two separate deployments).
+    if isfield(instr, 'filePrefix') && ~isempty(instr.filePrefix)
+        datFiles = dir(fullfile(instrDir, [instr.filePrefix '*.dat']));
+        if isempty(datFiles)
+            error('PUV_raw_process:noFiles', ...
+                'No .dat files matching prefix "%s" found in %s', ...
+                instr.filePrefix, instrDir);
+        end
+    else
+        datFiles = dir(fullfile(instrDir, '*.dat'));
+        if isempty(datFiles)
+            error('PUV_raw_process:noFiles', ...
+                'No .dat files found in %s', instrDir);
+        end
     end
 
     filenames = {datFiles.name};

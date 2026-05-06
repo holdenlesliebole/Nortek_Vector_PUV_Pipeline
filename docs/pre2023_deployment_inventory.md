@@ -18,27 +18,53 @@ not replace any of it.
 
 ---
 
-## Deployments not yet in the registry
+## Deployments not yet in the registry — by file-format readiness
 
-| Deployment folder | Site | Years | Raw files | Likely instruments |
+After looking inside each `recopied/` folder, the deployments split
+into three groups by what files are actually present:
+
+### Group A — Pipeline-ready (have full `.dat`/`.sen`/`.hdr`/`.VEC` set)
+
+These can be ingested directly. Configs landed in May 2026 commit:
+
+| Deployment folder | Site | Years | Bursts | Notes |
 |---|---|---|---|---|
-| `Cardiff1049_2015-2016` | Cardiff | 2015-2016 | 1137 | 1 instr (S/N 1049) |
-| `Cardiff1053_2016` | Cardiff | 2016 | 900 | 1 instr (S/N 1053) |
-| `Cardiffbackbeach_Jan2016` | Cardiff back beach | Jan 2016 | 19 | small/short deployment |
-| `Torrey1181_2015` | Torrey Pines | 2015 | 512 | 1 instr (S/N 1181) |
-| `Torrey1053_2016` | Torrey Pines | 2016 | 1083 | 1 instr (S/N 1053) |
-| `Torrey1049_2017` | Torrey Pines | 2017 | 855 | 1 instr (S/N 1049) |
-| `CoronadoJan_2017` | Coronado | Jan 2017 | 2 | likely incomplete / placeholder |
-| `Coronado4thDeployment_2018` | Coronado | 2018 | 892 | 1 instr |
-| `Torrey0806_2018` | Torrey Pines | 2018 | 892 | 1 instr (S/N 0806) |
-| `20190422_IB_North` | Imperial Beach North | Apr 2019 | 10 | small/short |
-| `20190422_IB_South` | Imperial Beach South | Apr 2019 | 9 | small/short |
-| `2019-2020-IB-Cortez` | Imperial Beach (Cortez) | 2019-2020 | 7 | small/short |
-| `TorreyPines2019-2020MOP582_10meter` | Torrey MOP582 10m | 2019-2020 | 17 | 1 instr |
-| `TorreyPines2020-2021_10meter` | Torrey 10m | 2020-2021 | 10 | 1 instr |
-| `Catalina_2021` | Catalina Island | 2021 | 49 | 1 instr |
-| `Ruby2D_2021-2022` | Torrey Pines (multi-MOP cross-shore array) | 2021-2022 | 56 (10 sub-folders by instr) | 6+ instruments |
-| `Sarah_LPL_2014-2023` | Los Penasquitos Lagoon | 2014-2023 | 10 (9 yearly sub-folders) | long-term sub-deployments per season |
+| `Catalina_2021/` (CATISL03) | Catalina Island | Feb-Mar 2021 | multi-burst | → registry: `CAT21A` |
+| `Catalina_2021/` (CATISL02) | Catalina Island | Aug 2021 | 1 | → registry: `CAT21B` |
+| `Ruby2D_2021-2022/12414_MOP582-30m/` | Torrey MOP582 30m | Nov 2021 | 8 | → registry: `RUBY22.MOP582_30m` |
+| `Ruby2D_2021-2022/16310_MOP578_10m/` | Torrey MOP578 10m | 2021-2022 | 2 | → `RUBY22.MOP578_10m` (prefix has `_03_` middle) |
+| `Ruby2D_2021-2022/16737_MOP579_6m/` | Torrey MOP579 6m | 2021-2022 | 4 | → `RUBY22.MOP579_6m` |
+
+### Group B — Need Nortek `.VEC` → ASCII conversion (run ExploreV first)
+
+These have only raw binary `.VEC` files. Pipeline can't read them
+directly; user needs to run Nortek ExploreV (Windows-only) to
+generate the `.dat`/`.sen`/`.hdr` companion files. Once converted,
+configs can be added.
+
+| Deployment folder | Site | Years | `.VEC` count |
+|---|---|---|---|
+| `Torrey1181_2015/` | Torrey Pines | 2015 | 506 |
+| `Torrey1053_2016/` | Torrey Pines | 2016 | ~1083 (lowercase `.vec`) |
+| `Torrey1049_2017/` | Torrey Pines | 2017 | 849 |
+| `Torrey0806_2018/` | Torrey Pines | 2018 | 890 |
+| `Coronado4thDeployment_2018/` | Coronado | 2018 | 889 |
+| `TorreyPines2020-2021_10meter/` | Torrey MOP582 10m | 2020-2021 | 10 |
+| `TorreyPines2019-2020MOP582_10meter/` | Torrey MOP582 10m | 2019-2020 | 11 (`.hdr` exists but is **0 bytes** — incomplete conversion) |
+| `Ruby2D_2021-2022/group2/` | Torrey | 2021-2022 | 89 |
+| `Ruby2D_2021-2022/Cardiff_2021_MOP669_10m/` | Cardiff MOP669 10m | 2021 | mixed (some bursts have `.hdr`+`.VEC`, some are fragments) |
+| Several `Ruby2D_2021-2022/Torrey_*` sub-folders | Torrey | 2019-2022 | empty at top level — must check inside |
+
+### Group C — Older format, may not be Nortek Vector
+
+| Deployment folder | Site | Years | Files | Notes |
+|---|---|---|---|---|
+| `Cardiff1049_2015-2016/` | Cardiff | 2015-2016 | 1137 `.049` | Looks like pre-Vector firmware (`.049` extension, not Nortek standard). Investigate before attempting conversion. |
+| `Cardiffbackbeach_Jan2016/` | Cardiff back beach | Jan 2016 | 19 | Small deployment, format unknown |
+| `CoronadoJan_2017/` | Coronado | Jan 2017 | 2 | Almost certainly incomplete (only 2 files) |
+| `20190422_IB_North/`, `20190422_IB_South/` | Imperial Beach | Apr 2019 | 10, 9 | Likely partial / failed deployments |
+| `2019-2020-IB-Cortez/` | Imperial Beach (Cortez) | 2019-2020 | 7 | Likely partial |
+| `Sarah_LPL_2014-2023/` | Los Penasquitos Lagoon | 2014-2023 | nested by year | 9 yearly sub-folders, format unknown — needs separate survey |
 
 Special folders to check separately:
 - `RechargeableBattTest/` — battery test records, not field data

@@ -18,6 +18,21 @@
 
 \section{Background}
 
+\paragraph{Note (May 2026):} This writeup documents the spectral-
+estimator comparison conducted in April 2026 on the legacy 17-minute
+segmentation. The conclusion was that full multi-taper ($NW=4$,
+$K=7$) is the best estimator for PUV spectra. In May 2026 the L2
+default segment length was further changed from 17 minutes to 1
+hour to match MOP cadence and to give the longer averaging window
+that segment-mean velocity diagnostics benefit from (see
+mean-flow validation methods, Section~\ref{sec:mean_flow_validation}
+in the methods writeup, and within-hour stationarity audit). The
+production pipeline therefore now combines a 1-hour segment with
+full MTM (NW=4, K=7), giving $\Delta f \approx \SI{2.78e-4}{\hertz}$
+and $\sim$14 effective DOF per frequency bin per segment. The
+analyses below remain valid as a comparison of estimators at fixed
+segment length.
+
 The PUV L2 spectral processor computes surface elevation spectra,
 directional coefficients, and derived wave parameters from 17-minute
 segments (2048 samples at 2~Hz). The original implementation uses

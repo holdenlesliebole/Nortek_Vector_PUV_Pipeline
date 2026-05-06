@@ -57,4 +57,9 @@ function registry = deployment_registry()
     registry('LPL25A') = @() LPL_config('LPL25A');       % Mar-Jun 2025 (ENU)
     registry('LPL25B') = @() LPL_config('LPL25B');       % Dec 2025-Feb 2026
 
+    % --- Pre-2023 archive (recopied/) — Tier 1 (pipeline-ready) ---
+    registry('CAT21A') = @CAT21A_config;                 % Catalina, Feb-Mar 2021 (CATISL03)
+    registry('CAT21B') = @CAT21B_config;                 % Catalina, Aug 2021 (CATISL02)
+    registry('RUBY22') = @RUBY22_config;                 % Ruby2D Torrey cross-shore array, Nov 2021-Mar 2022
+
 end
