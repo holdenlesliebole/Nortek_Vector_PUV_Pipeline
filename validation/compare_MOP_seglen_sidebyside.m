@@ -13,8 +13,8 @@ if ischar(labels) || isstring(labels), labels = cellstr(labels); end
 
 thisDir = fileparts(mfilename('fullpath'));
 pipelineRoot = fileparts(thisDir);
-L2dir       = fullfile(pipelineRoot,'outputs','L2');
-L2hourlyDir = fullfile(pipelineRoot,'outputs','L2_hourly');
+L2dir       = fullfile(pipelineRoot,'outputs','L2_17min');
+L2hourlyDir = fullfile(pipelineRoot,'outputs','L2');
 reportDir   = fullfile(pipelineRoot,'outputs','validation','seglen_compare', deployment);
 if ~exist(reportDir,'dir'), mkdir(reportDir); end
 

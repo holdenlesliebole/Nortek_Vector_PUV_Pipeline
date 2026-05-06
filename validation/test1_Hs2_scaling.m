@@ -19,7 +19,8 @@ function results = test1_Hs2_scaling(deployment, labels, opts)
 % INPUTS
 %   deployment - 'TBR23'
 %   labels     - cell array of instrument labels
-%   opts.useHourly - use 1-hour L2 if available (default false)
+%   opts.L2dir     - default outputs/L2 (1-hour canonical). Pass
+%                    outputs/L2_17min for the legacy 17-min run.
 %   opts.figDir    - default outputs/validation/mean_flow/<deployment>
 %   opts.HsMin     - minimum Hs to include (default 0.2 m, drops calm-noise)
 %
@@ -31,13 +32,7 @@ function results = test1_Hs2_scaling(deployment, labels, opts)
 if nargin < 3, opts = struct(); end
 thisDir = fileparts(mfilename('fullpath'));
 pipelineRoot = fileparts(thisDir);
-if ~isfield(opts, 'useHourly'), opts.useHourly = false; end
-if opts.useHourly
-    L2dirDefault = fullfile(pipelineRoot,'outputs','L2_hourly');
-else
-    L2dirDefault = fullfile(pipelineRoot,'outputs','L2');
-end
-if ~isfield(opts, 'L2dir'),  opts.L2dir  = L2dirDefault; end
+if ~isfield(opts, 'L2dir'),  opts.L2dir  = fullfile(pipelineRoot,'outputs','L2'); end
 if ~isfield(opts, 'figDir'), opts.figDir = fullfile(pipelineRoot,'outputs','validation','mean_flow', deployment); end
 if ~isfield(opts, 'HsMin'),  opts.HsMin  = 0.2; end
 

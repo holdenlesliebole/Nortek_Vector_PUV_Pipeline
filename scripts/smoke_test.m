@@ -3,12 +3,14 @@
 % Author: Holden Leslie-Bole, 2026
 
 fprintf('\n=== Smoke test: headline aggregate outputs ===\n');
+% After May 2026 rename: mean_flow/ holds canonical 1-hour analysis,
+% mean_flow_17min/ holds the legacy 17-min Phase 2 archive.
 checks = { ...
-    'outputs/validation/mean_flow/_aggregate/phase2_summary.mat',         {'summary'}, {'deployment','label','alpha','beta'};
-    'outputs/validation/mean_flow_hourly/_aggregate/phase2_summary.mat',  {'summary'}, {'deployment','label','alpha','beta'};
-    'outputs/validation/mean_flow/_aggregate/robustness_summary.mat',     {'results'}, {'deployment','label','alpha_u_60','alpha_v_60'};
-    'outputs/validation/mean_flow/_aggregate/wave_direction_check.mat',   {'results'}, {'deployment','label','alpha_v0','alpha_v1'};
-    'outputs/validation/mean_flow/_aggregate/mean_flow_timeseries.mat',   {'records'}, {'deployment','label','time','uMean','vMean'} };
+    'outputs/validation/mean_flow/_aggregate/phase2_summary.mat',          {'summary'}, {'deployment','label','alpha','beta'};
+    'outputs/validation/mean_flow_17min/_aggregate/phase2_summary.mat',    {'summary'}, {'deployment','label','alpha','beta'};
+    'outputs/validation/mean_flow/_aggregate/robustness_summary.mat',      {'results'}, {'deployment','label','alpha_u_60','alpha_v_60'};
+    'outputs/validation/mean_flow/_aggregate/wave_direction_check.mat',    {'results'}, {'deployment','label','alpha_v0','alpha_v1'};
+    'outputs/validation/mean_flow/_aggregate/mean_flow_timeseries.mat',    {'records'}, {'deployment','label','time','uMean','vMean'} };
 
 allOK = true;
 for k = 1:size(checks,1)

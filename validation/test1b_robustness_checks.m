@@ -11,17 +11,17 @@ function results = test1b_robustness_checks(opts)
 %       low R² at the full range was contamination by quiescent-period
 %       residual currents.
 %
-% Reads L2 files from outputs/L2/ (17-min) and outputs/L2_hourly/
-% (1-hour). Saves alongshore_summary and highHs_summary structs to
-% outputs/validation/mean_flow/_aggregate/robustness_summary.mat plus
-% diagnostic figures.
+% Reads L2 files from outputs/L2_17min/ (legacy 17-min) and outputs/L2/
+% (canonical 1-hour). Saves alongshore_summary and highHs_summary
+% structs to outputs/validation/mean_flow/_aggregate/robustness_summary.mat
+% plus diagnostic figures.
 % Author: Holden Leslie-Bole, 2026
 
 if nargin < 1, opts = struct(); end
 thisDir = fileparts(mfilename('fullpath'));
 pipelineRoot = fileparts(thisDir);
-if ~isfield(opts,'L2dir_17'),  opts.L2dir_17 = fullfile(pipelineRoot,'outputs','L2'); end
-if ~isfield(opts,'L2dir_60'),  opts.L2dir_60 = fullfile(pipelineRoot,'outputs','L2_hourly'); end
+if ~isfield(opts,'L2dir_17'),  opts.L2dir_17 = fullfile(pipelineRoot,'outputs','L2_17min'); end
+if ~isfield(opts,'L2dir_60'),  opts.L2dir_60 = fullfile(pipelineRoot,'outputs','L2'); end
 if ~isfield(opts,'aggDir'),    opts.aggDir   = fullfile(pipelineRoot,'outputs','validation','mean_flow','_aggregate'); end
 if ~isfield(opts,'HsMin'),     opts.HsMin    = 0.2; end
 if ~isfield(opts,'HsHigh'),    opts.HsHigh   = 1.0; end

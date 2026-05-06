@@ -13,7 +13,7 @@ function cmp = compare_seglen_17min_vs_1hour(deployment, label, opts)
 %   deployment - 'TBR23'
 %   label      - 'MOP586_5m' or 'MOP586_7m'
 %   opts.L2dir       - default outputs/L2
-%   opts.L2hourlyDir - default outputs/L2_hourly
+%   opts.L2hourlyDir - default outputs/L2
 %   opts.figDir      - default outputs/validation/seglen_compare
 %   opts.matchTolMin - max +/- minutes from hour center (default 30)
 %   opts.minMatch    - min 17-min segs per hour for valid match (default 3)
@@ -28,8 +28,8 @@ function cmp = compare_seglen_17min_vs_1hour(deployment, label, opts)
 if nargin < 3, opts = struct(); end
 thisDir = fileparts(mfilename('fullpath'));
 pipelineRoot = fileparts(thisDir);
-if ~isfield(opts, 'L2dir'),       opts.L2dir       = fullfile(pipelineRoot,'outputs','L2'); end
-if ~isfield(opts, 'L2hourlyDir'), opts.L2hourlyDir = fullfile(pipelineRoot,'outputs','L2_hourly'); end
+if ~isfield(opts, 'L2dir'),       opts.L2dir       = fullfile(pipelineRoot,'outputs','L2_17min'); end
+if ~isfield(opts, 'L2hourlyDir'), opts.L2hourlyDir = fullfile(pipelineRoot,'outputs','L2'); end
 if ~isfield(opts, 'figDir'),      opts.figDir      = fullfile(pipelineRoot,'outputs','validation','seglen_compare'); end
 if ~isfield(opts, 'matchTolMin'), opts.matchTolMin = 30; end
 if ~isfield(opts, 'minMatch'),    opts.minMatch    = 3;  end

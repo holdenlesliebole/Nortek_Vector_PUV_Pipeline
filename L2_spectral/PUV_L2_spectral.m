@@ -3,17 +3,18 @@ function L2 = PUV_L2_spectral(PUV, instr, opts)
 %
 %   L2 = PUV_L2_spectral(PUV, instr, opts)
 %
-% TODO (May 2026): adapt to use 1-hour segments (segLen = 7200 @ 2 Hz)
-% as the default. Current default is the legacy 17-min (2048) value.
-% Cross-deployment mean-flow validation and the within-hour-
-% stationarity audit support 1-hour as the better choice for bulk
-% parameters and segment-mean velocity (matches MOP cadence, finer
-% Δf, longer N for ū). See docs/mean_flow_validation_plan.md.
-% Until that migration lands, callers should pass `opts.segLen=7200`
-% explicitly when 1-hour output is wanted.
+% Default segment length is 1 hour (7200 samples @ 2 Hz). The
+% within-hour-stationarity audit and the cross-deployment mean-flow
+% validation both support this as the right choice for bulk
+% parameters and segment-mean velocity — matches MOP cadence, gives
+% finer Δf, and gives the longer N that the segment-mean velocity
+% benefits from (1/√N noise reduction). The legacy 17-min default
+% (segLen=2048) can be recovered by passing `opts.segLen=2048`
+% explicitly. See docs/mean_flow_validation_plan.md for the
+% rationale.
 %
-%   Segments the L1 QC'd timeseries into 17-minute (2048-sample @ 2 Hz)
-%   windows and computes:
+%   Segments the L1 QC'd timeseries into 1-hour (7200-sample @ 2 Hz)
+%   windows by default, and computes:
 %     - Surface elevation spectrum (Wu pressure correction)
 %     - Directional coefficients (a1, b1, a2, b2)
 %     - Bulk wave parameters (Hs, Tp, mean direction, energy flux)
@@ -29,7 +30,7 @@ function L2 = PUV_L2_spectral(PUV, instr, opts)
 %     instr - instrument config struct (from deployment config), needs:
 %               .mopStation  (string, e.g. 'D0580') for shore-normal rotation
 %     opts  - (optional) struct to override defaults:
-%               .segLen   - segment length in samples (default 2048)
+%               .segLen   - segment length in samples (default 7200 = 1 hr @ 2 Hz)
 %               .nfft     - pwelch sub-segment length (default 256)
 %               .overlap  - pwelch fractional overlap (default 0.5)
 %               .KpMin    - pressure correction cutoff (default 0.1)
@@ -53,7 +54,7 @@ function L2 = PUV_L2_spectral(PUV, instr, opts)
 %% ======================== DEFAULTS ========================
 if nargin < 3, opts = struct(); end
 
-if ~isfield(opts, 'segLen'),     opts.segLen     = 2048;         end
+if ~isfield(opts, 'segLen'),     opts.segLen     = 7200;         end
 if ~isfield(opts, 'nfft'),       opts.nfft       = 256;          end
 if ~isfield(opts, 'overlap'),    opts.overlap     = 0.5;          end
 if ~isfield(opts, 'KpMin'),      opts.KpMin      = 0.1;          end

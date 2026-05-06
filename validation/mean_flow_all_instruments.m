@@ -18,7 +18,7 @@ function out = mean_flow_all_instruments(opts)
 if nargin < 1, opts = struct(); end
 thisDir = fileparts(mfilename('fullpath'));
 pipelineRoot = fileparts(thisDir);
-if ~isfield(opts,'L2dir'),  opts.L2dir  = fullfile(pipelineRoot,'outputs','L2_hourly'); end
+if ~isfield(opts,'L2dir'),  opts.L2dir  = fullfile(pipelineRoot,'outputs','L2'); end
 if ~isfield(opts,'aggDir'), opts.aggDir = fullfile(pipelineRoot,'outputs','validation','mean_flow','_aggregate'); end
 if ~exist(opts.aggDir,'dir'), mkdir(opts.aggDir); end
 

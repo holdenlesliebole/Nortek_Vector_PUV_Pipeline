@@ -17,7 +17,8 @@ function compare_seglen_phase2()
 %
 % Inputs (auto-loaded):
 %   outputs/validation/mean_flow/_aggregate/phase2_summary.mat        (17-min)
-%   outputs/validation/mean_flow_hourly/_aggregate/phase2_summary.mat (1-hour)
+%   outputs/validation/mean_flow_17min/_aggregate/phase2_summary.mat (legacy 17-min)
+%   outputs/validation/mean_flow/_aggregate/phase2_summary.mat        (canonical 1-hour)
 %
 % Output:
 %   outputs/validation/mean_flow/_aggregate/seglen_compare_alpha_beta.png
@@ -25,8 +26,10 @@ function compare_seglen_phase2()
 
 thisDir = fileparts(mfilename('fullpath'));
 pipelineRoot = fileparts(thisDir);
-aggDir = fullfile(pipelineRoot,'outputs','validation','mean_flow','_aggregate');
-hrDir  = fullfile(pipelineRoot,'outputs','validation','mean_flow_hourly','_aggregate');
+% After May 2026 rename, mean_flow_17min/ holds the legacy 17-min
+% Phase 2 summary; mean_flow/ holds the canonical 1-hour summary.
+aggDir = fullfile(pipelineRoot,'outputs','validation','mean_flow_17min','_aggregate');
+hrDir  = fullfile(pipelineRoot,'outputs','validation','mean_flow','_aggregate');
 
 S17 = load(fullfile(aggDir,'phase2_summary.mat'));     s17 = S17.summary;
 S60 = load(fullfile(hrDir,'phase2_summary.mat'));      s60 = S60.summary;

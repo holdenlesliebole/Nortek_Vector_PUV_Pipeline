@@ -14,8 +14,8 @@ function figure_MOP_ratio_overlay(deployment, depthLabels, opts)
 if nargin < 3, opts = struct(); end
 thisDir = fileparts(mfilename('fullpath'));
 pipelineRoot = fileparts(thisDir);
-if ~isfield(opts, 'L2dir'),       opts.L2dir       = fullfile(pipelineRoot,'outputs','L2'); end
-if ~isfield(opts, 'L2hourlyDir'), opts.L2hourlyDir = fullfile(pipelineRoot,'outputs','L2_hourly'); end
+if ~isfield(opts, 'L2dir'),       opts.L2dir       = fullfile(pipelineRoot,'outputs','L2_17min'); end
+if ~isfield(opts, 'L2hourlyDir'), opts.L2hourlyDir = fullfile(pipelineRoot,'outputs','L2'); end
 if ~isfield(opts, 'figDir'),      opts.figDir      = fullfile(pipelineRoot,'outputs','validation','seglen_compare', deployment); end
 if ~isfield(opts, 'toolboxPath'), opts.toolboxPath = fullfile(getenv('HOME'),'Documents','Scripps','Research','toolbox'); end
 
