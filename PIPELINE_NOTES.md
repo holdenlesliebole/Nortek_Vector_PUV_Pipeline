@@ -196,16 +196,26 @@ See `config/CONFIG_REVIEW_NOTES.md` for full list.
 
 ---
 
-## Current Status (as of April 9, 2026)
+## Current Status (as of May 7, 2026)
 
-### L1 — complete, 33/40 instruments processed
+### L1 — 38/44 instruments processed
 - Variability-based tilt QC (2° rolling std threshold, 30° absolute cap)
 - Sample-by-sample tilt correction for bent pipes (3D rotation using pitch/roll)
+- Pressure QC uses a healthy first-burst reference window for the median
+  threshold (added May 6 after the RUBY22/MOP579_6m sensor-block-failure
+  bug; protects against the inversion failure mode where >50% of samples
+  are saturated)
 - Handles mixed file prefixes (underscore/hyphen), single-burst files, IGRF-14 fallback
-- 7 failures are genuine hardware problems (bent pipes, burial, dead batteries)
-- See `docs/deployment_database_overview.md` for full instrument-by-instrument status
+- 6 records still failing L1 are at genuine tilt limits (bent pipes,
+  burial-during-storms, knocked-over instruments); fix candidates noted
+  in `docs/deployment_database_overview.md`
+- Catalog: 23 deployments × 6 sites (Torrey, SIO Pier, Solana, LPL lagoon,
+  Imperial Beach, Catalina) — see `docs/deployment_database_overview.md`
 
-### L2 — complete, 33/33 instruments processed
+### L2 — complete, 38/38 instruments processed
+- Per-segment guard rejects segments with `Hs/h > 1.5` or
+  `|h - depth_nominal|/depth_nominal > 0.5` (added May 6; catches
+  segments that straddle a sensor-failure boundary in the L1 record)
 - 17-min (2048 @ 2 Hz) segments, detrend, Wu pressure correction
 - **Spectral method: full multi-taper** (NW=4, 7 DPSS tapers, nfft=2048,
   df ≈ 0.001 Hz). Welch with Hanning still available via
@@ -220,8 +230,9 @@ See `config/CONFIG_REVIEW_NOTES.md` for full list.
 - **D50 = 0.25 mm placeholder** — real grain size data from Laser Particle Analyzer
   campaign expected soon. Bed stress can be recomputed from stored Ub and Tp.
 - **Wu pressure correction**: standard linear wave theory Kp = cosh(k*z)/cosh(k*H).
-  Confirmed identical to Wu (1986) approximation and Bill O'Reilly's modified
-  coefficients — all three methods produce same Kp to 4-5 decimal places.
+  Confirmed identical to the Wu (1986) approximation and the legacy modified
+  coefficients used in earlier pipeline iterations — all three methods produce
+  the same Kp to 4–5 decimal places.
 
 ### Validation — complete, confirmed across TBR23 + TOR23W/SOL23
 - PUV-MOP comparison: Hs R² = 0.83–0.86 for good instruments
