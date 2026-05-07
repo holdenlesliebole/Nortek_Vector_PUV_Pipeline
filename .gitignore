@@ -32,5 +32,11 @@ outputs/_logs/
 # Claude Code session metadata (per-machine, not project content)
 .claude/
 
-# Local-only draft correspondence (not for public repo)
+# Local-only correspondence and personal docs (not for public repo)
 docs/draft_email*.md
+docs/email_body*.md
+docs/writeup_for_bill*/
+docs/writeup_for_bill*.md
+docs/todo.md
+docs/mean_flow_validation_plan.md
+docs/altimeter_correlation_plan.md
