@@ -29,16 +29,6 @@ ncfile = strcat('http://thredds.cdip.ucsd.edu/thredds/dodsC/cdip/model/', ...
 
 shorenormal = ncread(ncfile, 'metaShoreNormal');
 
-% Input is in buoy frame: +x WEST, +y NORTH.
-% Rotation to shore-normal: CCW rotation so +x points onshore.
-rotation  = 270 - shorenormal;
-alpha_rad = rotation * pi / 180;
-
-rot_mat = [ cos(alpha_rad)  -sin(alpha_rad);
-            sin(alpha_rad)   cos(alpha_rad)];
-
-uv     = rot_mat * [U'; V'];
-Uprime = -uv(1,:).';   % +x onshore
-Vprime =  uv(2,:).';   % +y alongshore north
+[Uprime, Vprime] = apply_shorenormal_rotation(U, V, shorenormal);
 
 end
