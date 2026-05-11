@@ -14,7 +14,8 @@ function L2 = PUV_L2_spectral(PUV, instr, opts)
 % rationale.
 %
 %   Segments the L1 QC'd timeseries into 1-hour (7200-sample @ 2 Hz)
-%   windows by default, and computes:
+%   windows aligned to UTC top-of-hour (HH:00:00 start, HH:30:00 mid),
+%   and computes:
 %     - Surface elevation spectrum (Wu pressure correction)
 %     - Directional coefficients (a1, b1, a2, b2)
 %     - Bulk wave parameters (Hs, Tp, mean direction, energy flux)
@@ -72,7 +73,30 @@ if ~isfield(opts, 'depthDeviationMax'), opts.depthDeviationMax = 0.5;     end  %
 
 fs     = PUV.fs;
 segLen = opts.segLen;
-N      = length(PUV.P);
+
+% --- UTC stamp + top-of-hour alignment ---
+% L1 currently stores PUV.time as a timezone-naive datetime; the
+% validation/audit_timezones.m script verified that every L1 record in
+% the catalog is in UTC. Stamp the local copy so all downstream L2
+% time arithmetic is explicit (the .mat on disk is not modified).
+if isempty(PUV.time.TimeZone)
+    PUV.time.TimeZone = 'UTC';
+end
+
+% Skip leading samples until the first UTC top-of-hour boundary. With
+% segLen = 7200 @ fs = 2 Hz, this puts every segment on an HH:00:00 wall-
+% clock start (and ~HH:30:00 midpoint). All deployments then share
+% segment boundaries, matching hourly MOP/CDIP cadence and removing the
+% need for overlap-window matching in PUV_L4_xspec.
+nextHr      = dateshift(PUV.time(1), 'end', 'hour');
+offsetSec   = seconds(nextHr - PUV.time(1));
+if offsetSec < 1/(2*fs)
+    startOffset = 0;
+else
+    startOffset = round(offsetSec * fs);
+end
+
+N      = length(PUV.P) - startOffset;
 nSeg   = floor(N / segLen);
 
 % Check for required metadata
@@ -81,6 +105,11 @@ if isnan(PUV.doffp)
         'doffp is NaN for %s — fill from DeploymentNotes before running L2.', PUV.label);
 end
 
+if startOffset > 0
+    fprintf('  Hour-aligned: skipped %d leading samples (%.1f min) to UTC top-of-hour %s\n', ...
+        startOffset, startOffset / fs / 60, ...
+        datestr(PUV.time(startOffset + 1), 'yyyy-mm-dd HH:MM:SS'));
+end
 fprintf('  Segmenting: %d samples → %d segments of %d (%.1f min each)\n', ...
     N, nSeg, segLen, segLen / fs / 60);
 
@@ -149,7 +178,7 @@ L2.b2    = NaN(nf, nSeg);
 
 % Scalars [nSeg x 1]
 nanVec = NaN(nSeg, 1);
-L2.time     = NaT(nSeg, 1);
+L2.time     = NaT(nSeg, 1, 'TimeZone', 'UTC');
 L2.segValid = false(nSeg, 1);
 L2.Hs       = nanVec;
 L2.Hs_SS    = nanVec;
@@ -205,7 +234,7 @@ tStart = tic;
 nValid = 0;
 
 for i = 1:nSeg
-    idx = (i-1)*segLen + 1 : i*segLen;
+    idx = startOffset + ((i-1)*segLen + 1 : i*segLen);
 
     % Segment midpoint timestamp
     L2.time(i) = PUV.time(idx(segLen/2));
@@ -424,7 +453,9 @@ L2.doffp          = PUV.doffp;
 L2.shorenormal    = shorenormal;
 L2.fs             = fs;
 L2.f              = f;
-L2.params         = opts;
+L2.params                       = opts;
+L2.params.startOffset_samples   = startOffset;
+L2.params.hourAligned           = true;
 
 % Store MOP station for validation scripts
 if isfield(instr, 'mopStation')
