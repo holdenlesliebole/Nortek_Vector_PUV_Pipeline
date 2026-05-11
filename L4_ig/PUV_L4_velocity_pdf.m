@@ -35,8 +35,9 @@ function L4pdf = PUV_L4_velocity_pdf(PUV, L2, opts)
 %   Author: Holden Leslie-Bole, 2026
 
 if nargin < 3, opts = struct(); end
-if ~isfield(opts, 'edgesAbs'), opts.edgesAbs = 0:0.01:2; end
-if ~isfield(opts, 'detrend'),  opts.detrend  = true;    end
+if ~isfield(opts, 'edgesAbs'),   opts.edgesAbs   = 0:0.01:2; end
+if ~isfield(opts, 'detrend'),    opts.detrend    = true;     end
+if ~isfield(opts, 'nanMaxFrac'), opts.nanMaxFrac = 0.10;     end
 
 edges   = opts.edgesAbs;
 centers = 0.5 * (edges(1:end-1) + edges(2:end));
@@ -68,9 +69,18 @@ for i = 1:nSeg
     if ~valid(i), continue; end
     idx = startOffset + ((i-1)*segLen + 1 : i*segLen);
     seg = u(idx);
-    if any(isnan(seg)), continue; end
-    if opts.detrend, seg = detrend(seg); end
+    nanMask = isnan(seg);
+    if mean(nanMask) > opts.nanMaxFrac, continue; end
 
+    if opts.detrend
+        % linearly fill NaNs so detrend doesn't propagate them, then
+        % re-mask so the filled samples are not counted in the histograms
+        seg = fillmissing(seg, 'linear');
+        seg = detrend(seg);
+        seg(nanMask) = NaN;
+    end
+
+    % histcounts ignores NaN; seg>0/<0 also returns false for NaN
     pos =  seg(seg > 0);
     neg = -seg(seg < 0);          % absolute value
     Non  = Non  + histcounts(pos, edges);
