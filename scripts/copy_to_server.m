@@ -85,12 +85,23 @@ for k = 1:numel(all_files)
         fprintf('  [warn] could not read metadata from %s: %s\n', d.name, ME.message);
     end
 
-    % Copy
+    % Copy (skip if destination already has matching byte size)
     fprintf('[%3d/%3d] %s/%s/%s ... ', k, numel(all_files), deployment, ...
             destSubFor(level), d.name);
-    t0 = tic;
-    copyfile(src_path, dest_path);
-    fprintf('%.1fs (%.1f MB)\n', toc(t0), d.bytes/1e6);
+    skipCopy = false;
+    if isfile(dest_path)
+        destInfo = dir(dest_path);
+        if destInfo.bytes == d.bytes
+            skipCopy = true;
+        end
+    end
+    if skipCopy
+        fprintf('skip (%.1f MB, already synced)\n', d.bytes/1e6);
+    else
+        t0 = tic;
+        copyfile(src_path, dest_path);
+        fprintf('%.1fs (%.1f MB)\n', toc(t0), d.bytes/1e6);
+    end
 
     rows(end+1, :) = {deployment, level, instr, depth_m, ...
                       string(t_start), string(t_end), n_seg, n_valid, ...

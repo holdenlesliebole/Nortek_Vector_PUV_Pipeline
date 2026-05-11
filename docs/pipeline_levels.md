@@ -1,11 +1,14 @@
 # PUV Pipeline Processing Levels
 
+Updated: May 11, 2026
+
 ## Design Philosophy
 
 Each level transforms data from the previous level into higher-order products.
 Levels L1–L3 are **universal** — they produce the same outputs regardless of
-the scientific question. L4+ levels are **analysis-specific** — they combine
-PUV products with external data or apply domain-specific models.
+the scientific question. L4 builds nonlinear-wave and IG diagnostics on top
+of L2. L5 (planned) merges with external altimeter data for transport
+estimation.
 
 All levels are deployment-agnostic: run any deployment through L1→L2→L3 and
 get the same standardized output struct.
@@ -14,7 +17,7 @@ get the same standardized output struct.
 
 ## L1: Raw → QC'd Timeseries (COMPLETE)
 
-**Input:** Raw .dat/.sen/.hdr burst files
+**Input:** Raw `.dat`/`.sen`/`.hdr` burst files
 **Output:** Continuous 2 Hz time series with QC flags applied
 
 - Burst merging, clock drift correction
@@ -23,132 +26,207 @@ get the same standardized output struct.
 - Coordinate rotation to buoy frame (+x West, +y North, +z Up)
 - Output struct: `PUV.{time, P, BuoyCoord, InstrCoord, T, ...}`
 
-**Status:** Complete, verified, 33/40 instruments processed.
+**Status:** Complete and verified. 33/40 instrument-deployments processed.
+The 7 dropped are documented hardware failures (battery, tilt, kelp,
+corrosion), correctly rejected — not a bug. See `todo.md` "Verified L1 QC
+behavior" for the per-instrument explanations.
 
 ---
 
 ## L2: Spectral Analysis (COMPLETE)
 
-**Input:** L1 .mat files
-**Output:** Per-segment (17-min) spectral products
+**Input:** L1 `.mat` files
+**Output:** Per-segment spectral products
 
-- Segmentation (2048 samples, non-overlapping)
-- Welch PSD (~34 DOF), cross-spectra
-- Pressure correction → surface elevation spectrum
-- Shore-normal rotation (CDIP THREDDS)
-- Bulk wave parameters: Hs, Tp, Tm02, direction, energy flux
-- Near-bed velocity (IFFT method)
+- **Segmentation: 7200 samples = 1 hour @ 2 Hz, non-overlapping**, aligned
+  to UTC top-of-hour boundaries (matches MOP/CDIP cadence). Legacy 17-min
+  (2048-sample) segments can be re-enabled by passing `opts.segLen = 2048`.
+- Multi-taper PSD (DPSS, NW=4, K=7 tapers) via `shared/psd_multitaper.m`;
+  same tapers used for auto- and cross-spectra so directional coefficients
+  are consistent (this was a critical bug in the legacy pipeline — see
+  `pipeline_comparison_legacy.md`)
+- Pressure correction → surface elevation spectrum (Wu correction, Kp
+  zeroed below 0.1 rather than capped)
+- Shore-normal rotation via `apply_shorenormal_rotation` (`L2.shorenormal`
+  cached so L4 modules don't re-hit CDIP THREDDS)
+- Bulk wave parameters: Hs, Tp, Tm02, mean direction, energy flux
+- Near-bed velocity via IFFT transfer function
 - Bed stress (Swart 1974)
 - Reynolds stress, TKE
-- Velocity moments (skewness, asymmetry via Hilbert transform)
-- Mean currents per segment
+- Velocity moments (skewness, asymmetry via Hilbert transform, |u|³,
+  u·|u|², a², a³, a_spike) via `shared/compute_velocity_moments.m`
+- Mean currents per segment (uMean, vMean)
+- QC diagnostics: nanMaxFrac=0.10 rejection, Z-test stored per segment
 
-**Status:** Complete, verified 8/8 checks, 33 instruments processed.
+**Status:** Complete, verified 8/8 product checks, 33 instruments
+processed at 1-hour cadence. Output: `outputs/L2/{deployment}/{label}_L2.mat`.
 
 ---
 
-## L3: Wave Forcing Characterization (TO BUILD)
+## L3: Wave Forcing Characterization (COMPLETE)
 
-**Input:** L2 .mat files
+**Input:** L2 `.mat` files
 **Output:** Per-segment derived forcing metrics + deployment summaries
 
-Universal products that characterize wave forcing independent of any
-specific transport model or morphology dataset.
-
-### L3a: Frequency-Band Energy Decomposition
+### L3a — Frequency-Band Energy Decomposition
 - Energy flux by band: F_ig, F_swell, F_sea, F_total per segment
 - Band definitions: IG [0.004–0.04], swell [0.04–0.10], sea [0.10–0.25] Hz
 - Band-averaged Hs: Hs_ig, Hs_swell, Hs_sea
-- Dominant band flag per segment (swell-dominated vs sea-dominated)
+- Dominant-band flag per segment
 
-### L3b: Storm/Event Detection
-- Identify storm events from Hs time series (threshold exceedance + duration)
+### L3b — Storm/Event Detection
+- Storm events from Hs time series (threshold + duration)
 - Event metrics: peak Hs, duration, total energy, cumulative flux
-- Calm period identification (recovery windows)
-- Return period estimation from Hs distribution
+- Calm-period identification (recovery windows)
+- MOP gap-filling for missing PUV hours
 
-### L3c: Transport Proxies
-- Bottom energy flux: Fb = ρg·cg·Ub² (spectral integral)
-- Shields parameter time series (with configurable D50)
+### L3c — Transport Proxies
+- Bottom energy flux Fb = ρg·cg·Ub² (spectral integral)
+- Shields parameter time series (configurable D50)
 - Rouse number time series
 - Mobilization fraction (% time above critical Shields)
 - Cumulative bottom energy flux
 
-### L3d: Current Decomposition
-- Tidal harmonic analysis on uMean/vMean (UTide or t_tide)
+### L3d — Current Decomposition
+- t_tide tidal harmonic analysis on uMean/vMean
 - Subtidal (wave-driven) residual currents
-- Undertow estimation
-- Longshore current magnitude and direction
+- Undertow magnitude
+- Tidal validation against NOAA Scripps Pier gauge (R=0.995, UTC confirmed)
 
-### L3 Output Struct
+**Status:** Complete and batch-processed across all 33 instruments. Output:
+`outputs/L3/{deployment}/{label}_L3.mat`.
+
+---
+
+## L4: Nonlinear-Wave / IG Dynamics (MOSTLY BUILT)
+
+**Input:** L1 + L2 `.mat` files
+**Output:** Per-instrument nonlinear-wave and IG diagnostics
+
+### Modules built and validated on TBR23 (May 2026)
+- **`PUV_L4_eta.m`** — P (dBar) → η (m) per L2 segment, three bands
+  (total, swell, IG). Hs reconstruction matches L2 to 0.5%.
+- **`PUV_L4_reflection.m`** — Sheremet incident/reflected split, R²(f),
+  IG flux. Sign convention validated via `corr(η_swell, U_swell) = +0.984`.
+  R²_IG ≈ 1 reflects bound-wave contamination — true shoreline R² needs
+  `PUV_L4_boundwave.m` (deferred) to remove bound IG first.
+- **`PUV_L4_bispectra.m`** — bicoherence + skewness + asymmetry +
+  swell-IG difference coupling. Sub-segment averaging gives EDOF ≈ 130,
+  b95 ≈ 0.215. `bic_swell_ig_diff` is monotonic in depth at TBR23 →
+  consistent with Hasselmann/Herbers bound-wave forcing prediction.
+- **`PUV_L4_xspec.m`** — pairwise IG cross-spectra (cpsd on `eta_ig`)
+  for multi-instrument arrays. Best-overlap segment matching across
+  per-instrument L2 start-time offsets. TBR23: ⟨γ²⟩_IG = 0.35
+  cross-shore (~100 m sep) vs 0.13 alongshore (~600 m sep), 2.4× drop
+  quantifies IG directional spread.
+- **`PUV_L4_moments.m`** (May 11) — reverse-engineered Bill O'Reilly
+  MOP511 6m analysis. Frequency-resolved correlation r(f) between
+  hourly u-skewness/asymmetry and √Spp(f), raw + 120-hr smoothed,
+  peak-frequency linear predictor. Also computes the var(P)/var(U)
+  QC diagnostic (Bill Fig 2). Output at `L4.moments`.
+- **`PUV_L4_velocity_pdf.m`** (May 11) — pooled |u| histogram across
+  the deployment (Bill Fig 10). Rotates L1 via `L2.shorenormal`,
+  mirrors L2 hourly segment alignment, returns onshore/offshore counts,
+  crossover velocity, mean |u|. Output at `L4.pdf`. The crossover
+  velocity is hypothesized to track Shields-bedload thresholds —
+  pending LPA D50 ingestion to confirm.
+
+### Deferred
+- **`PUV_L4_boundwave.m`** — bound/free IG separation. Needed for clean
+  shoreline reflection coefficients (currently inflated by bound-IG
+  contamination).
+- Batch over all 38 instruments. ~21 hr at nfft=1024, ~80 hr at
+  nfft=2048 (paper-quality).
+
+### L4 output struct shape (per instrument)
 ```
-L3.time               % segment midpoint times (same as L2)
-L3.Ef_ig, Ef_swell, Ef_sea, Ef_total   % band energy flux
-L3.Hs_ig, Hs_swell, Hs_sea            % band wave heights
-L3.Fb                 % bottom energy flux
-L3.shields            % Shields parameter
-L3.rouse              % Rouse number
-L3.mobilized          % logical: above critical Shields
-L3.Fb_cum             % cumulative bottom flux
-L3.events             % struct array of detected storm events
-L3.uTidal, vTidal     % tidal current components
-L3.uSubtidal, vSubtidal  % subtidal residual currents
+L4
+├── label, deploymentName, doffp, LATLON, shorenormal, mopStation, builtAt
+├── eta:        time, fs, segLen, depth, bands, eta_total, eta_swell,
+│               eta_ig, fCut, segValid                         (~270 MB)
+├── ref:        time, fs, segLen, depth, segValid, shorenormal, bandIG,
+│               eta_IG_in/out, var_IG_in/out, R2_IG,
+│               fIG, S_IG_in/out, R2_f, cg_IG,
+│               Ef_IG_in/out/net                               (~190 MB)
+├── bispectra:  time, fs, segLen, segValid, f, df, bands, K, nfftSub,
+│               skewness, asymmetry, b95, edof,
+│               bic_max_overall, bic_swell_self, bic_swell_ig_diff,
+│               B_mean, Bic_mean, Bip_mean, nValid             (~few KB)
+├── moments:    time, f, segValid, varP_over_varU,
+│               skewness_u, asymmetry_u,
+│               r_skew_Spp, r_asym_Spp, r_skew_Suu, r_asym_Suu,
+│               r_skew_Spp_s, r_asym_Spp_s,
+│               peak.{skew_fHz, skew_r, asym_fHz, asym_r},
+│               fit_hourly/fit_smoothed.{slope,intercept,r2,fHz,n},
+│               opts                                           (~MB)
+└── pdf:        edges, centers, N_on, N_off, diff, weighted, cum,
+                crossover_u, mean_absU, n_segments_used, opts  (~KB)
 ```
 
 ---
 
-## L4: IG / Bound Wave Dynamics (TO BUILD)
+## L5: PUV–Altimeter Integration (PLANNED)
 
-**Input:** L1 and L2 .mat files (needs raw timeseries + spectra)
-**Output:** Infragravity wave characterization
+**Input:** L2 + L3 `.mat` files + altimeter/echologger bed level
+**Output:** Bed-change time series correlated with wave forcing
 
-- Bispectral analysis (bicoherence at swell-IG coupling frequencies)
-- Bound vs free IG wave separation (phase relationship with envelope)
-- IG energy flux and direction
-- Cross-instrument IG coherence (for multi-instrument arrays)
-- Reflection coefficient estimation
-- Reference: Athina Lange Ruby2D code, Herbers et al.
+Design reconciled with `Altimeter_Pipeline/docs/puv_correlation_plan.md`;
+see `docs/altimeter_correlation_plan.md` for the PUV-side spec. Memory
+`project_L5_plan.md` is the current reference.
 
----
+- Altimeter timestamp backbone; PUV matched within ±5 min nearest-neighbor
+- 8 candidate transport relationships (Shields excess, Fb, |u|³,
+  u·|u|², equilibrium/disequilibrium, undertow, swell-vs-sea, cumulative
+  Fb between surveys)
+- Time-varying doffp from altimeter bed level (replaces fixed deployment
+  doffp in L2)
+- Start point: TOR24S MOP586 (co-located 5/7/10 m, six storms, full
+  beach-survey concurrence)
 
-## L5: PUV-Altimeter Integration (TO BUILD)
-
-**Input:** L2 .mat files + altimeter/echologger data from co-located sensors
-**Output:** Bed level change correlated with wave forcing
-
-- Load altimeter (AA400) and echologger (EA400) bed elevation time series
-- Time-align with L2/L3 wave forcing segments
-- Correlate bed level change with:
-  - Wave energy flux
-  - Shields parameter exceedance
-  - Storm events
-  - Tidal phase
-- Sediment transport rate estimation from bed level change + continuity
-- Scour/accretion event detection
-- Data sources: `/Volumes/group/Altimeter_data/`
+**Status:** Not yet implemented. Module skeleton + transport relationship
+fits are the next major build.
 
 ---
 
-## Analysis Layer (paper-specific, NOT in pipeline)
+## Analysis Layer (paper-specific, not in pipeline)
 
 These use pipeline outputs but live in paper-specific repos.
 
-### TBR23 Paper (Paper 1)
-- Wave forcing time series overlaid with bathymetric change
-- Correlation of L3 forcing metrics with survey-to-survey volume change
-- Phi proxy analysis (empirical transport-morphology relationship)
-- Comparison across 5m/7m instrument pairs (depth-dependent response)
-- Storm response and recovery timescales
-- Data: truck lidar (weekly), jetski bathymetry (every 3 days)
+### TBR23 Paper (Paper 1) — active
+- Forcing-response time series + transport mechanism figures (built)
+- Skewness vs Ruessink 2012 validation (built)
+- Tidal modulation of undertow (built)
+- Bailard / Hoefel & Elgar transport calculation against survey bed
+  change (open)
+- LPA D50 ingestion → re-run bed-stress/Shields (open)
+- Fig 10 |u|-crossover vs Shields-threshold for real TBR23 D50 (open)
 
-### PUV Wave Dynamics Paper (Paper 2)
+### PUV Wave Dynamics Paper — `/Users/holden/Documents/Scripps/Research/PUV_paper/`
+GitHub: `holdenlesliebole/PUV_Wave_Dynamics_Paper`
 - MOP spectral peak broadening (cross-deployment)
 - SIO Pier canyon focusing
 - Depth trend in peak ratio
 - Seasonal variability of spectral shape bias
-- Repo: holdenlesliebole/PUV_Wave_Dynamics_Paper
+- Slope-vs-kh validation of u-skewness predictor across 38 instruments
+  (Bill MOP511 reverse-engineered, see `PUV_paper/docs/bill_skewness_extensions.md`)
+- Bispectral coupling variability vs predictor residuals
 
-### Future Papers
-- Lagoon dynamics (LPL deployments)
-- Long-term wave climate analysis (25-year survey dataset)
-- Sediment transport model validation (when grain size data available)
+### Vector Mean-Flow Validation Technical Note —
+`/Users/holden/Documents/Scripps/Research/Vector_MeanFlow_Note/`
+- 5-test framework (Hs² scaling, cross-instrument, tidal modulation,
+  Reynolds stress, range setting)
+- 33-instrument cross-deployment results at 17-min and 1-hour cadence
+- Alongshore robustness + wave-direction discrimination tests
+- Target: short JTECH-O methods note
+
+### Paper 3 — Decadal Coastal Morphodynamics (San Diego + Baja)
+`/Users/holden/Documents/Scripps/Research/Paper_3/`
+- Multi-site (4 SD + 4 Baja) EOF + diffusion-model framework
+- Sarah's 2014–2023 8 Hz Torrey archive (~9-year record, currently
+  mislabeled "LPL") feeds the long-term wave-forcing dataset
+
+### Other future papers
+- Lagoon dynamics (LPL post-2023 deployments only — Sarah's archive is
+  actually Torrey)
+- Pre-2023 historical archive ingestion (Cardiff, Coronado, Imperial
+  Beach, Catalina) for broader site coverage in the wave-dynamics paper

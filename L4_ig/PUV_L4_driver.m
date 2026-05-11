@@ -17,6 +17,8 @@ deployment_name = 'TBR23';
 etaOpts        = struct();
 reflectionOpts = struct();
 bispectraOpts  = struct();
+momentsOpts    = struct();
+pdfOpts        = struct();
 
 %% ======================== SETUP ========================
 startup_puv
@@ -84,6 +86,14 @@ for k = 1:nInstr
         % --- L4_bispectra: bicoherence on broadband eta_total ---
         fprintf('  L4_bispectra:  bicoherence + coupling metrics\n');
         L4.bispectra  = PUV_L4_bispectra(L4.eta.eta_total, L2, bispectraOpts);
+
+        % --- L4_moments: frequency-resolved skewness/asymmetry predictor ---
+        fprintf('  L4_moments:    r(f) + linear predictor (Bill MOP511)\n');
+        L4.moments    = PUV_L4_moments(L2, momentsOpts);
+
+        % --- L4_velocity_pdf: pooled onshore/offshore |u| histogram ---
+        fprintf('  L4_pdf:        pooled |u| distribution + crossover\n');
+        L4.pdf        = PUV_L4_velocity_pdf(PUV, L2, pdfOpts);
 
         % --- Metadata ---
         L4.label          = PUV.label;

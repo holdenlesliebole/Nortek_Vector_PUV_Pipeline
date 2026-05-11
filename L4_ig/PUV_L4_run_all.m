@@ -2,8 +2,9 @@
 %
 %   Iterates over every deployment in deployment_registry, loads each
 %   instrument's L1 and L2 .mat, runs PUV_L4_eta → PUV_L4_reflection →
-%   PUV_L4_bispectra, and writes one _L4.mat per instrument. Already-
-%   processed instruments are skipped (idempotent).
+%   PUV_L4_bispectra → PUV_L4_moments → PUV_L4_velocity_pdf, and writes
+%   one _L4.mat per instrument. Already-processed instruments are
+%   skipped (idempotent).
 % Author: Holden Leslie-Bole, 2026
 
 startup_puv
@@ -79,6 +80,8 @@ for d = 1:nDeploy
             L4.eta       = PUV_L4_eta(PUV, L2);
             L4.ref       = PUV_L4_reflection(PUV, L2, L4.eta);
             L4.bispectra = PUV_L4_bispectra(L4.eta.eta_total, L2);
+            L4.moments   = PUV_L4_moments(L2);
+            L4.pdf       = PUV_L4_velocity_pdf(PUV, L2);
 
             L4.label          = PUV.label;
             L4.deploymentName = PUV.deploymentName;
