@@ -1,8 +1,12 @@
-function L4bw = PUV_L4_boundwave(L4eta, L2, opts)
+function L4bw = PUV_L4_boundwave(L4eta, L2, PUV, opts)
 % PUV_L4_boundwave  Bound / free IG separation via Hasselmann forcing kernel.
 %
-%   L4bw = PUV_L4_boundwave(L4eta, L2)
-%   L4bw = PUV_L4_boundwave(L4eta, L2, opts)
+%   L4bw = PUV_L4_boundwave(L4eta, L2, PUV)
+%   L4bw = PUV_L4_boundwave(L4eta, L2, PUV, opts)
+%
+%   PUV (L1) is required so the bound shore-normal velocity can be
+%   compared against the measured shore-normal velocity for the per-
+%   segment free residual u_ig_free = u_ig_total - u_ig_bound.
 %
 %   For each L2 segment, estimates the bound-IG component as the second-
 %   order weakly nonlinear difference-frequency forcing of swell-band
@@ -34,9 +38,16 @@ function L4bw = PUV_L4_boundwave(L4eta, L2, opts)
 %     L4bw.time, fs, segLen, depth, segValid, bandIG, bandSwell
 %     L4bw.eta_ig_bound       - (segLen x nSeg) bound IG eta timeseries (m)
 %     L4bw.eta_ig_free        - (segLen x nSeg) free IG eta timeseries (m)
+%     L4bw.u_ig_bound         - (segLen x nSeg) bound IG shore-normal velocity
+%                               timeseries (m/s, positive onshore)
+%     L4bw.u_ig_free          - (segLen x nSeg) free IG shore-normal velocity
+%                               residual = u_ig_total - u_ig_bound (m/s)
 %     L4bw.var_ig_total       - (nSeg x 1) variance of input eta_ig (m^2)
 %     L4bw.var_ig_bound       - (nSeg x 1) variance of bound IG (m^2)
 %     L4bw.var_ig_free        - (nSeg x 1) variance of free IG (m^2)
+%     L4bw.var_u_ig_total     - (nSeg x 1) variance of bandpassed u_sn_ig (m^2/s^2)
+%     L4bw.var_u_ig_bound     - (nSeg x 1) variance of bound u (m^2/s^2)
+%     L4bw.var_u_ig_free      - (nSeg x 1) variance of free u residual (m^2/s^2)
 %     L4bw.bound_frac_raw     - (nSeg x 1) var_bound / var_total, unclamped.
 %                               Can exceed 1 when the second-order theory
 %                               overpredicts (Hs/h > ~0.10 — see regime
@@ -74,11 +85,12 @@ function L4bw = PUV_L4_boundwave(L4eta, L2, opts)
 %     Schaffer, H.A. & Madsen, P.A. (1995), Coastal Eng. 26, 1-14.
 % Author: Holden Leslie-Bole, 2026
 
-if nargin < 3, opts = struct(); end
-if ~isfield(opts, 'bandSwell'), opts.bandSwell = [0.04 0.25];  end
-if ~isfield(opts, 'bandIG'),    opts.bandIG    = [0.004 0.04]; end
-if ~isfield(opts, 'khmin'),     opts.khmin     = 0.265;        end
-if ~isfield(opts, 'khmax'),     opts.khmax     = 10;           end
+if nargin < 4, opts = struct(); end
+if ~isfield(opts, 'bandSwell'),  opts.bandSwell  = [0.04 0.25];  end
+if ~isfield(opts, 'bandIG'),     opts.bandIG     = [0.004 0.04]; end
+if ~isfield(opts, 'khmin'),      opts.khmin      = 0.265;        end
+if ~isfield(opts, 'khmax'),      opts.khmax      = 10;           end
+if ~isfield(opts, 'nanMaxFrac'), opts.nanMaxFrac = 0.10;         end
 
 fs     = L4eta.fs;
 segLen = L4eta.segLen;
@@ -101,15 +113,35 @@ L4bw.fIG          = fIG;
 
 L4bw.eta_ig_bound = NaN(segLen, nSeg);
 L4bw.eta_ig_free  = NaN(segLen, nSeg);
+L4bw.u_ig_bound   = NaN(segLen, nSeg);
+L4bw.u_ig_free    = NaN(segLen, nSeg);
 L4bw.var_ig_total   = NaN(nSeg, 1);
 L4bw.var_ig_bound   = NaN(nSeg, 1);
 L4bw.var_ig_free    = NaN(nSeg, 1);
+L4bw.var_u_ig_total = NaN(nSeg, 1);
+L4bw.var_u_ig_bound = NaN(nSeg, 1);
+L4bw.var_u_ig_free  = NaN(nSeg, 1);
 L4bw.bound_frac     = NaN(nSeg, 1);
 L4bw.bound_frac_raw = NaN(nSeg, 1);
 L4bw.S_ig_total   = NaN(nfIG, nSeg);
 L4bw.S_ig_bound   = NaN(nfIG, nSeg);
 L4bw.S_ig_free    = NaN(nfIG, nSeg);
 L4bw.bound_frac_f = NaN(nfIG, nSeg);
+
+% Pre-rotate full L1 timeseries to shore-normal frame once
+if isnan(L2.shorenormal)
+    warning('PUV_L4_boundwave:noShorenormal', ...
+        'L2.shorenormal is NaN for %s — u_ig fields will remain NaN.', PUV.label);
+    haveSN = false;
+else
+    haveSN = true;
+    [U_sn_full, ~] = apply_shorenormal_rotation(PUV.BuoyCoord.U, PUV.BuoyCoord.V, L2.shorenormal);
+end
+if isfield(L2, 'params') && isfield(L2.params, 'startOffset_samples')
+    startOffset = L2.params.startOffset_samples;
+else
+    startOffset = 0;
+end
 
 for i = 1:nSeg
     if ~L4bw.segValid(i) || isnan(L4eta.depth(i))
@@ -121,7 +153,7 @@ for i = 1:nSeg
         continue
     end
 
-    z_bound = boundwave_zig1D(eta_t, L4eta.depth(i), fs, opts);
+    [z_bound, u_bound_pred] = boundwave_zig1D(eta_t, L4eta.depth(i), fs, opts);
     z_free  = eta_i - z_bound;
 
     L4bw.eta_ig_bound(:, i) = z_bound;
@@ -133,6 +165,28 @@ for i = 1:nSeg
     L4bw.var_ig_total(i) = vT;
     L4bw.var_ig_bound(i) = vB;
     L4bw.var_ig_free(i)  = vF;
+
+    % Velocity side: bandpass the L1 shore-normal velocity into IG, then
+    % subtract the predicted bound velocity to get the free residual.
+    if haveSN
+        idx = startOffset + ((i-1)*segLen + 1 : i*segLen);
+        if idx(end) <= numel(U_sn_full)
+            uSeg = U_sn_full(idx);
+            nanFrac = mean(isnan(uSeg));
+            if nanFrac <= opts.nanMaxFrac
+                uSeg = fillmissing(uSeg, 'linear');
+                uSeg = detrend(uSeg);
+                u_ig_total = bandpass_freq(uSeg, fs, opts.bandIG(1), opts.bandIG(2));
+                u_free     = u_ig_total - u_bound_pred;
+
+                L4bw.u_ig_bound(:, i) = u_bound_pred;
+                L4bw.u_ig_free(:, i)  = u_free;
+                L4bw.var_u_ig_total(i) = var(u_ig_total);
+                L4bw.var_u_ig_bound(i) = var(u_bound_pred);
+                L4bw.var_u_ig_free(i)  = var(u_free);
+            end
+        end
+    end
     if vT > 0
         L4bw.bound_frac_raw(i) = vB / vT;
         L4bw.bound_frac(i)     = max(0, min(1, vB / vT));

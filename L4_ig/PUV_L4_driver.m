@@ -96,9 +96,13 @@ for k = 1:nInstr
         fprintf('  L4_pdf:        pooled |u| distribution + crossover\n');
         L4.pdf        = PUV_L4_velocity_pdf(PUV, L2, pdfOpts);
 
-        % --- L4_boundwave: Hasselmann bound/free IG split ---
+        % --- L4_boundwave: Hasselmann bound/free IG split (eta + u) ---
         fprintf('  L4_boundwave:  bound/free IG separation\n');
-        L4.boundwave  = PUV_L4_boundwave(L4.eta, L2, boundwaveOpts);
+        L4.boundwave       = PUV_L4_boundwave(L4.eta, L2, PUV, boundwaveOpts);
+
+        % --- L4_reflection_free: Sheremet on the bound-stripped residual ---
+        fprintf('  L4_reflection_free: Sheremet on free IG\n');
+        L4.reflection_free = PUV_L4_reflection_free(PUV, L2, L4.eta, L4.boundwave, reflectionOpts);
 
         % --- Metadata ---
         L4.label          = PUV.label;

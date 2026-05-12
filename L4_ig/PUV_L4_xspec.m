@@ -85,8 +85,9 @@ if ~isfield(opts, 'bandIG'),     opts.bandIG     = [0.004, 0.04]; end
 if ~isfield(opts, 'nfftSub'),    opts.nfftSub    = 1024;          end
 if ~isfield(opts, 'overlap'),    opts.overlap    = 0.5;           end
 if ~isfield(opts, 'window'),     opts.window     = @hann;         end
-if ~isfield(opts, 'minOverlapFrac'), opts.minOverlapFrac = 0.5;  end
-if ~isfield(opts, 'savePerSeg'),     opts.savePerSeg     = true; end
+if ~isfield(opts, 'minOverlapFrac'), opts.minOverlapFrac = 0.5;   end
+if ~isfield(opts, 'savePerSeg'),     opts.savePerSeg     = true;  end
+if ~isfield(opts, 'useFreeIG'),      opts.useFreeIG      = false; end
 
 % --- Load L4 structs ---
 L4s = normalize_L4list(L4list);
@@ -136,6 +137,11 @@ L4xs.nfftSub        = nfftSub;
 L4xs.overlap        = opts.overlap;
 L4xs.fIG            = fIG;
 L4xs.savePerSeg     = opts.savePerSeg;
+if opts.useFreeIG
+    L4xs.inputField = 'boundwave.eta_ig_free';
+else
+    L4xs.inputField = 'eta.eta_ig';
+end
 
 L4xs.instruments = repmat(struct('label', '', 'latlon', [], ...
                                  'shorenormal', NaN, 'medDepth', NaN), nInstr, 1);
@@ -157,9 +163,24 @@ for i = 1:nInstr-1
         L4i = L4s{i};
         L4j = L4s{j};
 
-        % Segment validity = L2 segValid AND no NaN in eta_ig column
-        vi = L4i.eta.segValid(:) & ~any(isnan(L4i.eta.eta_ig), 1).';
-        vj = L4j.eta.segValid(:) & ~any(isnan(L4j.eta.eta_ig), 1).';
+        % Pick which IG timeseries to consume (total or bound-stripped free)
+        if opts.useFreeIG
+            if ~isfield(L4i, 'boundwave') || ~isfield(L4i.boundwave, 'eta_ig_free') || ...
+               ~isfield(L4j, 'boundwave') || ~isfield(L4j.boundwave, 'eta_ig_free')
+                error('PUV_L4_xspec:noFreeIG', ...
+                    'opts.useFreeIG=true but L4.boundwave.eta_ig_free is missing for %s or %s', ...
+                    L4i.label, L4j.label);
+            end
+            eta_i_field = L4i.boundwave.eta_ig_free;
+            eta_j_field = L4j.boundwave.eta_ig_free;
+        else
+            eta_i_field = L4i.eta.eta_ig;
+            eta_j_field = L4j.eta.eta_ig;
+        end
+
+        % Segment validity = L2 segValid AND no NaN in chosen IG column
+        vi = L4i.eta.segValid(:) & ~any(isnan(eta_i_field), 1).';
+        vj = L4j.eta.segValid(:) & ~any(isnan(eta_j_field), 1).';
 
         idxVi = find(vi);
         idxVj = find(vj);
@@ -205,8 +226,8 @@ for i = 1:nInstr-1
             iA = startI(m);
             iB = startJ(m);
             L  = lenOv(m);
-            x  = L4i.eta.eta_ig(iA:iA+L-1, idx_i(m));
-            y  = L4j.eta.eta_ig(iB:iB+L-1, idx_j(m));
+            x  = eta_i_field(iA:iA+L-1, idx_i(m));
+            y  = eta_j_field(iB:iB+L-1, idx_j(m));
 
             % cpsd returns one-sided cross-PSD (units m^2/Hz) and freq grid
             Pij = cpsd(x, y, win, nover, nfftSub, fs);
