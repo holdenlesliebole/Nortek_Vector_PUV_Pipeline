@@ -32,17 +32,37 @@ function L4bw = PUV_L4_boundwave(L4eta, L2, opts)
 %
 %   OUTPUT (struct L4bw)
 %     L4bw.time, fs, segLen, depth, segValid, bandIG, bandSwell
-%     L4bw.eta_ig_bound  - (segLen x nSeg) bound IG eta timeseries (m)
-%     L4bw.eta_ig_free   - (segLen x nSeg) free IG eta timeseries (m)
-%     L4bw.var_ig_total  - (nSeg x 1) variance of input eta_ig (m^2)
-%     L4bw.var_ig_bound  - (nSeg x 1) variance of bound IG (m^2)
-%     L4bw.var_ig_free   - (nSeg x 1) variance of free IG (m^2)
-%     L4bw.bound_frac    - (nSeg x 1) var_bound / var_total (clamped 0..1)
-%     L4bw.fIG           - (nfIG x 1) IG-band frequency grid (Hz)
-%     L4bw.S_ig_total    - (nfIG x nSeg) one-sided PSD of total IG (m^2/Hz)
-%     L4bw.S_ig_bound    - (nfIG x nSeg) one-sided PSD of bound IG (m^2/Hz)
-%     L4bw.S_ig_free     - (nfIG x nSeg) one-sided PSD of free IG (m^2/Hz)
-%     L4bw.bound_frac_f  - (nfIG x nSeg) S_bound / S_total per IG bin
+%     L4bw.eta_ig_bound       - (segLen x nSeg) bound IG eta timeseries (m)
+%     L4bw.eta_ig_free        - (segLen x nSeg) free IG eta timeseries (m)
+%     L4bw.var_ig_total       - (nSeg x 1) variance of input eta_ig (m^2)
+%     L4bw.var_ig_bound       - (nSeg x 1) variance of bound IG (m^2)
+%     L4bw.var_ig_free        - (nSeg x 1) variance of free IG (m^2)
+%     L4bw.bound_frac_raw     - (nSeg x 1) var_bound / var_total, unclamped.
+%                               Can exceed 1 when the second-order theory
+%                               overpredicts (Hs/h > ~0.10 — see regime
+%                               note below). Use this for diagnostics.
+%     L4bw.bound_frac         - (nSeg x 1) bound_frac_raw clamped to [0,1].
+%                               Use this for headline plots only after
+%                               filtering on Hs/h.
+%     L4bw.fIG                - (nfIG x 1) IG-band frequency grid (Hz)
+%     L4bw.S_ig_total         - (nfIG x nSeg) one-sided PSD of total IG (m^2/Hz)
+%     L4bw.S_ig_bound         - (nfIG x nSeg) one-sided PSD of bound IG (m^2/Hz)
+%     L4bw.S_ig_free          - (nfIG x nSeg) one-sided PSD of free IG (m^2/Hz)
+%     L4bw.bound_frac_f       - (nfIG x nSeg) S_bound / S_total per IG bin
+%
+%   REGIME OF VALIDITY
+%     The Hasselmann (1962) / Schaffer-Madsen (1995) interaction kernel
+%     is the second-order term in a perturbation expansion in wave
+%     steepness ka and shallowness 1/kh. The bound-wave prediction is
+%     unbounded — nothing in the second-order theory prevents
+%     var(eta_bound) from exceeding var(eta_total). Catalog-wide check
+%     across 42 PUV instruments (2026-05-12):
+%       Hs/h > 0.15  -> raw bound/total ratio 1.9-2.5 (theory unphysical)
+%       Hs/h ~ 0.10  -> raw ratio ~1.0 (theory borderline)
+%       Hs/h < 0.07  -> raw ratio 0.05-0.25 (clean theory regime)
+%     Correlation r(bound_frac_raw, Hs/h) = +0.93 across the catalog.
+%     Treat bound_frac numbers at Hs/h > ~0.10 as a saturation flag
+%     rather than a physical bound fraction.
 %
 %   REQUIRES
 %     shared/boundwave_zig1D.m, shared/get_wavenumber.m on the path.
@@ -81,10 +101,11 @@ L4bw.fIG          = fIG;
 
 L4bw.eta_ig_bound = NaN(segLen, nSeg);
 L4bw.eta_ig_free  = NaN(segLen, nSeg);
-L4bw.var_ig_total = NaN(nSeg, 1);
-L4bw.var_ig_bound = NaN(nSeg, 1);
-L4bw.var_ig_free  = NaN(nSeg, 1);
-L4bw.bound_frac   = NaN(nSeg, 1);
+L4bw.var_ig_total   = NaN(nSeg, 1);
+L4bw.var_ig_bound   = NaN(nSeg, 1);
+L4bw.var_ig_free    = NaN(nSeg, 1);
+L4bw.bound_frac     = NaN(nSeg, 1);
+L4bw.bound_frac_raw = NaN(nSeg, 1);
 L4bw.S_ig_total   = NaN(nfIG, nSeg);
 L4bw.S_ig_bound   = NaN(nfIG, nSeg);
 L4bw.S_ig_free    = NaN(nfIG, nSeg);
@@ -113,7 +134,8 @@ for i = 1:nSeg
     L4bw.var_ig_bound(i) = vB;
     L4bw.var_ig_free(i)  = vF;
     if vT > 0
-        L4bw.bound_frac(i) = max(0, min(1, vB / vT));
+        L4bw.bound_frac_raw(i) = vB / vT;
+        L4bw.bound_frac(i)     = max(0, min(1, vB / vT));
     end
 
     % One-sided PSDs of each timeseries on the IG band grid
