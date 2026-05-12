@@ -60,6 +60,14 @@ segLen = L2.params.segLen;
 nSeg   = numel(L2.time);
 doffp  = L2.doffp;
 
+% Leading-sample offset applied by PUV_L2_spectral for UTC hour alignment.
+% L4 must use the same offset so eta(:,i) corresponds to L2.time(i).
+if isfield(L2, 'params') && isfield(L2.params, 'startOffset_samples')
+    startOffset = L2.params.startOffset_samples;
+else
+    startOffset = 0;
+end
+
 L4eta.time      = L2.time;
 L4eta.fs        = fs;
 L4eta.segLen    = segLen;
@@ -83,7 +91,7 @@ for i = 1:nSeg
         continue
     end
 
-    idx = (i-1)*segLen + 1 : i*segLen;
+    idx = startOffset + ((i-1)*segLen + 1 : i*segLen);
     if idx(end) > numel(PUV.P)
         continue
     end

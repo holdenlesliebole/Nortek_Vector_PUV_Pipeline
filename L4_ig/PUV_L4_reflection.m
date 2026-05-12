@@ -89,6 +89,14 @@ segLen = L2.params.segLen;
 nSeg   = numel(L2.time);
 doffp  = L2.doffp;
 
+% Leading-sample offset applied by PUV_L2_spectral for UTC hour alignment.
+% L4 must use the same offset so PUV.U/V(idx,:) lines up with L2.time(i).
+if isfield(L2, 'params') && isfield(L2.params, 'startOffset_samples')
+    startOffset = L2.params.startOffset_samples;
+else
+    startOffset = 0;
+end
+
 % Two-sided FFT frequency grid for length segLen
 freq = (0:segLen-1)' * fs / segLen;
 freq(freq > fs/2) = freq(freq > fs/2) - fs;
@@ -140,7 +148,7 @@ for i = 1:nSeg
         continue
     end
 
-    idx = (i-1)*segLen + 1 : i*segLen;
+    idx = startOffset + ((i-1)*segLen + 1 : i*segLen);
     if idx(end) > numel(PUV.BuoyCoord.U)
         continue
     end
