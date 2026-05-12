@@ -79,7 +79,9 @@ for d = 1:nDeploy
             L4 = struct();
             L4.eta       = PUV_L4_eta(PUV, L2);
             L4.ref       = PUV_L4_reflection(PUV, L2, L4.eta);
-            L4.bispectra = PUV_L4_bispectra(L4.eta.eta_total, L2);
+            % bispectra deferred — too slow for the full batch on this hardware.
+            % Run as a separate pass when desired:
+            %   L4.bispectra = PUV_L4_bispectra(L4.eta.eta_total, L2);
             L4.moments   = PUV_L4_moments(L2);
             L4.pdf       = PUV_L4_velocity_pdf(PUV, L2);
 
