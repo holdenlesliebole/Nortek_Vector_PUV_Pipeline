@@ -16,7 +16,9 @@
 % Author: Holden Leslie-Bole, 2026
 
 %% ======================== USER SETTINGS ========================
-deployment_name = 'TBR23';
+if ~exist('deployment_name', 'var') || isempty(deployment_name)
+    deployment_name = 'TBR23';
+end
 
 %% ======================== SETUP ========================
 startup_puv
@@ -50,7 +52,7 @@ meanCohIG  = arrayfun(@(p) p.mean_coh2_IG,   pairs);
 absAlong = abs(sepAlong);
 cmin = 0;
 cmax = max(absAlong) + eps;
-cmap = parula(nPairs);
+cmap = parula(max(nPairs, 2));  % parula(1) breaks interp1; require >=2 colors
 
 %% ======================== FIGURE ========================
 fig = figure('Visible', 'off', 'Position', [100 100 1300 900]);
