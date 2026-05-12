@@ -19,6 +19,7 @@ reflectionOpts = struct();
 bispectraOpts  = struct();
 momentsOpts    = struct();
 pdfOpts        = struct();
+boundwaveOpts  = struct();
 
 %% ======================== SETUP ========================
 startup_puv
@@ -94,6 +95,10 @@ for k = 1:nInstr
         % --- L4_velocity_pdf: pooled onshore/offshore |u| histogram ---
         fprintf('  L4_pdf:        pooled |u| distribution + crossover\n');
         L4.pdf        = PUV_L4_velocity_pdf(PUV, L2, pdfOpts);
+
+        % --- L4_boundwave: Hasselmann bound/free IG split ---
+        fprintf('  L4_boundwave:  bound/free IG separation\n');
+        L4.boundwave  = PUV_L4_boundwave(L4.eta, L2, boundwaveOpts);
 
         % --- Metadata ---
         L4.label          = PUV.label;

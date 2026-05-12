@@ -84,6 +84,7 @@ for d = 1:nDeploy
             %   L4.bispectra = PUV_L4_bispectra(L4.eta.eta_total, L2);
             L4.moments   = PUV_L4_moments(L2);
             L4.pdf       = PUV_L4_velocity_pdf(PUV, L2);
+            L4.boundwave = PUV_L4_boundwave(L4.eta, L2);
 
             L4.label          = PUV.label;
             L4.deploymentName = PUV.deploymentName;
