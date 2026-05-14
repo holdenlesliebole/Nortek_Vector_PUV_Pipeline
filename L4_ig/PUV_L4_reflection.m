@@ -1,6 +1,16 @@
 function L4ref = PUV_L4_reflection(PUV, L2, L4eta, opts)
 % PUV_L4_reflection  Sheremet (2002) incident/reflected IG separation per segment.
 %
+%   PLANNED EXTENSION (queued 2026-05-14, see docs/todo.md):
+%     Generalise this module to run the same Sheremet F-factor decomposition
+%     on swell (0.04-0.12 Hz) and sea (0.12-0.25 Hz) bands, not just IG.
+%     The decomposition formulae are band-agnostic — only the frequency
+%     mask needs to change. Empirical motivation: at TBR23, raw R^2_IG is
+%     ~1.0 (free-wave R^2 0.35-0.87), so IG reflection is non-trivial; we
+%     need swell/sea numbers to know whether the unidirectional-flux
+%     assumption holds at higher frequencies (likely violated more by
+%     breaking + directional spread than by reflection).
+%
 %   L4ref = PUV_L4_reflection(PUV, L2, L4eta)
 %   L4ref = PUV_L4_reflection(PUV, L2, L4eta, opts)
 %
