@@ -53,7 +53,7 @@ function cfg = TOR24S_config()
     cfg.instruments(k).depth_nominal  = 7;
     cfg.instruments(k).serialNum      = 16739;
     cfg.instruments(k).latlon         = [32.930, -117.265];
-    cfg.instruments(k).heading        = NaN;
+    cfg.instruments(k).heading        = 78.7;       % explicit; auto-compass read 258.7 was 180-deg flipped, confirmed by eta/u_sn phase test 2026-05-14
     cfg.instruments(k).clockDrift     = NaN;
     cfg.instruments(k).doffp          = 0.70;      % meters (70 cm, redeploy 2/28/2024)
 

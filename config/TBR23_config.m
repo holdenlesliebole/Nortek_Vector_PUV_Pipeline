@@ -32,7 +32,7 @@ function cfg = TBR23_config()
     cfg.instruments(k).depth_nominal  = 5;
     cfg.instruments(k).serialNum      = 16739;
     cfg.instruments(k).latlon         = [32.92515, -117.26257];
-    cfg.instruments(k).heading        = 270.7361;  % magnetic, degrees
+    cfg.instruments(k).heading        = 90.7361;   % magnetic, degrees (spreadsheet had 270.7361, 180-deg flipped; corrected 2026-05-14 after eta/u_sn phase verification)
     cfg.instruments(k).clockDrift     = 16.6;      % seconds
     cfg.instruments(k).doffp          = 0.77;      % meters, pressure sensor height above bed
 
