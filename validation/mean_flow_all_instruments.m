@@ -66,11 +66,13 @@ fprintf('Saved: %s\n', matFile);
 
 % Site colors
 siteColors = containers.Map();
-siteColors('Torrey')     = [0.20 0.45 0.85];
-siteColors('Solana')     = [0.85 0.30 0.20];
-siteColors('SIO Pier')   = [0.95 0.65 0.10];
-siteColors('LPL lagoon') = [0.30 0.65 0.30];
-siteColors('other')      = [0.50 0.50 0.50];
+siteColors('Torrey')         = [0.20 0.45 0.85];
+siteColors('Solana')         = [0.85 0.30 0.20];
+siteColors('SIO Pier')       = [0.95 0.65 0.10];
+siteColors('LPL lagoon')     = [0.30 0.65 0.30];
+siteColors('Imperial Beach') = [0.60 0.20 0.60];
+siteColors('Catalina')       = [0.10 0.60 0.55];
+siteColors('other')          = [0.50 0.50 0.50];
 
 % Sort by date_start so legend order makes sense
 [~, ix] = sort([records.date_start]);
