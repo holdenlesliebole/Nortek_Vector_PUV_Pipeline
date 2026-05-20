@@ -34,11 +34,18 @@ stats.u_uabs3 = mean(u .* abs_u.^3);
 stats.skewness = skewness(u);
 stats.kurtosis = kurtosis(u);
 
-% Acceleration asymmetry via Hilbert transform (Elgar 1987, Hoefel & Elgar 2003)
-% As = -mean(H(u)^3) / mean(u^2)^(3/2)
-% where H(u) is the Hilbert transform of u
+% Velocity asymmetry via Hilbert transform (Elgar & Guza 1985; Ruessink et al. 2012).
+% Sign convention: A_s < 0 for the forward-pitched (steep-front) shoaling wave,
+% growing more negative with Ursell number.
+%   A_s = mean(H(u)^3) / mean(u^2)^(3/2),  with H(u) the Hilbert transform of u.
+% NOTE (2026-05-20): the leading minus sign previously here produced A_s with the
+% SAME sign as the acceleration skewness <a^3> (i.e. POSITIVE for forward-pitched
+% waves), which is opposite to the Elgar-Guza / Ruessink convention. MATLAB's
+% imag(hilbert(u)) ~ -du/dt (a negative normalized derivative), so the explicit
+% minus double-negated. Verified on a synthetic steep-front wave: this form now
+% returns A_s < 0 for forward-pitched, matching Ruessink (2012).
 u_hilbert = imag(hilbert(u));
-stats.asymmetry = -mean(u_hilbert.^3) / mean(u.^2)^(3/2);
+stats.asymmetry = mean(u_hilbert.^3) / mean(u.^2)^(3/2);
 
 a = gradient(u, dt);
 stats.a2 = mean(a.^2);
