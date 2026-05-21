@@ -97,10 +97,17 @@ for k = 1:numel(all_files)
     % Copy (skip if destination already has matching byte size)
     fprintf('[%3d/%3d] %s/%s/%s ... ', k, numel(all_files), deployment, ...
             destSubFor(level), d.name);
+    % Skip only if the destination is the same size AND at least as new as
+    % the source. Byte-size alone is unreliable: a content change that
+    % preserves element count and magnitude (e.g. a sign flip) can produce a
+    % byte-identical compressed file, which a size-only check would silently
+    % skip and leave stale on the server. The mtime guard forces a re-copy
+    % whenever the local file has been re-saved more recently than the
+    % server copy. (Fixed 2026-05-20 after the asymmetry sign-flip re-save.)
     skipCopy = false;
     if isfile(dest_path)
         destInfo = dir(dest_path);
-        if destInfo.bytes == d.bytes
+        if destInfo.bytes == d.bytes && destInfo.datenum >= d.datenum
             skipCopy = true;
         end
     end
