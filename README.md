@@ -168,4 +168,4 @@ Full convention notes are in `PIPELINE_NOTES.md`.
 ---
 
 *Maintainer: Holden Leslie-Bole, Scripps Institution of Oceanography.*
-*Questions? Open an issue or ask in lab.*
+*Questions? Open an issue.*
