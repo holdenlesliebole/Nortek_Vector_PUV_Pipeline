@@ -4,7 +4,7 @@
 % run our L2 spectral processor (with multi-taper). Save result for
 % comparison against the legacy archived L2.
 
-cd('/Users/holden/Documents/Scripps/Research/PUV_Pipeline');
+cd(fileparts(fileparts(mfilename('fullpath'))));  % repo root
 startup_puv;
 
 %% Pick instrument and load the legacy L1

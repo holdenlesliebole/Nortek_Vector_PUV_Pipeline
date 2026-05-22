@@ -3,7 +3,7 @@
 % Reprocess TBR23 MOP580_7m with full multi-taper, then run MOP validation.
 % Compares hypothesis results between Welch and MTM full.
 
-cd('/Users/holden/Documents/Scripps/Research/PUV_Pipeline');
+cd(fileparts(fileparts(mfilename('fullpath'))));  % repo root
 startup_puv;
 
 %% Step 1: Load L1 and reprocess with full MTM

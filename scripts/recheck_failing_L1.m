@@ -11,7 +11,7 @@
 %   TOR25S / MOP586_5m
 % Author: Holden Leslie-Bole, 2026
 
-cd('/Users/holden/Documents/Scripps/Research/PUV_Pipeline');
+cd(fileparts(fileparts(mfilename('fullpath'))));  % repo root
 startup_puv;
 
 reg = deployment_registry();

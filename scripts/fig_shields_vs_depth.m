@@ -3,7 +3,7 @@
 % Two-panel figure: Shields parameter and mobilization fraction vs depth
 % across all 33 PUV instruments. For Beamer slide.
 
-cd('/Users/holden/Documents/Scripps/Research/PUV_Pipeline');
+cd(fileparts(fileparts(mfilename('fullpath'))));  % repo root
 startup_puv;
 
 %% Load all L3 files

@@ -8,7 +8,7 @@
 % It just reads the saved L1 .mat files and the config to compare.
 % Author: Holden Leslie-Bole, 2026
 
-cd('/Users/holden/Documents/Scripps/Research/PUV_Pipeline');
+cd(fileparts(fileparts(mfilename('fullpath'))));  % repo root
 startup_puv;
 
 L1root = 'outputs/L1';

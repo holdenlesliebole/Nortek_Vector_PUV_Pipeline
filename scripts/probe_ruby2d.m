@@ -1,6 +1,6 @@
 % probe_ruby2d.m — inspect Ruby2D L1 and L2 mat file structure
 % Author: Holden Leslie-Bole, 2026
-cd('/Users/holden/Documents/Scripps/Research/PUV_Pipeline');
+cd(fileparts(fileparts(mfilename('fullpath'))));  % repo root
 
 l1file = '/Volumes/group/Ruby2D/PUV/Level1_QC/Torrey_Ruby2D_582_6m_processed.mat';
 l2file = '/Volumes/group/Ruby2D/PUV/Level2_QC/Torrey_Ruby2D_582_6m_PUV_process.mat';

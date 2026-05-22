@@ -3,7 +3,7 @@
 % the re-processed L1 P statistics to the legacy Athina pipeline.
 % Author: Holden Leslie-Bole, 2026
 
-cd('/Users/holden/Documents/Scripps/Research/PUV_Pipeline');
+cd(fileparts(fileparts(mfilename('fullpath'))));  % repo root
 startup_puv;
 
 cfg = RUBY22_config();

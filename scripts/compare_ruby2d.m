@@ -8,7 +8,7 @@
 %   (2) spectral estimator: full multi-taper vs single-periodogram
 %   (3) Kp pressure correction floor: zero (ours) vs cap-at-10 (legacy)
 
-cd('/Users/holden/Documents/Scripps/Research/PUV_Pipeline');
+cd(fileparts(fileparts(mfilename('fullpath'))));  % repo root
 startup_puv;
 
 %% Load

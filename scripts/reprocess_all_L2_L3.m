@@ -1,11 +1,11 @@
 % reprocess_all_L2_L3.m
 % Author: Holden Leslie-Bole, 2026
 % Full reprocessing: delete existing L2/L3 files, rerun L2 and L3 for all deployments.
-% Run from PUV_Pipeline/scripts/:
-%   >> cd /Users/holden/Documents/Scripps/Research/PUV_Pipeline/scripts
+% Run from the PUV_Pipeline repo root or from scripts/:
+%   >> startup_puv
 %   >> reprocess_all_L2_L3
 
-cd('/Users/holden/Documents/Scripps/Research/PUV_Pipeline');
+cd(fileparts(fileparts(mfilename('fullpath'))));  % repo root
 startup_puv;
 
 outRoot = fullfile(pwd, 'outputs');

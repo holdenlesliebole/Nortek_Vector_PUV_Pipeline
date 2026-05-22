@@ -1,6 +1,6 @@
 % probe_new_l2.m - inspect the new pipeline's L2 struct for Ruby2D
 % Author: Holden Leslie-Bole, 2026
-cd('/Users/holden/Documents/Scripps/Research/PUV_Pipeline');
+cd(fileparts(fileparts(mfilename('fullpath'))));  % repo root
 startup_puv;
 
 f = 'outputs/L2/Ruby2D/Ruby2D_582_6m_L2.mat';

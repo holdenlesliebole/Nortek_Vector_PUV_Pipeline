@@ -127,6 +127,13 @@ PUV_Pipeline/
 from raw data + code (see `.gitignore`). Outputs land in
 `outputs/L{1..4}/{deployment}/{label}_L{n}.mat`.
 
+> **About `scripts/`** — this is a working directory of one-off diagnostic,
+> migration, and validation scripts (audit_*, probe_*, fig_*, rerun_*, etc.).
+> They are **not the supported pipeline** — use the `L{1,2,3,4}_*` drivers for
+> processing. Scripts here resolve the repo root from their own file location,
+> so they don't need a hardcoded path, but they may reference specific
+> deployments or one-off datasets that are not part of the canonical flow.
+
 ### Data locations (lab server, read-only)
 
 - Raw data: `/Volumes/group/PUV_data/Vector/`

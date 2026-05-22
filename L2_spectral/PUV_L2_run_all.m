@@ -4,8 +4,8 @@
 %   for each instrument. Skips instruments that already have L2 output files
 %   or deployments with no L1 data.
 %
-%   Run from PUV_Pipeline/:
-%     >> cd /Users/holden/Documents/Scripps/Research/PUV_Pipeline
+%   Run from the PUV_Pipeline repo root:
+%     >> startup_puv
 %     >> PUV_L2_run_all
 % Author: Holden Leslie-Bole, 2026
 

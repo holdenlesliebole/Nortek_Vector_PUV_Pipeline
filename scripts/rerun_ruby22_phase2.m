@@ -2,7 +2,7 @@
 % instruments, now that MOP579_6m has been re-processed with the fixed L1.
 % Author: Holden Leslie-Bole, 2026
 
-cd('/Users/holden/Documents/Scripps/Research/PUV_Pipeline');
+cd(fileparts(fileparts(mfilename('fullpath'))));  % repo root
 startup_puv;
 
 dep = 'RUBY22';

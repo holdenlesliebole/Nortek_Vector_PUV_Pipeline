@@ -3,7 +3,7 @@
 % Process one instrument with three spectral methods and compare results.
 % Produces diagnostic figures for advisor discussion.
 
-cd('/Users/holden/Documents/Scripps/Research/PUV_Pipeline');
+cd(fileparts(fileparts(mfilename('fullpath'))));  % repo root
 startup_puv;
 
 %% Load L1 data

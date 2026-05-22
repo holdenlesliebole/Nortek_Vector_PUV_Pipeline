@@ -3,9 +3,14 @@
 % Tests the refactored PUV_raw_process against the original processed output
 % for TBR23 MOP580_5m (the first and simplest instrument — no cutoff, full bursts).
 %
-% Run from the PUV_Pipeline/ directory:
-%   >> cd /Users/holden/Documents/Scripps/Research/PUV_Pipeline
+% Run from the PUV_Pipeline repo root:
+%   >> startup_puv
 %   >> test_L1_comparison
+%
+% Requires the legacy Beach_Change_Observation processed .mat to be
+% reachable. Set the environment variable PUV_LEGACY_BCO to the root of
+% your local BCO checkout, or edit ORIG_FILE below. The legacy archive
+% is not currently mirrored on /Volumes/group/.
 % Author: Holden Leslie-Bole, 2026
 
 %% ======================== SETUP ========================
@@ -32,7 +37,21 @@ fprintf('\nRunning new PUV_raw_process...\n');
 PUV_new = PUV_raw_process(instr, cfg);
 
 %% ======================== LOAD ORIGINAL ========================
-origFile = '/Users/holden/Documents/Scripps/Research/Beach_Change_Observation/Vector/PUVs/TorreyMay-July2023/DATA/PUV/Level1_QC/5m_16739_MOP580_processed.mat';
+% Resolve the legacy BCO archive root: env var first, else local default.
+bcoRoot = getenv('PUV_LEGACY_BCO');
+if isempty(bcoRoot)
+    bcoRoot = fullfile(fileparts(fileparts(fileparts(mfilename('fullpath')))), ...
+                       'Beach_Change_Observation');
+end
+origFile = fullfile(bcoRoot, ...
+    'Vector/PUVs/TorreyMay-July2023/DATA/PUV/Level1_QC/5m_16739_MOP580_processed.mat');
+if ~isfile(origFile)
+    error('test_L1_comparison:legacyMissing', ...
+        ['Legacy BCO file not found: %s\n' ...
+         'Set environment variable PUV_LEGACY_BCO to your BCO checkout root, ' ...
+         'or edit origFile in this script. The BCO archive is not on ' ...
+         '/Volumes/group/.'], origFile);
+end
 fprintf('Loading original: %s\n', origFile);
 orig = load(origFile);
 PUV_orig = orig.PUV;

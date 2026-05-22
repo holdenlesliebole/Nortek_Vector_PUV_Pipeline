@@ -2,7 +2,7 @@
 % Author: Holden Leslie-Bole, 2026
 % Quick test: run L2 on one instrument and check new fields (a2, b2, Z-test, radiation stress)
 
-cd('/Users/holden/Documents/Scripps/Research/PUV_Pipeline');
+cd(fileparts(fileparts(mfilename('fullpath'))));  % repo root
 startup_puv;
 
 loaded = load('outputs/L1/TBR23/MOP580_7m_processed.mat', 'PUV');

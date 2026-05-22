@@ -3,15 +3,13 @@
 %   Loops through every deployment in the registry and runs PUV_L1_driver
 %   logic for each. Skips deployments that already have output files.
 %
-%   Run from PUV_Pipeline/:
-%     >> cd /Users/holden/Documents/Scripps/Research/PUV_Pipeline
+%   Run from the PUV_Pipeline repo root:
+%     >> startup_puv
 %     >> PUV_L1_run_all
 %
-%   To process from local cache (faster), first run:
-%     >> copy_all_to_local
-%   or copy individual deployments:
+%   To process from local cache (faster), copy raw files for each deployment:
 %     >> reg = deployment_registry(); cfg = reg('SIO24A')();
-%     >> copy_raw_to_local(cfg);
+%     >> copy_raw_to_local(cfg);   % repeat per deployment as needed
 % Author: Holden Leslie-Bole, 2026
 
 %% ======================== SETUP ========================

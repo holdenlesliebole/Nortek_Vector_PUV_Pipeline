@@ -4,7 +4,8 @@
 % deployment-first under Processed_HLB. Generates README.md and
 % manifest.csv. Idempotent — re-running refreshes all artifacts.
 
-src_root  = '/Users/holden/Documents/Scripps/Research/PUV_Pipeline/outputs';
+repo_root = fileparts(fileparts(mfilename('fullpath')));
+src_root  = fullfile(repo_root, 'outputs');
 dest_root = '/Volumes/group/PUV_data/Vector/Processed_HLB';
 
 if ~isfolder(fileparts(dest_root))
@@ -12,7 +13,7 @@ if ~isfolder(fileparts(dest_root))
 end
 if ~exist(dest_root, 'dir'); mkdir(dest_root); end
 
-[~, git_hash] = system('cd /Users/holden/Documents/Scripps/Research/PUV_Pipeline && git rev-parse --short HEAD');
+[~, git_hash] = system(sprintf('cd %s && git rev-parse --short HEAD', repo_root));
 git_hash = strtrim(git_hash);
 
 %% Collect L1 (raw QC'd) + L2, L3, L4 instrument files + L4_xspec deployment files

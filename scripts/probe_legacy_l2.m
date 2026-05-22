@@ -1,6 +1,6 @@
 % probe_legacy_l2.m - inspect the legacy L2 mat file structure
 % Author: Holden Leslie-Bole, 2026
-cd('/Users/holden/Documents/Scripps/Research/PUV_Pipeline');
+cd(fileparts(fileparts(mfilename('fullpath'))));  % repo root
 
 l2file = 'raw_cache/Ruby2D/Torrey_Ruby2D_582_6m_PUV_process.mat';
 

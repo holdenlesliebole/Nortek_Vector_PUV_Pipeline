@@ -7,7 +7,7 @@
 % Also captures one representative segment's spectrum (highest-Hs segment)
 % so we can compare spectral shape directly.
 
-cd('/Users/holden/Documents/Scripps/Research/PUV_Pipeline');
+cd(fileparts(fileparts(mfilename('fullpath'))));  % repo root
 startup_puv;
 
 l2file = 'raw_cache/Ruby2D/Torrey_Ruby2D_582_6m_PUV_process.mat';

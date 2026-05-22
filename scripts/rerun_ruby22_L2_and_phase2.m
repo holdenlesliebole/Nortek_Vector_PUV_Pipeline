@@ -2,7 +2,7 @@
 % the new HsMaxToHRatio filter, then re-run Phase 2 to see clean alpha fits.
 % Author: Holden Leslie-Bole, 2026
 
-cd('/Users/holden/Documents/Scripps/Research/PUV_Pipeline');
+cd(fileparts(fileparts(mfilename('fullpath'))));  % repo root
 startup_puv;
 
 cfg = RUBY22_config();

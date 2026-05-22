@@ -2,7 +2,7 @@
 % IB18W/MOP055_7m, IB18W/MOP045_7m, IB19S/MOP055_7m, IB19S/MOP045_7m.
 % Author: Holden Leslie-Bole, 2026
 
-cd('/Users/holden/Documents/Scripps/Research/PUV_Pipeline');
+cd(fileparts(fileparts(mfilename('fullpath'))));  % repo root
 startup_puv;
 
 reg = deployment_registry();

@@ -4,7 +4,7 @@
 % Two subplots: winter (TOR24W) vs summer (TOR24S) at MOP586, 7 m depth
 % For Beamer presentation: "Seasonal Energy Partitioning" slide
 
-cd('/Users/holden/Documents/Scripps/Research/PUV_Pipeline');
+cd(fileparts(fileparts(mfilename('fullpath'))));  % repo root
 startup_puv;
 
 W = load('outputs/L3/TOR24W/MOP586_7m_L3.mat'); W = W.L3;

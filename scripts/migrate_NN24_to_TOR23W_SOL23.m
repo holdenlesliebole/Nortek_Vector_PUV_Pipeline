@@ -8,7 +8,7 @@
 %   3. Renames validation PNGs
 %   4. Does NOT delete the NN24 directories (do that manually after verifying)
 
-cd('/Users/holden/Documents/Scripps/Research/PUV_Pipeline');
+cd(fileparts(fileparts(mfilename('fullpath'))));  % repo root
 
 outRoot = 'outputs';
 

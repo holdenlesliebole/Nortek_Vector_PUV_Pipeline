@@ -1,6 +1,6 @@
 % diag_compare.m - quick diagnostics on the matched arrays
 % Author: Holden Leslie-Bole, 2026
-cd('/Users/holden/Documents/Scripps/Research/PUV_Pipeline');
+cd(fileparts(fileparts(mfilename('fullpath'))));  % repo root
 startup_puv;
 
 R = load('outputs/validation/Ruby2D/ruby2d_582_6m_compare.mat');

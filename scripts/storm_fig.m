@@ -1,6 +1,7 @@
 % storm_fig.m - SOL23 MOP651_7m storm overview figure (PUV vs MOP Hs)
 % Author: Holden Leslie-Bole, 2026
-cd('/Users/holden/Documents/Scripps/Research/PUV_Pipeline'); startup_puv;
+cd(fileparts(fileparts(mfilename('fullpath'))));  % repo root
+startup_puv;
 d = load('outputs/L3/SOL23/MOP651_7m_L3.mat');
 L = d.L3;
 

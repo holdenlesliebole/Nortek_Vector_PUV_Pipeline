@@ -3,7 +3,7 @@
 % Generate an annotated wave spectrum figure for Beamer presentation
 % Explains how bulk wave parameters are extracted from S_eta(f)
 
-cd('/Users/holden/Documents/Scripps/Research/PUV_Pipeline');
+cd(fileparts(fileparts(mfilename('fullpath'))));  % repo root
 startup_puv;
 
 D = load('outputs/L2/TBR23/MOP580_7m_L2.mat');

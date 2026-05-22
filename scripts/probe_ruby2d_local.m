@@ -1,6 +1,6 @@
 % probe_ruby2d_local.m — inspect locally cached Ruby2D L1 file
 % Author: Holden Leslie-Bole, 2026
-cd('/Users/holden/Documents/Scripps/Research/PUV_Pipeline');
+cd(fileparts(fileparts(mfilename('fullpath'))));  % repo root
 
 l1file = 'raw_cache/Ruby2D/Torrey_Ruby2D_582_6m_processed.mat';
 
