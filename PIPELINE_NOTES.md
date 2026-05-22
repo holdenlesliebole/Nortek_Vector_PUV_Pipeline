@@ -3,6 +3,9 @@
 This document records the architectural decisions, known issues, and rationale
 behind the pipeline design. Update it when decisions change.
 
+For a getting-started guide aimed at new users, see `README.md`. For the
+detailed, current level-by-level reference, see `docs/pipeline_levels.md`.
+
 ---
 
 ## Directory Structure
@@ -10,13 +13,15 @@ behind the pipeline design. Update it when decisions change.
 ```
 PUV_Pipeline/
     startup_puv.m              — adds all subdirs to MATLAB path; run first
-    config/                    — per-deployment config structs + registry
+    config/                    — per-deployment config functions + registry
     L1_raw_to_qc/              — raw .dat/.sen/.hdr → QC'd PUV struct (.mat)
     L2_spectral/               — spectral analysis, wave stats, bed velocity
-    L3_transport/              — sediment transport models (Paper 1 specific)
+    L3_forcing/                — band decomposition, storms, transport proxies, currents
+    L3_transport/              — paper-specific transport model wrappers
+    L4_ig/                     — nonlinear-wave + infragravity dynamics
     shared/                    — canonical copies of shared functions
     raw_cache/                 — local copies of raw server files (not committed)
-    outputs/L1|L2|L3/          — processed outputs per deployment
+    outputs/L1|L2|L3|L4/       — processed outputs per deployment (not committed)
 ```
 
 Related directories:
@@ -38,40 +43,73 @@ Related directories:
 
 ### L2: Spectral analysis
 - **Input**: L1 `.mat` files
-- **Script**: `PUV_L2_driver.m`
-- **Processing**: 17-min (2048-sample @ 2Hz) segments, detrend, Wu pressure
-  correction, Welch PSD, Hs/Tp/energy flux, bed velocity (IFFT method),
-  Reynolds stress, velocity moments, optional MOP comparison
-- **Output**: `outputs/L2/{deployment}/` struct per instrument
+- **Script**: `PUV_L2_driver.m` → `PUV_L2_spectral.m`
+- **Processing**: 1-hour (7200-sample @ 2 Hz) UTC-aligned segments, detrend,
+  Wu pressure correction, multi-taper PSD (DPSS NW=4, K=7), Hs/Tp/energy flux,
+  bed velocity (IFFT method), Reynolds stress, velocity moments, shore-normal
+  rotation (cached for L4), optional MOP comparison
+- **Output**: `outputs/L2/{deployment}/{label}_L2.mat` per instrument
 
-### L3: Transport & Derived Products (Paper_1)
-- Lives in `Paper_1/DataCodes/` — deployment-specific analysis, not reusable pipeline
-- `run_transport_model.m`: Bailard → Hoefel & Elgar → undertow → Shields hierarchy
+### L3: Wave forcing characterization
+- **Input**: L2 `.mat` files
+- **Script**: `PUV_L3_driver.m` (modules: `PUV_L3_bands`, `PUV_L3_storms`,
+  `PUV_L3_transport`, `PUV_L3_currents`)
+- **Processing**:
+  - **L3a band decomposition** — energy flux + Hs by band: F_ig, F_swell,
+    F_sea, F_total per segment. Bands: IG [0.004–0.04], swell [0.04–0.10],
+    sea [0.10–0.25] Hz; dominant-band flag per segment
+  - **L3b storm/event detection** — storm events from Hs time series,
+    event metrics, calm/recovery windows, MOP gap-filling
+  - **L3c transport proxies** — bottom energy flux Fb, Shields/Rouse time
+    series (configurable D50), mobilization fraction
+  - **L3d current decomposition** — t_tide harmonic analysis on uMean/vMean,
+    subtidal residual currents, undertow (validated vs NOAA Scripps gauge)
+- **Output**: `outputs/L3/{deployment}/{label}_L3.mat` per instrument
+- `L3_transport/` holds thin, paper-specific transport-model wrappers
+  (`run_transport_model.m`: Bailard → Hoefel & Elgar → undertow → Shields);
+  these stay paper-specific and are not part of the universal pipeline.
 
-#### L3 additions needed:
-- **Frequency-band energy flux decomposition**: Compute energy flux separately for
-  sea band vs swell band (and optionally IG band) per burst. This is needed for a
-  Paper_1 figure showing which frequency band drives morphological change at 5m vs 7m.
-  The PUV L2 output already has full spectra — L3 just needs to integrate F(f) over
-  defined bands and output time series of F_sea, F_swell, F_ig per instrument.
-  Band definitions: IG = 0.004–0.04 Hz, swell = 0.04–0.10 Hz, sea = 0.10–0.25 Hz
-  (confirm with Holden). This supports the "local seas vs swell" finding in Paper_1.
+### L4: Nonlinear-wave / IG dynamics
+- **Input**: L1 + L2 `.mat` files
+- **Script**: `PUV_L4_driver.m` (modules: `PUV_L4_eta`, `PUV_L4_reflection`,
+  `PUV_L4_bispectra`, `PUV_L4_moments`, `PUV_L4_velocity_pdf`,
+  `PUV_L4_boundwave`; array cross-spectra via `PUV_L4_xspec_driver.m`)
+- **Processing**: P → η in three bands; Sheremet incident/reflected IG split;
+  bicoherence/skewness/asymmetry bispectra; frequency-resolved moment
+  correlations; pooled velocity PDFs; bound/free IG separation
+- **Output**: `outputs/L4/{deployment}/{label}_L4.mat` per instrument
+- See `docs/pipeline_levels.md` for the full L4 output-struct shape.
+
+### L5: PUV–altimeter integration (planned)
+- Merges L2/L3 products with altimeter bed-level for bed-change vs forcing.
+  Not yet implemented — see `docs/pipeline_levels.md` and `project_L5_plan`.
 
 ---
 
 ## Key Design Decisions
 
-### Segment length: 17 minutes (2048 samples @ 2 Hz)
-The original Ruby2D pipeline used 1-hour segments with tidal fitting.
-This was abandoned because tidal artifacts persisted even after fitting.
-The canonical approach is 17-min segments with detrending.
+### Segment length: 1 hour (7200 samples @ 2 Hz), UTC-aligned
+**Canonical L2 segmentation is 1-hour, non-overlapping, aligned to UTC
+top-of-hour boundaries** (`opts.segLen = 7200`, the default in
+`PUV_L2_spectral.m`). Hour alignment matches the MOP/CDIP reporting cadence,
+which the validation and L4 cross-spectra modules rely on. Tidal signal is
+removed by per-segment detrending, not by tidal fitting.
+
+The original Ruby2D pipeline used 1-hour segments with **tidal fitting**, which
+was abandoned because tidal artifacts persisted after fitting. The earlier
+iteration of this pipeline then used 17-min (2048-sample) segments to get finer
+temporal resolution. The current pipeline returns to 1-hour segments — but with
+detrending instead of tidal fitting, MOP/CDIP-aligned boundaries, and a
+multi-taper estimator (NW=4, 7 DPSS tapers).
 **Do not reintroduce tidal fitting or 3-hour segments.**
 
-Tradeoffs documented:
-- 17 min: better temporal resolution, robust detrending, multi-taper estimator
-  with NW=4 (7 DPSS tapers), df ≈ 0.001 Hz, standard in nearshore literature
-- 1 hour: finer frequency resolution, better IG band coverage — not worth the
-  tidal contamination at these depths
+The 17-min mode is still available as a fallback by passing `opts.segLen = 2048`.
+
+Tradeoffs:
+- 1 hour: finer frequency resolution, better IG-band coverage, MOP/CDIP-aligned;
+  detrending handles tide robustly at these depths
+- 17 min: better temporal resolution, df ≈ 0.001 Hz with multi-taper —
+  retained as an option but no longer the default
 
 ### .nc files: deprecated
 `save_initial_processingPUV_netcdf.m` is commented out in the original
@@ -196,9 +234,14 @@ See `config/CONFIG_REVIEW_NOTES.md` for full list.
 
 ---
 
-## Current Status (as of May 7, 2026)
+## Current Status (as of May 11, 2026)
 
-### L1 — 38/44 instruments processed
+> Live per-level status (counts, what's verified, what's deferred) is tracked
+> in `docs/pipeline_levels.md` — treat that as authoritative if it disagrees
+> with the summary below. This section captures the design rationale behind the
+> QC and processing choices.
+
+### L1 — complete, 33/40 instrument-deployments processed
 - Variability-based tilt QC (2° rolling std threshold, 30° absolute cap)
 - Sample-by-sample tilt correction for bent pipes (3D rotation using pitch/roll)
 - Pressure QC uses a healthy first-burst reference window for the median
@@ -206,17 +249,22 @@ See `config/CONFIG_REVIEW_NOTES.md` for full list.
   bug; protects against the inversion failure mode where >50% of samples
   are saturated)
 - Handles mixed file prefixes (underscore/hyphen), single-burst files, IGRF-14 fallback
-- 6 records still failing L1 are at genuine tilt limits (bent pipes,
-  burial-during-storms, knocked-over instruments); fix candidates noted
-  in `docs/deployment_database_overview.md`
-- Catalog: 23 deployments × 6 sites (Torrey, SIO Pier, Solana, LPL lagoon,
+- L1 heading bug fixed at TBR23/MOP580_5m and TOR24S/MOP586_7m (180° error
+  surfaced by the per-band R²_swell ≫ R²_IG reflection diagnostic)
+- Dropped records are documented hardware failures (genuine tilt limits — bent
+  pipes, burial-during-storms, knocked-over instruments; battery, kelp,
+  corrosion), correctly rejected — not a bug. Fix candidates and per-instrument
+  explanations in `docs/deployment_database_overview.md` and `docs/todo.md`.
+- Catalog: deployments across 6 sites (Torrey, SIO Pier, Solana, LPL lagoon,
   Imperial Beach, Catalina) — see `docs/deployment_database_overview.md`
 
-### L2 — complete, 38/38 instruments processed
+### L2 — complete, 33/33 instruments processed
 - Per-segment guard rejects segments with `Hs/h > 1.5` or
   `|h - depth_nominal|/depth_nominal > 0.5` (added May 6; catches
-  segments that straddle a sensor-failure boundary in the L1 record)
-- 17-min (2048 @ 2 Hz) segments, detrend, Wu pressure correction
+  segments that straddle a sensor-failure boundary in the L1 record);
+  also nanMaxFrac=0.10 rejection
+- 1-hour (7200 @ 2 Hz) UTC-aligned segments, detrend, Wu pressure correction
+  (17-min still available via `opts.segLen = 2048`)
 - **Spectral method: full multi-taper** (NW=4, 7 DPSS tapers, nfft=2048,
   df ≈ 0.001 Hz). Welch with Hanning still available via
   `opts.spectralMethod = 'welch'`. See `docs/multitaper_writeup.pdf` for
@@ -252,6 +300,29 @@ See `config/CONFIG_REVIEW_NOTES.md` for full list.
   Comparison scripts: `scripts/process_ruby2d_one.m`,
   `scripts/extract_legacy_bulk.m`, `scripts/compare_ruby2d.m`.
 
-### L3 / Paper 1 wrapper — not yet written
-Thin wrapper in `Paper 1/DataCodes/` calling shared pipeline with TBR23 config.
-`run_transport_model.m` stays in Paper 1 — deployment-specific.
+### L3 — complete, batch-processed across all instruments
+Band decomposition, storm/event detection, transport proxies, and current
+decomposition (t_tide tidal harmonics validated against the NOAA Scripps Pier
+gauge, R=0.995, UTC confirmed). Output: `outputs/L3/{deployment}/{label}_L3.mat`.
+The paper-specific transport-model wrapper (`run_transport_model.m`) stays in
+the Paper 1 directory — deployment-specific, not part of the universal pipeline.
+
+### L4 — modules built and validated on TBR23
+- `PUV_L4_eta` (P → η, three bands; Hs reconstruction matches L2 to 0.5%)
+- `PUV_L4_reflection` (Sheremet incident/reflected split; sign convention
+  validated via `corr(η_swell, U_swell) = +0.984`)
+- `PUV_L4_bispectra` (bicoherence/skewness/asymmetry; `bic_swell_ig_diff`
+  monotonic in depth at TBR23, consistent with bound-wave forcing)
+- `PUV_L4_xspec` (pairwise IG cross-spectra for arrays, best-overlap matching)
+- `PUV_L4_moments` and `PUV_L4_velocity_pdf` (reverse-engineered Bill O'Reilly
+  MOP511 6m analysis — frequency-resolved skewness/asymmetry correlations and
+  pooled |u| PDFs)
+- `PUV_L4_boundwave` (bound/free IG separation; needed for clean shoreline
+  reflection coefficients — currently inflated by bound-IG contamination)
+- Reflection bands inform the per-band R²_swell ≫ R²_IG heading diagnostic that
+  caught the L1 180° errors above.
+- See `docs/pipeline_levels.md` for the full L4 output-struct shape and the
+  remaining batch/bispectra runtime notes.
+
+### L5 — planned (PUV–altimeter integration)
+Not yet implemented. See `docs/pipeline_levels.md` and `project_L5_plan`.

@@ -1,7 +1,7 @@
 % PUV_L2_DRIVER  Level-2 spectral processing for all instruments in a deployment.
 %
-%   Loads L1 QC'd .mat files, runs spectral analysis (17-min segments),
-%   and saves one L2 .mat file per instrument.
+%   Loads L1 QC'd .mat files, runs spectral analysis (1-hour UTC-aligned
+%   segments by default), and saves one L2 .mat file per instrument.
 %
 %   To process a different deployment, change deployment_name below and re-run.
 % Author: Holden Leslie-Bole, 2026
