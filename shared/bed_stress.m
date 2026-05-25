@@ -14,8 +14,20 @@ function [tau_b, fric_w, Aw] = bed_stress(Ub, Tp, D50, rho)
 %     fric_w - wave friction factor (dimensionless)
 %     Aw     - wave orbital excursion amplitude (m)
 %
+%   NOTE (2026-05-23)
+%     This legacy form uses ks = 10*D50 internally — an unprincipled
+%     middle-ground that doesn't match either the literature flat-bed grain
+%     standard (ks = 2.5*D50) or a bedform-explicit movable-bed roughness.
+%     For new analyses prefer bed_stress_ks, which takes ks directly and
+%     pairs naturally with site_grain_size (ks = 2.5*D84 from measured PSD,
+%     Wiberg & Smith 1991). Retained here for backward compatibility with
+%     existing PUV L2 outputs that were generated with this default.
+%
 %   REFERENCE
 %     Swart (1974), Coastal Engineering Proc. 14.
+%
+% See also: bed_stress_ks, site_grain_size
+%
 % Author: Holden Leslie-Bole, 2026
 
 ks = 10 * D50;               % Nikuradse roughness (m)
