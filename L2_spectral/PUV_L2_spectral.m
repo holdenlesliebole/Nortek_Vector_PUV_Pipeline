@@ -229,6 +229,38 @@ L2.Sxx = nanVec;
 L2.Syy = nanVec;
 L2.Sxy = nanVec;
 
+%% ======================== BED-STRESS METHODOLOGY ========================
+% Wave-induced bed shear stress uses Swart (1974) piecewise f_w. The
+% Nikuradse equivalent sand-grain roughness ks is set per-site from
+% site_grain_size when an entry exists for this PUV label:
+%   ks = 2.5 * D84  (Wiberg & Smith 1991; Soulsby 1997 §4.2.2; Nielsen 1992)
+% Sites without a site_grain_size entry fall back to the legacy bed_stress
+% helper, which uses ks = 10*D50 internally (preserves prior behavior).
+bsLabel  = ''; if isfield(PUV,'label') && ~isempty(PUV.label), bsLabel = char(PUV.label); end
+ks_m     = NaN;
+D84_used = NaN;
+D50_used = opts.D50;
+gs_status = 'fallback_legacy';
+useKs    = false;
+if ~isempty(bsLabel) && exist('site_grain_size','file')==2 && exist('bed_stress_ks','file')==2
+    try
+        gs       = site_grain_size(bsLabel);
+        ks_m     = 2.5 * gs.D84;
+        D84_used = gs.D84;
+        D50_used = gs.D50;
+        gs_status = char(gs.status);
+        useKs    = true;
+        fprintf('  Bed stress: site_grain_size("%s"): D50=%.0f um, D84=%.0f um, ks=%.3f mm (%s); using bed_stress_ks\n', ...
+                bsLabel, D50_used*1e6, D84_used*1e6, ks_m*1e3, gs_status);
+    catch ME
+        fprintf('  Bed stress: site_grain_size("%s") not available (%s); using legacy bed_stress (ks=10*D50, D50=%.0f um)\n', ...
+                bsLabel, ME.message, opts.D50*1e6);
+    end
+else
+    fprintf('  Bed stress: no PUV label or helpers missing; using legacy bed_stress (ks=10*D50, D50=%.0f um)\n', ...
+            opts.D50*1e6);
+end
+
 %% ======================== SEGMENT LOOP ========================
 tStart = tic;
 nValid = 0;
@@ -411,10 +443,17 @@ for i = 1:nSeg
     L2.vBed_rms(i) = rms(vBed);
     L2.Ub(i)       = sqrt(mean(uBed.^2 + vBed.^2));
 
-    % --- Bed stress (Swart 1974) ---
-    % D50 default is 0.25 mm — TODO: replace with real grain size data
-    [L2.tau_b(i), L2.fric_w(i), L2.Aw(i)] = ...
-        bed_stress(L2.Ub(i), bulk.Tp, opts.D50, opts.rho);
+    % --- Bed stress (Swart 1974 piecewise f_w) ---
+    % Uses per-site ks = 2.5*D84 from site_grain_size when available;
+    % falls back to legacy bed_stress(ks = 10*D50) for sites without an
+    % entry. Decided once before the segment loop (useKs flag above).
+    if useKs
+        [L2.tau_b(i), L2.fric_w(i), L2.Aw(i)] = ...
+            bed_stress_ks(L2.Ub(i), bulk.Tp, ks_m, opts.rho);
+    else
+        [L2.tau_b(i), L2.fric_w(i), L2.Aw(i)] = ...
+            bed_stress(L2.Ub(i), bulk.Tp, opts.D50, opts.rho);
+    end
 
     % --- Reynolds stress ---
     stress = compute_reynolds_stress(uSeg, vSeg, wSeg);
@@ -456,6 +495,14 @@ L2.f              = f;
 L2.params                       = opts;
 L2.params.startOffset_samples   = startOffset;
 L2.params.hourAligned           = true;
+
+% Bed-stress provenance (set in the BED-STRESS METHODOLOGY block above)
+bsMethods = {'bed_stress_legacy', 'bed_stress_ks'};
+L2.params.bedstress_method      = bsMethods{useKs + 1};
+L2.params.bedstress_ks_m        = ks_m;
+L2.params.bedstress_D84_m       = D84_used;
+L2.params.bedstress_D50_m_used  = D50_used;
+L2.params.bedstress_gs_status   = gs_status;
 
 % Store MOP station for validation scripts
 if isfield(instr, 'mopStation')

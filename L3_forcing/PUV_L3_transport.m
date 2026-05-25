@@ -22,7 +22,27 @@ function L3 = PUV_L3_transport(L3, L2)
 g   = 9.81;
 rho = 1025;
 rho_s = 2650;  % quartz sand density
+
+% --- D50 source: only use site_grain_size's per-site D50 when L2.tau_b
+% was computed with the matching per-site methodology (bedstress_method ==
+% 'bed_stress_ks'). For legacy L2 (bedstress_method missing or
+% 'bed_stress_legacy'), Shields normalization sticks with L2.params.D50 so
+% tau_b and shields stay internally consistent within L3.
 D50 = L2.params.D50;
+D50_source = 'L2.params.D50';
+bsLabel = '';
+if isfield(L2,'label') && ~isempty(L2.label), bsLabel = char(L2.label); end
+useSiteD50 = isfield(L2,'params') && isfield(L2.params,'bedstress_method') ...
+             && strcmp(L2.params.bedstress_method, 'bed_stress_ks');
+if useSiteD50 && ~isempty(bsLabel) && exist('site_grain_size','file') == 2
+    try
+        gs = site_grain_size(bsLabel);
+        D50 = gs.D50;
+        D50_source = sprintf('site_grain_size("%s", %s)', bsLabel, char(gs.status));
+    catch
+        % fall back silently to L2.params.D50
+    end
+end
 
 validIdx = L2.segValid;
 nSeg = length(L2.time);
@@ -105,15 +125,17 @@ Fb_clean(isnan(Fb_clean)) = 0;  % treat gaps as zero flux (conservative)
 L3.Fb_cum = cumsum(Fb_clean) * dt_sec;
 
 %% Store parameters
-L3.transport_params.D50 = D50;
-L3.transport_params.rho_s = rho_s;
-L3.transport_params.theta_cr = theta_cr;
-L3.transport_params.ws = ws;
+L3.transport_params.D50        = D50;
+L3.transport_params.D50_source = D50_source;
+L3.transport_params.rho_s      = rho_s;
+L3.transport_params.theta_cr   = theta_cr;
+L3.transport_params.ws         = ws;
+L3.transport_params.tau_cr     = theta_cr * (rho_s - rho) * g * D50;
 
 %% Summary
 fprintf('  L3c transport proxies:\n');
-fprintf('    D50 = %.3f mm, ws = %.4f m/s, theta_cr = %.4f\n', ...
-    D50*1000, ws, theta_cr);
+fprintf('    D50 = %.3f mm (source: %s), ws = %.4f m/s, theta_cr = %.4f, tau_cr = %.3f Pa\n', ...
+    D50*1000, D50_source, ws, theta_cr, L3.transport_params.tau_cr);
 fprintf('    Fb:     median = %.0f W/m, max = %.0f W/m\n', ...
     median(L3.Fb(validIdx), 'omitnan'), max(L3.Fb(validIdx), [], 'omitnan'));
 fprintf('    Shields: median = %.3f, max = %.3f\n', ...
