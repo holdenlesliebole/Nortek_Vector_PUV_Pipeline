@@ -64,6 +64,8 @@ if ~isfield(opts, 'g'),          opts.g          = 9.81;          end
 if ~isfield(opts, 'D50'),        opts.D50        = 0.25e-3;       end  % TODO: replace with real grain size from Laser Particle Analyzer
 if ~isfield(opts, 'fIG'),        opts.fIG        = [0.004, 0.04]; end
 if ~isfield(opts, 'fSS'),        opts.fSS        = [0.04, 0.25];  end
+if ~isfield(opts, 'fQ'),         opts.fQ         = [0.05, 0.20];  end  % wind-wave band for P-U coherence Q-test (Elgar)
+if ~isfield(opts, 'storeXspec'),  opts.storeXspec = false;        end  % retain full complex P-U cross-spectrum L2.Spu [nf x nSeg] (off by default to keep file size down; scalar phase_PU is always stored)
 if ~isfield(opts, 'doRotate'),       opts.doRotate       = true;          end
 if ~isfield(opts, 'nanMaxFrac'),     opts.nanMaxFrac     = 0.10;          end
 if ~isfield(opts, 'spectralMethod'), opts.spectralMethod = 'mtm_full';     end  % 'welch', 'mtm_hybrid', 'mtm_full'
@@ -223,6 +225,20 @@ L2.vmom.a3        = nanVec;
 % Z-test: pressure vs velocity consistency (should be ~1.0)
 L2.ztest_SS = nanVec;
 L2.ztest_IG = nanVec;
+
+% Q-test: pressure / cross-shore-velocity magnitude-squared coherence,
+% energy-weighted over the wind-wave band opts.fQ (should be ~1.0 for clean
+% data; falls with velocity-channel noise). Diagnostic only, never a filter.
+L2.qtest_PU = nanVec;
+
+% P-U cross-spectral phase (deg), companion to qtest_PU: angle of the
+% energy-weighted complex cross-spectrum over opts.fQ. ~0 deg (or 180 under
+% the offshore-positive u convention) for a clean linear progressive wave;
+% departures toward +-90 deg flag a non-progressive / noisy P-U relation.
+L2.phase_PU = nanVec;
+if opts.storeXspec
+    L2.Spu = complex(NaN(nf, nSeg));   % full complex P-U cross-spectrum
+end
 
 % Radiation stress (integrated over SS band, Pa·m = N/m)
 L2.Sxx = nanVec;
@@ -395,13 +411,19 @@ for i = 1:nSeg
     % wave theory transfer function, then compare with measured Spp.
     % Z = Spp / (Suu_pres + Svv_pres). Values near 1.0 indicate
     % consistent P-U-V measurements; departures flag sensor issues.
+    %
+    % At a single point (sensor depth), linear theory gives
+    %   S_pp = K_p^2 * S_eta,        K_p = cosh(k*d)/cosh(k*h)
+    %   S_uu = (gk/omega)^2 * K_p^2 * S_eta
+    % so S_uu / S_pp = (gk/omega)^2. The cosh factors cancel because
+    % both spectra are at the same depth. Therefore
+    %   S_pp_from_vel = (S_uu + S_vv) * (omega / (gk))^2.
     omega = 2*pi*f;
     k_seg = get_wavenumber(omega(2:end), H);
-    vel2pres = zeros(nf, 1);
+    u2p = zeros(nf, 1);
     f_nz = f(2:end);
-    vel2pres(2:end) = (opts.g * k_seg(:)) ./ (2*pi*f_nz(:)) .* ...
-        cosh(k_seg(:) * PUV.doffp) ./ cosh(k_seg(:) * H);
-    Spp_from_vel = (Suu + Svv) .* vel2pres.^2;
+    u2p(2:end) = (2*pi*f_nz(:)) ./ (opts.g * k_seg(:));   % (omega / gk)
+    Spp_from_vel = (Suu + Svv) .* u2p.^2;
 
     iSS = f >= opts.fSS(1) & f <= opts.fSS(2);
     iIG = f >= opts.fIG(1) & f <  opts.fIG(2);
@@ -414,6 +436,34 @@ for i = 1:nSeg
     if sum(S_eta(iIG)) > 0
         L2.ztest_IG(i) = sum(Spp(iIG) .* S_eta(iIG)) / ...
                          sum(Spp_from_vel(iIG) .* S_eta(iIG) + eps);
+    end
+
+    % --- Q-test: pressure / cross-shore-velocity coherence ---
+    % Magnitude-squared coherence gamma^2(f) = |Spu|^2 / (Spp*Suu), energy-
+    % weighted over the wind-wave band opts.fQ. For a clean linear progressive
+    % wave p and u are in phase and both linear in eta, so gamma^2 = 1 exactly
+    % at every frequency (Kp and gk/omega cancel); broadband velocity noise
+    % pushes it below 1. This is a per-segment, taper-averaged estimate, so it
+    % primarily reflects within-segment noise; directional spread (an across-
+    % segment effect) largely cancels. Diagnostic only -- never used as a filter.
+    % Validated by test_qtest_linear.m.
+    coh2_PU = abs(Spu).^2 ./ (Spp .* Suu + eps);
+    iQ = f >= opts.fQ(1) & f <= opts.fQ(2);
+    if sum(S_eta(iQ)) > 0
+        L2.qtest_PU(i) = sum(coh2_PU(iQ) .* S_eta(iQ)) / sum(S_eta(iQ) + eps);
+    end
+
+    % --- P-U cross-spectral PHASE (companion to the Q-test) ---
+    % Bob: for clean P-U the cross-spectrum is real (p and u in phase) around
+    % the sea-swell peak. Report the angle of the energy-weighted complex
+    % cross-spectrum over the same band/weighting as qtest_PU. Vector-averaging
+    % the complex Spu (not the per-bin angle) avoids phase-wrap bias.
+    if sum(S_eta(iQ)) > 0
+        Spu_bar = sum(Spu(iQ) .* S_eta(iQ)) / sum(S_eta(iQ) + eps);
+        L2.phase_PU(i) = rad2deg(angle(Spu_bar));
+    end
+    if opts.storeXspec
+        L2.Spu(:,i) = Spu;
     end
 
     % --- Radiation stress (Herbers & Guza 1989, after Longuet-Higgins) ---
