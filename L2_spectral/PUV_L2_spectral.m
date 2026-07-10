@@ -181,7 +181,29 @@ L2.b2    = NaN(nf, nSeg);
 % Scalars [nSeg x 1]
 nanVec = NaN(nSeg, 1);
 L2.time     = NaT(nSeg, 1, 'TimeZone', 'UTC');
-L2.segValid = false(nSeg, 1);
+L2.segValid = false(nSeg, 1);      % OLD SEMANTICS: pressure AND velocity AND tilt good.
+                                   % Every existing consumer keeps its behaviour.
+
+% --- Per-channel validity and provenance (channel decoupling, 2026-07-09) -------------
+% A dead pressure sensor no longer destroys velocity moments that never needed pressure.
+% Reconstructed or rescaled data must never be mistaken for a clean measurement, so the
+% state travels with it.  qc_flag follows QARTOD: 1 good, 2 not evaluated, 3 suspect,
+% 4 fail.  ANYTHING reconstructed or sound-speed-rescaled is 3, never 1.
+hasQC = isfield(PUV, 'qc') && isfield(PUV.qc, 'valid_joint');
+nValidVelOnly = 0;
+L2.segValid_vel    = false(nSeg, 1);   % Doppler usable
+L2.segValid_p      = false(nSeg, 1);   % pressure usable
+L2.vel_c_factor    = ones(nSeg, 1);    % exactly 1 on healthy data
+L2.vel_c_corrected = false(nSeg, 1);
+L2.vel_rot_static  = false(nSeg, 1);
+L2.qc_flag         = 4 * ones(nSeg, 1);
+L2.Hs_source       = repmat({'none'}, nSeg, 1);
+if ~hasQC
+    warning('PUV_L2_spectral:legacyL1', ...
+        ['%s: this L1 file predates the per-channel QC masks. Falling back to the joint ' ...
+         'NaN test. Velocity-only segments cannot be recovered until L1 is re-run.'], ...
+        char(string(PUV.label)));
+end
 L2.Hs       = nanVec;
 L2.Hs_SS    = nanVec;
 L2.Hs_IG    = nanVec;
@@ -294,13 +316,64 @@ for i = 1:nSeg
     wSeg = W(idx);
     tSeg = PUV.T(idx);
 
-    % --- NaN check ---
-    nanFrac = sum(isnan(pSeg) | isnan(uSeg) | isnan(vSeg)) / segLen;
+    % --- NaN check, PER CHANNEL GROUP (channel decoupling, 2026-07-09) --------------
+    % Previously a single joint test on (p,u,v): a dead pressure sensor therefore also
+    % destroyed the velocity moments, which need no pressure at all. See
+    % docs/L1_sensor_block_failure_2026-07-09.md.
+    %
+    % `segValid` KEEPS ITS OLD MEANING (all three channels good) so that every existing
+    % consumer -- build_L4_site.getL2/getL2sub, PUV_L4_moments, PUV_L4_eta -- behaves
+    % exactly as before. The new state lives in new fields.
+    nanFrac_vel = sum(isnan(uSeg) | isnan(vSeg)) / segLen;
+    nanFrac_p   = sum(isnan(pSeg)) / segLen;
+    if hasQC
+        nanFrac_old = sum(~PUV.qc.valid_joint(idx)) / segLen;   % the historical mask, verbatim
+    else
+        nanFrac_old = sum(isnan(pSeg) | isnan(uSeg) | isnan(vSeg)) / segLen;
+    end
+
+    L2.segValid_vel(i) = nanFrac_vel <= opts.nanMaxFrac;
+    L2.segValid_p(i)   = nanFrac_p   <= opts.nanMaxFrac;
+    nanFrac = nanFrac_old;
+
+    if hasQC
+        cf = double(PUV.qc.vel_c_factor(idx));
+        L2.vel_c_factor(i)    = median(cf);
+        L2.vel_c_corrected(i) = any(PUV.qc.vel_c_corrected(idx));
+        L2.vel_rot_static(i)  = any(PUV.qc.vel_rotation_static(idx));
+    end
+
+    % Velocity-only branch: the Doppler is usable but the pressure channel is not.
+    % Compute exactly the products that never needed pressure, and nothing else.
+    if L2.segValid_vel(i) && ~L2.segValid_p(i)
+        uS = fillmissing(uSeg,'linear'); vS = fillmissing(vSeg,'linear'); wS = fillmissing(wSeg,'linear');
+        L2.uMean(i) = mean(uSeg,'omitnan');
+        L2.vMean(i) = mean(vSeg,'omitnan');
+        L2.wMean(i) = mean(wSeg,'omitnan');
+        L2.Tmean(i) = mean(tSeg,'omitnan');
+        st = compute_reynolds_stress(detrend(uS), detrend(vS), detrend(wS));
+        L2.reynolds.uw(i)=st.uw; L2.reynolds.vw(i)=st.vw; L2.reynolds.uv(i)=st.uv;
+        L2.reynolds.TKE(i)=st.TKE; L2.reynolds.u_rms(i)=st.u_rms;
+        L2.reynolds.v_rms(i)=st.v_rms; L2.reynolds.w_rms(i)=st.w_rms;
+        vm = compute_velocity_moments(detrend(uS), fs);
+        L2.vmom.skewness(i)=vm.skewness;   L2.vmom.asymmetry(i)=vm.asymmetry;
+        L2.vmom.u_abs3(i)=vm.u_abs3;       L2.vmom.u_uabs2(i)=vm.u_uabs2;
+        L2.vmom.u_uabs3(i)=vm.u_uabs3;     L2.vmom.a2(i)=vm.a2;  L2.vmom.a3(i)=vm.a3;
+        % Hs, Kp, S_eta, depth, Ub, tau_b, ztest, qtest all require pressure: left NaN.
+        L2.Hs_source{i} = 'none';      % no Hs here; reconstructP (Stage 3) may fill it
+        L2.qc_flag(i)   = 3;           % suspect: velocity survives, pressure does not
+        nValidVelOnly = nValidVelOnly + 1;
+        continue
+    end
+
     if nanFrac > opts.nanMaxFrac
         continue
     end
 
     L2.segValid(i) = true;
+    L2.qc_flag(i)  = 1;
+    if hasQC && L2.vel_c_corrected(i), L2.qc_flag(i) = 3; end   % rescaled => never "good"
+    L2.Hs_source{i} = 'measured';
     nValid = nValid + 1;
 
     % --- Mean values BEFORE detrending ---
@@ -533,6 +606,17 @@ end
 
 elapsed = toc(tStart);
 fprintf('  %d/%d segments valid, processed in %.1f min\n', nValid, nSeg, elapsed/60);
+if nValidVelOnly > 0
+    fprintf(['  %d additional segments have usable VELOCITY but no usable pressure ' ...
+             '(segValid_vel & ~segValid_p).\n'], nValidVelOnly);
+    fprintf(['    Velocity moments, mean flow and Reynolds stress are computed for these; ' ...
+             'Hs/Kp/S_eta/depth/Ub/ztest/qtest are NaN.\n']);
+    fprintf('    They carry qc_flag = 3 and segValid = false, so no existing consumer sees them.\n');
+end
+if any(L2.vel_c_corrected)
+    fprintf('  %d segments had a sound-speed rescale applied (median factor %.4f); all flagged qc_flag = 3.\n', ...
+        sum(L2.vel_c_corrected), median(L2.vel_c_factor(L2.vel_c_corrected)));
+end
 
 %% ======================== METADATA ========================
 L2.label          = PUV.label;
