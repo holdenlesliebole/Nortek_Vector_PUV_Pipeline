@@ -97,7 +97,9 @@ if mount_ok; then
     while read -r f; do
         i=$((i+1))
         mount | grep -q /Volumes/group || { say "S1: mount dropped at file $i; stopping"; break; }
-        dep=$(basename "$(dirname "$f")")
+        # basename(dirname) collides: two campaigns both contain a folder called
+        # MOP586-7m16739. Use the path relative to $VEC so the key is unique.
+        dep=$(dirname "${f#$VEC/}")
         ins=$(basename "$f" .sen)
         # one streaming pass: subsample every 60th 1-Hz sample (1/min) for the stats
         awk -F' +' -v dep="$dep" -v ins="$ins" -v SKIP=360 -f "$ROOT/scripts/s1_sen_survey.awk" "$f" >> "$SUM" 2>/dev/null

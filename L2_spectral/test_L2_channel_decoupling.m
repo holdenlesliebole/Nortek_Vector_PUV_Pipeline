@@ -3,10 +3,13 @@ function test_L2_channel_decoupling()
 %
 % test_channel_decoupling.m proves the ALGEBRA on stand-in code. This one drives the real
 % PUV_L2_spectral through a synthetic L1 struct, which is the thing that can actually
-% regress. Three runs of the same wave field:
+% regress. Four runs of the same wave field:
 %
 %   RUN A  everything healthy
 %   RUN B  pressure channel destroyed (the TOR23W/MOP586_10m failure), velocity untouched
+%   RUN D  velocity destroyed, pressure untouched (the symmetric case, and the DOMINANT one
+%          in the archive: MOP586_5m and MOP586_15m lose beam correlation while their sensor
+%          block stays healthy and the frame never moves)
 %   RUN C  legacy L1 struct with no PUV.qc masks at all (backward compatibility)
 %
 % ASSERTIONS
@@ -19,6 +22,9 @@ function test_L2_channel_decoupling()
 %       This is the recovery. It is what the old row-level gate destroyed.
 %   B4  Run B: Hs, depth, Kp, Ub, ztest_SS are all NaN. Pressure products must not be
 %       invented from a dead sensor.
+%   D1-D2 Run D: segValid false, segValid_p true, segValid_vel false, qc_flag = 3.
+%   D3  Run D: Hs is computed and IDENTICAL to Run A's. The pressure record was always good.
+%   D4  Run D: Ub, skewness, ztest, meanDir are NaN. They need velocity.
 %   C1  Run C: a legacy L1 struct still processes, warns once, and reproduces Run A exactly.
 %
 % Run:  >> startup_puv;  test_L2_channel_decoupling
@@ -101,6 +107,25 @@ ok = rep('B4  Hs / depth / Ub / ztest are NaN (not invented from a dead sensor)'
 
 fprintf('\n    Under the OLD pipeline these %d segments produced NOTHING: the row-level gate\n', numel(B.segValid));
 fprintf('    NaN''d the velocity too, so nanFrac(u) > 0.10 and PUV_L2_spectral:299 skipped them.\n');
+
+%% ---- RUN D: velocity destroyed, pressure untouched (the SYMMETRIC case) ----
+% This is the dominant archive failure. The S1 .sen survey finds MOP586_5m and MOP586_15m
+% with a healthy sensor block and a frame that never moved: their losses are beam-correlation
+% failures. Their pressure is intact and Hs taken from it is an ordinary clean measurement.
+fprintf('\n--- RUN D: velocity dead (pressure healthy) ---\n');
+D_in = PUV;
+D_in.BuoyCoord.U(:) = NaN; D_in.BuoyCoord.V(:) = NaN;
+D_in.qc.valid_vel(:)   = false;
+D_in.qc.valid_joint(:) = false;
+D = PUV_L2_spectral(D_in, instr, opts);
+ok = rep('D1  segValid == false everywhere (old consumers unaffected)', ~any(D.segValid), sum(D.segValid)) && ok;
+ok = rep('D2  segValid_p true, segValid_vel false, qc_flag = 3', ...
+    all(D.segValid_p) && ~any(D.segValid_vel) && all(D.qc_flag==3), sum(D.segValid_p)) && ok;
+dH = max(abs(A.Hs - D.Hs));
+ok = rep('D3  Hs recovered, identical to the healthy run', dH < 1e-9, dH) && ok;
+fprintf('    Hs  A = %.6f   D = %.6f     depth A = %.4f  D = %.4f\n', A.Hs(1), D.Hs(1), A.depth(1), D.depth(1));
+velProducts = all(isnan(D.Ub)) && all(isnan(D.vmom.skewness)) && all(isnan(D.ztest_SS)) && all(isnan(D.meanDir));
+ok = rep('D4  Ub / skewness / ztest / meanDir are NaN (need velocity)', velProducts, 0) && ok;
 
 %% ---- RUN C: legacy L1 with no qc masks ----
 fprintf('\n--- RUN C: legacy L1 struct (no PUV.qc) ---\n');

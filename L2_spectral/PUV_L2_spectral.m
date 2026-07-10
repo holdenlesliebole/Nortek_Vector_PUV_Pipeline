@@ -191,6 +191,7 @@ L2.segValid = false(nSeg, 1);      % OLD SEMANTICS: pressure AND velocity AND ti
 % 4 fail.  ANYTHING reconstructed or sound-speed-rescaled is 3, never 1.
 hasQC = isfield(PUV, 'qc') && isfield(PUV.qc, 'valid_joint');
 nValidVelOnly = 0;
+nValidPOnly   = 0;
 L2.segValid_vel    = false(nSeg, 1);   % Doppler usable
 L2.segValid_p      = false(nSeg, 1);   % pressure usable
 L2.vel_c_factor    = ones(nSeg, 1);    % exactly 1 on healthy data
@@ -363,6 +364,42 @@ for i = 1:nSeg
         L2.Hs_source{i} = 'none';      % no Hs here; reconstructP (Stage 3) may fill it
         L2.qc_flag(i)   = 3;           % suspect: velocity survives, pressure does not
         nValidVelOnly = nValidVelOnly + 1;
+        continue
+    end
+
+    % Pressure-only branch: the pressure sensor is usable but the Doppler is not. This is the
+    % SAME defect in the other direction, and it is the dominant one in the archive: the .sen
+    % survey (S1) finds MOP586_5m and MOP586_15m with a perfectly healthy sensor block and a
+    % frame that never moved, so their 466 and 350 lost segments are beam-correlation
+    % failures -- burial, scour, bubbles. Their pressure records are intact, and Hs, S_eta,
+    % Tp and depth taken from them are ordinary clean measurements.
+    %
+    % Direction (meanDir, a1, b1, a2, b2), Ub, tau_b, the radiation stresses, the z-test and
+    % the Q-test all require velocity and are left NaN. compute_bulk_params derives Hs, Hs_SS,
+    % Hs_IG, Tp, Tm02 and Ef from S_eta and f alone, so it is called with NaN velocity spectra
+    % and only the velocity-free fields are stored.
+    if L2.segValid_p(i) && ~L2.segValid_vel(i)
+        pS = fillmissing(pSeg, 'linear');
+        pMean = mean(pSeg, 'omitnan');
+        h_above = pMean * 1e4 / (opts.rho * opts.g);
+        H = h_above + PUV.doffp;
+        L2.depth(i) = H;
+        L2.Tmean(i) = mean(tSeg, 'omitnan');
+        pS_m = detrend(pS * 1e4 / (opts.rho * opts.g));
+        switch opts.spectralMethod
+            case 'welch',                  [Spp_p, ~] = pwelch(pS_m, win, noverlap, nfft, fs);
+            case {'mtm_hybrid','mtm_full'},[Spp_p, ~, ~] = psd_multitaper(pS_m, [], nfft, fs, opts.NW);
+        end
+        [S_eta_p, Kp_p, fCut_p] = pressure_correction_wu(Spp_p, f, H, PUV.doffp, opts.KpMin);
+        L2.Spp(:,i) = Spp_p;  L2.S_eta(:,i) = S_eta_p;  L2.Kp(:,i) = Kp_p;  L2.fCut(i) = fCut_p;
+        nanv = NaN(size(f));
+        bp = compute_bulk_params(S_eta_p, nanv, nanv, nanv, nanv, f, H, opts);
+        L2.Hs(i) = bp.Hs;  L2.Hs_SS(i) = bp.Hs_SS;  L2.Hs_IG(i) = bp.Hs_IG;
+        L2.Tp(i) = bp.Tp;  L2.Tm02(i) = bp.Tm02;    L2.Ef(i)    = bp.Ef;
+        % meanDir, a1/b1/a2/b2, Ub, tau_b, Sxx/Syy/Sxy, ztest, qtest: require velocity, left NaN
+        L2.Hs_source{i} = 'measured';   % the Hs IS measured; the SEGMENT is partial
+        L2.qc_flag(i)   = 3;            % qc_flag describes segment completeness, not Hs quality
+        nValidPOnly = nValidPOnly + 1;
         continue
     end
 
@@ -613,9 +650,18 @@ if nValidVelOnly > 0
              'Hs/Kp/S_eta/depth/Ub/ztest/qtest are NaN.\n']);
     fprintf('    They carry qc_flag = 3 and segValid = false, so no existing consumer sees them.\n');
 end
+if nValidPOnly > 0
+    fprintf(['  %d additional segments have usable PRESSURE but no usable velocity ' ...
+             '(segValid_p & ~segValid_vel).\n'], nValidPOnly);
+    fprintf(['    Hs, S_eta, Tp, Tm02, Ef and depth are computed for these; direction, Ub, ' ...
+             'tau_b, radiation stress, ztest and qtest are NaN.\n']);
+    fprintf('    They carry qc_flag = 3 and segValid = false, so no existing consumer sees them.\n');
+end
 if any(L2.vel_c_corrected)
-    fprintf('  %d segments had a sound-speed rescale applied (median factor %.4f); all flagged qc_flag = 3.\n', ...
-        sum(L2.vel_c_corrected), median(L2.vel_c_factor(L2.vel_c_corrected)));
+    nUse = sum(L2.vel_c_corrected & (L2.segValid_vel | L2.segValid_p));
+    fprintf(['  %d segments had a sound-speed rescale applied (median factor %.4f); ' ...
+             '%d of them are usable and all carry qc_flag = 3.\n'], ...
+        sum(L2.vel_c_corrected), median(L2.vel_c_factor(L2.vel_c_corrected)), nUse);
 end
 
 %% ======================== METADATA ========================

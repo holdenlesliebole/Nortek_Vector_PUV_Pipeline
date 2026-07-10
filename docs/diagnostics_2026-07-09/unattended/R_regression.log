@@ -1,0 +1,133 @@
+[Warning: Name is nonexistent or not a directory:
+/Users/holden/Documents/Scripps/Research/Paper_1/paper/.git/refs/tags] 
+[Warning: Name is nonexistent or not a directory:
+/Users/holden/Documents/Scripps/Research/Paper_1/paper/.git/refs/heads] 
+[Warning: Name is nonexistent or not a directory:
+/Users/holden/Documents/Scripps/Research/Paper_1/paper/.git/refs] 
+[Warning: Name is nonexistent or not a directory:
+/Users/holden/Documents/Scripps/Research/Paper_1/paper/.git/objects/pack] 
+[Warning: Name is nonexistent or not a directory:
+/Users/holden/Documents/Scripps/Research/Paper_1/paper/.git/objects/info] 
+[Warning: Name is nonexistent or not a directory:
+/Users/holden/Documents/Scripps/Research/Paper_1/paper/.git/objects/f9] 
+[Warning: Name is nonexistent or not a directory:
+/Users/holden/Documents/Scripps/Research/Paper_1/paper/.git/objects/e7] 
+[Warning: Name is nonexistent or not a directory:
+/Users/holden/Documents/Scripps/Research/Paper_1/paper/.git/objects/c2] 
+[Warning: Name is nonexistent or not a directory:
+/Users/holden/Documents/Scripps/Research/Paper_1/paper/.git/objects/a2] 
+[Warning: Name is nonexistent or not a directory:
+/Users/holden/Documents/Scripps/Research/Paper_1/paper/.git/objects/6c] 
+[Warning: Name is nonexistent or not a directory:
+/Users/holden/Documents/Scripps/Research/Paper_1/paper/.git/objects/4d] 
+[Warning: Name is nonexistent or not a directory:
+/Users/holden/Documents/Scripps/Research/Paper_1/paper/.git/objects/19] 
+[Warning: Name is nonexistent or not a directory:
+/Users/holden/Documents/Scripps/Research/Paper_1/paper/.git/objects] 
+[Warning: Name is nonexistent or not a directory:
+/Users/holden/Documents/Scripps/Research/Paper_1/paper/.git/logs/refs/heads] 
+[Warning: Name is nonexistent or not a directory:
+/Users/holden/Documents/Scripps/Research/Paper_1/paper/.git/logs/refs] 
+[Warning: Name is nonexistent or not a directory:
+/Users/holden/Documents/Scripps/Research/Paper_1/paper/.git/logs] 
+[Warning: Name is nonexistent or not a directory:
+/Users/holden/Documents/Scripps/Research/Paper_1/paper/.git/info] 
+[Warning: Name is nonexistent or not a directory:
+/Users/holden/Documents/Scripps/Research/Paper_1/paper/.git/hooks] 
+[Warning: Name is nonexistent or not a directory:
+/Users/holden/Documents/Scripps/Research/Paper_1/paper/.git] 
+[Warning: Name is nonexistent or not a directory:
+/Users/holden/Documents/Scripps/Research/Paper_1/FigureCodes] 
+[Warning: Name is nonexistent or not a directory:
+/Users/holden/Documents/Scripps/Research/PUV_Pipeline/outputs/L3/NN24] 
+[Warning: Name is nonexistent or not a directory:
+/Users/holden/Documents/Scripps/Research/PUV_Pipeline/outputs/L2/NN24] 
+[Warning: Name is nonexistent or not a directory:
+/Users/holden/Documents/Scripps/Research/PUV_Pipeline/outputs/L1/NN24] 
+[startup] Graphics defaults set. Using CMU font: CMU Serif
+PUV Pipeline paths added. Root: /Users/holden/Documents/Scripps/Research/PUV_Pipeline
+L1 on MOP586_10m ...
+[Warning: Reading from network mount — this will be slow for large files.
+Run copy_raw_to_local(cfg) first to cache files locally.] 
+[> In PUV_raw_process (line 38)
+In regress_stage12 (line 15)
+In run (line 112)] 
+  Found 1 burst files, prefix: 10M586_16306
+  Loading burst 1/1: .sen ... 6.7s  .dat ... 515.6s
+  All bursts loaded in 8.7 min
+  Sampling rate: 2 Hz
+  Coordinate system: XYZ
+[Warning: Clock drift is NaN for MOP586_10m — skipping drift correction.] 
+[> In PUV_raw_process (line 241)
+In regress_stage12 (line 15)
+In run (line 112)] 
+[Warning: Battery cutoff detected in burst 1 at sample 5687824.] 
+[> In PUV_raw_process (line 264)
+In regress_stage12 (line 15)
+In run (line 112)] 
+  Truncated at burst 1, sample 5687824
+  Merging bursts (2 Hz sampling)
+  pMed reference: first 1137565 samples, 1069494 in-water → pMed_ref=9.49 dBar
+  Pressure QC: 11119258 → 7307492 samples valid (65.7% of original valid)
+  Diagnostic plot saved: /private/tmp/claude-501/-Users-holden-Documents-Scripps-Research/3fcd60bc-4884-4590-bb4e-890e0eaea392/scratchpad/regress/L1/diagnostics/TOR23W_MOP586_10m_L1_QC.png
+  4747 samples (0.0%) have healthy Doppler but a TRUSTED bad tilt (frame moved or toppled): velocity invalidated, as before.
+  Per-channel QC: velocity 73.8% valid, pressure 64.3% valid, tilt 97.7% valid
+  --> 1327162 samples (11.7%) carry healthy velocity that the old row-level gate discarded
+  Sound-speed correction: 37.2% of samples had invalid T; 1344422 rescaled (median factor 1.0581)
+    source: own c(T) fit: c = 1470.04 +2.4054*T, Tref = 16.90 C -> c_true = 1510.7 m/s
+  Static tilt applied to 72895 samples (pitch 1.60, roll -0.10 deg)
+  Tilt correction: median pitch=1.6°, roll=-0.1° — applying rotation
+  PUV struct built: 11307915 samples, 65.4 days
+L1 done in 9.0 min
+L2 ...
+  Hour-aligned: skipped 4265 leading samples (35.5 min) to UTC top-of-hour 2023-11-14 22:00:00
+  Segmenting: 11303650 samples → 1569 segments of 7200 (60.0 min each)
+  Fetching shore-normal angle for D0586...
+  Shore-normal angle: 264.5 deg
+  Bed stress: site_grain_size("MOP586_10m"): D50=179 um, D84=311 um, ks=0.778 mm (extrapolated); using bed_stress_ks
+  Segment 500/1569 (32%)...
+  972/1569 segments valid, processed in 1.5 min
+  159 additional segments have usable VELOCITY but no usable pressure (segValid_vel & ~segValid_p).
+    Velocity moments, mean flow and Reynolds stress are computed for these; Hs/Kp/S_eta/depth/Ub/ztest/qtest are NaN.
+    They carry qc_flag = 3 and segValid = false, so no existing consumer sees them.
+  308 segments had a sound-speed rescale applied (median factor 1.0581); all flagged qc_flag = 3.
+L2 done in 1.5 min
+REGRESS_L2_DONE
+PUV Pipeline paths added. Root: /Users/holden/Documents/Scripps/Research/PUV_Pipeline
+
+================ STAGE 1/2 REAL-DATA REGRESSION ================
+old L2: 1569 segments, 972 valid
+new L2: 1569 segments, 972 valid (segValid, old semantics)
+new L2: 1131 segValid_vel, 972 segValid_p
+
+1569 segments align by timestamp
+
+R1  no-op on healthy data (segments valid in both, n=972)
+    max |Delta Hs       | = 7.767e-03
+    max |Delta Hs_SS    | = 7.747e-03
+    max |Delta Tp       | = 0.000e+00
+    max |Delta Ub       | = 1.578e-08
+    max |Delta depth    | = 4.906e-04
+    max |Delta uMean    | = 0.000e+00
+    max |Delta ztest_SS | = 2.010e-03
+    max |Delta skewness | = 0.000e+00
+    max |Delta u_uabs2  | = 0.000e+00
+  -> INSPECT: worst difference 7.767e-03
+
+R2  segments the OLD pipeline discarded that now carry velocity moments: 159
+    span 25-Dec-2023 10:29:59 -> 07-Jan-2024 00:29:59
+    of which in 25-29 Dec 2023: 110
+    all have qc_flag = 3? true
+    all have segValid = false? true  (old consumers cannot see them)
+    Hs is NaN for all of them? true
+    velocity skewness on recovered segments: median 0.2787, 159 finite
+
+R3  sound-speed rescale
+    segments rescaled: 308
+    span 25-Dec-2023 10:29:59 -> 19-Jan-2024 06:29:59
+    median factor 1.0581 (range 0.9669 - 1.0581)
+    all flagged qc_flag=3? false
+    rescale applied before 25 Dec (must be ZERO): 0
+    vel_c_factor on pre-25-Dec segments: max |f-1| = 0.000e+00 (must be 0)
+
+REGRESS_COMPARE_DONE
