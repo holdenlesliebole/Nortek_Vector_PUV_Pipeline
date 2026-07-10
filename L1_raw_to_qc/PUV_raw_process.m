@@ -431,15 +431,18 @@ function PUV = PUV_raw_process(instr, cfg)
         'TmaxDev',     8, ...       % max |T - Tref|. MUST exceed the deployment's true
         ...                         % seasonal range; widen for multi-season records.
         'TrefHours',   48, ...      % healthy reference window at record start, hours
-        'cFactorTol',  0.002);      % below this, no sound-speed rescale is applied
+        'cFactorTol',  0.002, ...   % below this, no sound-speed rescale is applied
+        'tiltStdMax',  2, ...       % deg, rolling-std tilt-variability threshold
+        'tiltAbsMax',  30, ...      % deg, absolute tilt beyond which data is unreliable
+        'tiltWindow',  120);        % samples for the rolling std (60 s at 2 Hz)
     if isfield(cfg,'qcOpts')
         fn = fieldnames(cfg.qcOpts);
         for q = 1:numel(fn), qcOpts.(fn{q}) = cfg.qcOpts.(fn{q}); end
     end
 
-    tiltStdMax = 2;    % degrees — variability threshold
-    tiltAbsMax = 30;   % degrees — absolute tilt beyond which data is unreliable
-    tiltWindow = 120;  % samples for rolling std (60 sec at 2 Hz)
+    tiltStdMax = qcOpts.tiltStdMax;   % used by the diagnostic plot below; the per-channel
+    tiltAbsMax = qcOpts.tiltAbsMax;   % QC decisions are made in puv_channel_qc.m from qcOpts
+    tiltWindow = qcOpts.tiltWindow;
 
     % --- Build diagnostic copies for the "before/after" plot ---
     pitch_raw    = SEN(:, 12);
@@ -605,31 +608,21 @@ function PUV = PUV_raw_process(instr, cfg)
     %   tilt trusted   (valid_T) -> tilt gates velocity, exactly as before
     %   tilt untrusted (~valid_T) -> tilt cannot gate velocity; rotate with a static tilt
     %                               from the healthy window, and flag it
-    Traw  = SEN(:, 14);
-    nRef0 = min(round(qcOpts.TrefHours*3600*fs), numel(Traw));
-    Tref  = median(Traw(1:nRef0), 'omitnan');
-    valid_T = isfinite(Traw) & Traw >= qcOpts.Tvalid(1) & Traw <= qcOpts.Tvalid(2) ...
-              & abs(Traw - Tref) <= qcOpts.TmaxDev;
-    tilt_trusted = valid_T;
+    %
+    % All of these decisions are made in puv_channel_qc.m (a pure, tested function). This
+    % block only APPLIES them to DAT/SEN. See test_puv_channel_qc.m.
+    qc = puv_channel_qc(DAT, SEN, fs, pMed, cfg, qcOpts, instr.label);
+    valid_vel   = qc.valid_vel;    valid_p     = qc.valid_p;
+    valid_tilt  = qc.valid_tilt;   valid_joint = qc.valid_joint;
+    valid_T     = qc.valid_T;      tilt_trusted = qc.tilt_trusted;
+    Tref = qc.Tref;
 
-    valid_corr = min(DAT(:, 12:14), [], 2) >= qcOpts.corrMin;   % Nortek's 70%, unchanged
-    valid_p    = DAT(:,15) >= pMed/2 & DAT(:,15) <= pMed*2;     % unchanged
-    valid_tilt = ~(bad_tilt_var | bad_tilt_abs);                % unchanged
-    % Rows the instrument never wrote (padding, battery cutoff) are invalid everywhere.
-    present    = ~isnan(DAT(:,3)) & ~isnan(DAT(:,4));
-
-    valid_vel  = valid_corr & present & (~tilt_trusted | valid_tilt);
-
-    nToppled = sum(valid_corr & present & tilt_trusted & ~valid_tilt);
+    nToppled = sum(qc.valid_corr & qc.present & tilt_trusted & ~valid_tilt);
     if nToppled > 0
         fprintf(['  %d samples (%.1f%%) have healthy Doppler but a TRUSTED bad tilt ' ...
                  '(frame moved or toppled): velocity invalidated, as before.\n'], ...
                 nToppled, 100*nToppled/numel(valid_vel));
     end
-
-    % Preserve the OLD joint mask verbatim, so `segValid` downstream keeps its old meaning
-    % and nothing silently changes in L4 / PUV_L4_moments.
-    valid_joint = valid_vel & valid_p & valid_tilt;
 
     % Velocity: killed ONLY by the Doppler diagnostics.
     DAT(~valid_vel, 3:5)  = NaN;
@@ -655,15 +648,16 @@ function PUV = PUV_raw_process(instr, cfg)
             'No valid pressure data remains after QC for %s.', instr.label);
     end
     firstGood = validIdx(1);
-    DAT(1:firstGood-1, :) = [];
-    SEN(1:firstGood-1, :) = [];
-    full_date(1:firstGood-1) = [];
-    valid_vel(1:firstGood-1)     = [];
-    valid_p(1:firstGood-1)       = [];
-    valid_tilt(1:firstGood-1)    = [];
-    valid_joint(1:firstGood-1)   = [];
-    valid_T(1:firstGood-1)       = [];
-    tilt_trusted(1:firstGood-1)  = [];
+    % Pull the per-sample decisions out of qc and trim them alongside the data.
+    vel_c_factor        = qc.vel_c_factor;
+    vel_c_corrected     = qc.vel_c_corrected;
+    vel_rotation_static = qc.vel_rotation_static;
+    trim = @(x) x(firstGood:end, :);
+    DAT = trim(DAT);  SEN = trim(SEN);  full_date = full_date(firstGood:end);
+    valid_vel = trim(valid_vel);  valid_p = trim(valid_p);  valid_tilt = trim(valid_tilt);
+    valid_joint = trim(valid_joint);  valid_T = trim(valid_T);  tilt_trusted = trim(tilt_trusted);
+    vel_c_factor = trim(vel_c_factor);  vel_c_corrected = trim(vel_c_corrected);
+    vel_rotation_static = trim(vel_rotation_static);
 
     %% ========== EXTRACT VELOCITY, PRESSURE, TEMPERATURE ==========
     U = DAT(:,3);   % East / X velocity (m/s)
@@ -671,7 +665,6 @@ function PUV = PUV_raw_process(instr, cfg)
     W = DAT(:,5);   % Up / Z velocity (m/s)
     T = SEN(:,14);  % temperature (deg C)
     P = DAT(:,15);  % pressure (dBar)
-    c_rec = SEN(:,10);   % sound speed the instrument USED, m/s (SEN col 10)
 
     %% ========== SOUND-SPEED CORRECTION (Stage 2, 2026-07-09) ==========
     % The .hdr declares `Sound speed  MEASURED`, so the Vector computes c from its own
@@ -692,55 +685,17 @@ function PUV = PUV_raw_process(instr, cfg)
     % predicted c_rec/c_true = 0.9497.
     %
     % The factor is EXACTLY 1 wherever the thermistor is healthy, so this is a bitwise
-    % no-op on good data -- a property, not a gate. test_channel_decoupling T3 asserts it.
-
-    % Tref and valid_T were computed above, before the QC block, because tilt trust
-    % depends on them. They have been trimmed alongside the data.
-    vel_c_factor    = ones(numel(T),1,'single');
-    vel_c_corrected = false(numel(T),1);
-
-    if any(~valid_T & valid_vel)
-        % Recover c_true. Preference order:
-        %   1. a caller-supplied reference (scalar c, or a temperature series from a
-        %      companion frame) -- cfg.soundSpeedRef / cfg.TRef
-        %   2. the instrument's OWN healthy c(T) relation, extrapolated to Tref.
-        % Option 2 needs no external data and is exact to the extent that Tref is the
-        % true water temperature during the failure. It is the fallback, and it is FLAGGED.
-        if isfield(cfg,'soundSpeedRef') && isscalar(cfg.soundSpeedRef) && isfinite(cfg.soundSpeedRef)
-            c_true = cfg.soundSpeedRef;
-            srcTxt = sprintf('cfg.soundSpeedRef = %.1f m/s', c_true);
-        else
-            gd = valid_T & isfinite(c_rec);
-            if sum(gd) < 1000
-                warning('PUV_raw_process:noSoundSpeedRef', ...
-                    ['%s: thermistor invalid for %.1f%% of samples and too few healthy ' ...
-                     'samples to calibrate c(T). Velocities left UNCORRECTED and flagged.'], ...
-                    instr.label, 100*mean(~valid_T));
-                c_true = NaN;  srcTxt = 'none';
-            else
-                % robust linear fit c = a + b*T on healthy samples (b ~ 3.2 m/s per degC)
-                ab = [ones(sum(gd),1) double(T(gd))] \ double(c_rec(gd));
-                c_true = ab(1) + ab(2)*Tref;
-                srcTxt = sprintf('own c(T) fit: c = %.2f %+.4f*T, Tref = %.2f C -> c_true = %.1f m/s', ...
-                    ab(1), ab(2), Tref, c_true);
-            end
-        end
-
-        if isfinite(c_true)
-            fix = ~valid_T & valid_vel & isfinite(c_rec) & c_rec > 1000;
-            f_i = single(c_true ./ c_rec(fix));
-            vel_c_factor(fix)    = f_i;
-            vel_c_corrected(fix) = abs(f_i - 1) > qcOpts.cFactorTol;
-            % Multiply ONLY where a correction is actually needed, so healthy samples are
-            % untouched bit-for-bit rather than multiplied by a floating-point 1.0.
-            ap = vel_c_corrected;
-            U(ap) = U(ap) .* double(vel_c_factor(ap));
-            V(ap) = V(ap) .* double(vel_c_factor(ap));
-            W(ap) = W(ap) .* double(vel_c_factor(ap));
-            fprintf(['  Sound-speed correction: %.1f%% of samples had invalid T; ' ...
-                     '%d rescaled (median factor %.4f)\n    source: %s\n'], ...
-                100*mean(~valid_T), sum(ap), median(double(vel_c_factor(ap))), srcTxt);
-        end
+    % no-op on good data -- a property, not a gate. test_puv_channel_qc T3 asserts it.
+    % The factor and the c(T) reference were decided in puv_channel_qc; apply them here,
+    % ONLY where a correction is actually needed, so healthy samples are untouched
+    % bit-for-bit rather than multiplied by a floating-point 1.0.
+    ap = vel_c_corrected;
+    if any(ap)
+        U(ap) = U(ap) .* double(vel_c_factor(ap));
+        V(ap) = V(ap) .* double(vel_c_factor(ap));
+        W(ap) = W(ap) .* double(vel_c_factor(ap));
+        fprintf(['  Sound-speed correction: %d samples rescaled (median factor %.4f)\n' ...
+                 '    source: %s\n'], sum(ap), median(double(vel_c_factor(ap))), qc.c_source);
     end
     T(~valid_T) = NaN;   % never pass a fabricated temperature downstream
 
@@ -759,11 +714,11 @@ function PUV = PUV_raw_process(instr, cfg)
     % so the correction is applied sample-by-sample.
     % Static tilt substitution applies ONLY where the tilt sensor itself is untrustworthy
     % (its sensor block failed), never where a trusted sensor reports a real tilt. In the
-    % latter case the velocity has already been invalidated above. See N6.
-    vel_rotation_static = ~tilt_trusted & ~valid_tilt & valid_vel;
+    % latter case the velocity has already been invalidated above. See N6. The decision
+    % (which samples, and the static pitch/roll from the healthy window) is made in
+    % puv_channel_qc; apply it here.
     if any(vel_rotation_static)
-        pStat = median(SEN(valid_tilt & tilt_trusted, 12), 'omitnan');
-        rStat = median(SEN(valid_tilt & tilt_trusted, 13), 'omitnan');
+        pStat = qc.pStat;  rStat = qc.rStat;
         if isfinite(pStat) && isfinite(rStat)
             SEN(vel_rotation_static,12) = pStat;
             SEN(vel_rotation_static,13) = rStat;
