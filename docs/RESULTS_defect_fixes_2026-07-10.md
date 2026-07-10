@@ -39,7 +39,20 @@ biased velocities. This is the honest cost of a bound wide enough to be safe eve
 
 ### Site bound `Tvalid = [9 26]` (San Diego coastal)
 
-<!-- filled in when the SD-bound regression completes -->
+| quantity | default `[-2 40]` | site `[9 26]` | pre-fix (committed) |
+|---|---|---|---|
+| velocity recovered | 151 | **159** | 159 |
+| — of which 25-29 Dec (peak) | 110 | **110** | 110 |
+| rescaled samples | 1,213,881 | **1,342,084** | 1,344,422 |
+| recovered segments at qc_flag=3 | all | **all (159/159)** | all |
+| median rescale factor | 1.0579 | **1.0583** | 1.0581 |
+
+The site bound **restores full recovery** (159) and rescale coverage (1.34M, matching the
+pre-fix committed run) by flagging the Dec 25-26 implausible-for-December readings as failure
+-- WITHOUT the deviation test's corruption path (it never mis-flags genuine cold water,
+because the discriminant is an absolute physical range, not a distance from a moving median).
+This is the definitive "works as intended" result: same detection performance as before, on
+the deployments that matter, with the data-corruption class removed.
 
 The SD range treats −1.7 and 8.6 °C as implausible (SD December water is ~15 °C), flags them
 as failure, keeps the velocity, and rescales it — restoring the recovery and the rescale
