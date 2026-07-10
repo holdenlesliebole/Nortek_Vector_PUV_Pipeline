@@ -389,3 +389,116 @@ currently discarded, and it is a bitwise no-op where the sensors are healthy. Th
 rescale* is the piece that is not yet closed, and it is separable: ship the decoupling first
 with the rescale disabled and the affected bursts flagged, and enable the rescale only when
 N1–N4 resolve the scale.
+
+---
+
+# Addendum 2 — N2/N5 resolve the scale. The recovery is sound where the energy is.
+
+**2026-07-09, later still.** `scripts/n2_frequency_resolved.m`, `n2b_nonlinear_ztest.m`,
+and the healthy-pair test in `docs/diagnostics_2026-07-09/`.
+
+## N5 — the scaling law, from Nortek, not inferred
+
+[N3015-030 Comprehensive Manual — Velocimeters](https://assets.nortekgroup.com/software/N3015-030-Comprehensive-Manual-Velocimeters_1118.pdf),
+**§2.4.9 "Incorrect Speed of Sound", p. 53** (repeated verbatim as §5.3.4, p. 112). The
+equation is an embedded image, which is why text search and the product-page PDF list both
+miss it:
+
+> **V_corrected = V_old · (C_new / C_old)**
+>
+> *"The instruments compute the speed of sound based on the measured temperature (accuracy of
+> 0.1° C). A nominal salinity is assumed... Sound speed errors are typically small, but if you
+> must correct velocity data for errors, use the following equation."*
+
+And §2.1.4: *"Speed of sound can be set by the user (Fixed) or calculated by the instrument
+based on the measured temperature and a user-input value for salinity (Measured)."*
+
+Both frames' `.hdr` files declare `Sound speed MEASURED` and `Salinity 33.5 ppt` — identical,
+so the 7 m frame's reported `c` is a valid `C_new` for the 10 m frame. (Independently
+confirmed: over the 72 control hours `c_7m/c_10m` has median **1.00000**, range
+[0.99945, 1.00099].)
+
+**The correction applied in `recover_MOP586_10m_phaseA.m` is exactly Nortek's own.** The
+scaling law is not in doubt.
+
+## N2 — the deflation *is* the sound-speed ratio, in the band that carries the energy
+
+Velocity ratio 10 m / 7 m, Phase A relative to control, expressed as an implied sound-speed
+ratio (`√` of the variance ratio). Nortek's law predicts a **flat 0.9497** across all wave bands:
+
+| band (Hz) | implied `c_rec/c_true` |
+|---|---|
+| 0.040–0.055 | **0.9659** |
+| 0.055–0.070 | **0.9488** |
+| 0.070–0.090 | **0.9353** |
+| 0.090–0.120 | 0.8968 |
+| 0.120–0.160 | 0.7845 |
+| 0.160–0.200 | 0.8071 |
+| 0.200–0.250 | 0.9239 |
+| 0.60–0.95 (noise) | 1.1531 |
+
+In the swell band the three values bracket the prediction. **The rescale is verified where all
+the storm energy lives.** The residual is confined to `f > 0.12` Hz.
+
+## Two explanations for the high-frequency residual, both refuted
+
+**Bound-harmonic failure of the inversion.** `Spp_from_vel` assumes free linear waves at every
+frequency; bound harmonics travel at the primary's phase speed, so the operator should fail in
+the harmonic band and fail worse as waves grow. Tested on **5524 healthy bursts** where both
+`Spp` and `(Suu,Svv)` were measured, forming `z(f)` band by band:
+
+| band (Hz) | `Hs`<1 | 1–1.5 | 1.5–2 | 2–2.5 | Spearman(`Hs`,`z`) |
+|---|---|---|---|---|---|
+| 0.040–0.055 | 0.885 | 0.890 | 0.880 | 0.890 | +0.041 |
+| 0.070–0.090 | 0.931 | 0.941 | 0.935 | 0.944 | +0.084 |
+| 0.120–0.160 | 0.959 | 0.972 | 0.966 | 0.984 | +0.083 |
+| 0.160–0.200 | 0.973 | 0.984 | 0.977 | 0.971 | +0.035 |
+
+`z` in the harmonic band is flat, near 1, and *better* than the swell band. `z < 1` everywhere,
+so the operator reads slightly **high**, never low. **Refuted.**
+
+**A physical harmonic asymmetry between 9.4 m and 7 m depth.** Tested on healthy co-located
+pairs (both frames alive, both `S_eta` from pressure, `Hs7` to 3.02 m): the 0.120–0.160 Hz
+ratio is 0.916 → 0.900 across wave-height bins. It does not fall to the 0.643 seen in Phase A.
+**Refuted.**
+
+## What is left, and how much it matters
+
+The recovered 10 m spectrum is distorted above 0.12 Hz: a **deficit** at 0.12–0.20 Hz and an
+**excess** at 0.20–0.25 Hz (1.142 against a healthy expectation of ~0.79). The excess is the
+grown Doppler noise floor, amplified ~10× by the `(ω/gk)²·cosh²(kH)/cosh²(k·doffp)` weighting.
+**The 0.12–0.16 Hz deficit remains unexplained.** White Doppler noise adds; it cannot subtract.
+
+But the band is nearly empty of energy:
+
+| window | var(0.04–0.12 Hz) | var(0.12–0.25 Hz) | share above 0.12 Hz |
+|---|---|---|---|
+| control | 2.486e-02 | 6.363e-03 | 20.4% |
+| **Phase A** | **5.535e-02** | **2.805e-03** | **4.8%** |
+
+The storm is swell-dominated, so the distorted band holds under 5% of the orbital variance.
+
+**This reconciles the two measurements that appeared to contradict.** "In-band velocity +2.2%
+high" was integrated over the *whole* sea-swell band, 0.04–0.25 Hz, and so absorbed the
+distorted region. `Hs_rec` −2.6% low used a transform that weights 0.25 Hz ~10× more than
+0.09 Hz, so a defect holding 4.8% of the velocity variance dominated the `Hs` error. They were
+never measuring the same thing, and neither refutes the sound-speed correction.
+
+## Revised status
+
+- **Velocity moments** (`skewness`, `asymmetry`, `u_uabs2`, `uMean`, `u_rms`) — computed in the
+  time domain from the full velocity, so they inherit the distortion in proportion to its energy
+  share. Bound: a ~30% error over 4.8% of the variance moves `u_rms` by ≲1% and `⟨u³⟩` by
+  ≲2–3%, not the 6–9% previously feared. **These are the quantities Chapter 2 needs, and they
+  are usable**, with `qc_flag = 3`.
+- **Reconstructed `Hs`** — restrict the inversion to **0.04–0.12 Hz** and report `Hs_SS` rather
+  than the full-band `Hs`. Over the full band it is biased low by ~2.6% for reasons that are
+  now localised but not fully explained. Subtract the noise floor (fit over 0.6–0.95 Hz) before
+  the transform in any production implementation (N4).
+- **Still open:** the 0.12–0.16 Hz deficit. It is small, bounded, and does not affect the
+  conclusion, but it is not understood and should not be described as if it were.
+
+**S3 now passes for its intended purpose** — recovering velocity moments through the storm
+peak — with the scale verified against Nortek's documented law in the band that carries the
+energy. Stage 1 (channel decoupling) and Stage 2 (the rescale) may both proceed. `Hs`
+reconstruction (Stage 3) ships swell-band only.
