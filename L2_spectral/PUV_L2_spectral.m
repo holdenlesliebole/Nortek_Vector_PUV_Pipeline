@@ -394,6 +394,17 @@ for i = 1:nSeg
         L2.Spp(:,i) = Spp_p;  L2.S_eta(:,i) = S_eta_p;  L2.Kp(:,i) = Kp_p;  L2.fCut(i) = fCut_p;
         nanv = NaN(size(f));
         bp = compute_bulk_params(S_eta_p, nanv, nanv, nanv, nanv, f, H, opts);
+        % F4: apply the SAME implausible-Hs/depth sanity check the normal path uses. A
+        % pressure sensor drifting to a plausible-but-wrong value (valid_p's [pMed/2, 2*pMed]
+        % band is wide) would otherwise emit an inflated Hs here with no flagging at all --
+        % exactly the RUBY22 "13 m depth at a 6 m site" failure the check was written for.
+        if seg_is_bad(bp.Hs, H, instr, opts)
+            L2.S_eta(:,i) = NaN;  L2.Spp(:,i) = NaN;  L2.Kp(:,i) = NaN;
+            L2.depth(i) = NaN;    L2.fCut(i) = NaN;
+            L2.Hs_source{i} = 'none';
+            L2.qc_flag(i)   = 4;
+            continue
+        end
         L2.Hs(i) = bp.Hs;  L2.Hs_SS(i) = bp.Hs_SS;  L2.Hs_IG(i) = bp.Hs_IG;
         L2.Tp(i) = bp.Tp;  L2.Tm02(i) = bp.Tm02;    L2.Ef(i)    = bp.Ef;
         % meanDir, a1/b1/a2/b2, Ub, tau_b, Sxx/Syy/Sxy, ztest, qtest: require velocity, left NaN
@@ -501,18 +512,12 @@ for i = 1:nSeg
     %       ~13 m at a 6 m site — both Hs AND depth scaled together so
     %       their ratio stayed plausible, but the absolute depth gives
     %       it away.
-    bad_seg = false;
-    if isfinite(bulk.Hs) && H > 0 && bulk.Hs > opts.HsMaxToHRatio * H
-        bad_seg = true;
-    end
-    if isfield(instr,'depth_nominal') && ~isnan(instr.depth_nominal) ...
-            && opts.depthDeviationMax > 0
-        if abs(H - instr.depth_nominal) > opts.depthDeviationMax * instr.depth_nominal
-            bad_seg = true;
-        end
-    end
-    if bad_seg
+    if seg_is_bad(bulk.Hs, H, instr, opts)
         L2.segValid(i) = false;
+        L2.qc_flag(i)  = 4;             % F3: a segment the code KNOWS is implausible is a
+                                        % FAIL, not "good". Previously left at qc_flag=1, which
+                                        % becomes a corruption path once L4 consumes qc_flag.
+        L2.Hs_source{i} = 'none';
         nValid = nValid - 1;
     end
 
@@ -691,4 +696,23 @@ else
     L2.mopStation = '';
 end
 
+end
+
+% ---------------------------------------------------------------------------------------
+function bad = seg_is_bad(Hs, H, instr, opts)
+%SEG_IS_BAD  Physical-plausibility check for a pressure-derived segment (shared by the
+% normal path and the pressure-only branch). Two ways sensor noise contaminates a segment:
+%   (1) Hs > HsMaxToHRatio * h  -- violates depth-limited breaking (gamma_b ~ 0.4-0.6).
+%   (2) mean depth far from depth_nominal -- a pressure sensor failing to a plausible-but-
+%       wrong value inflates depth (and Hs with it, so their RATIO stays plausible while the
+%       absolute depth gives it away; RUBY22 showed depth ~13 m at a 6 m site).
+bad = false;
+if isfinite(Hs) && H > 0 && Hs > opts.HsMaxToHRatio * H
+    bad = true;
+end
+if isfield(instr,'depth_nominal') && ~isnan(instr.depth_nominal) && opts.depthDeviationMax > 0
+    if abs(H - instr.depth_nominal) > opts.depthDeviationMax * instr.depth_nominal
+        bad = true;
+    end
+end
 end

@@ -54,12 +54,29 @@ rollStd  = movstd(roll_raw,  tiltWindow, 'omitnan');
 bad_tilt_var = pitchStd > tiltStdMax | rollStd > tiltStdMax;
 bad_tilt_abs = abs(pitch_raw) >= tiltAbsMax | abs(roll_raw) >= tiltAbsMax;
 
-%% --- temperature: reference and validity ---
+%% --- temperature validity (F6/F1 fix) ---
+% The thermistor is judged on PHYSICAL PLAUSIBILITY, not on deviation from a global median.
+% The old test `abs(T - Tref) <= TmaxDev` conflated a genuine far-from-median seasonal
+% temperature (fine) with a sensor failure (not fine): a warm-start deployment that later
+% saw genuine cold upwelling would have its good cold-water samples flagged and their
+% velocities corrupted by the sound-speed rescale. Physical plausibility does not have that
+% failure mode -- a genuine seawater temperature is valid whatever the rest of the record did.
+%
+%   Tvalid   absolute bounds. Default [-2 40] catches freezing/firmware garbage everywhere;
+%            SET IT TO THE SITE'S PLAUSIBLE WATER-TEMPERATURE RANGE (e.g. SD coastal [9 26])
+%            to catch subtler within-bounds failures. This is the primary discriminant.
+%   maxJump  optional rate gate: |T[i]-T[i-1]| beyond this is an instantaneous step no water
+%            body can make, so it is a sensor glitch. Default Inf (off). Never fires on
+%            genuine drift, however fast, because it is a per-sample jump, not a rate.
 Traw  = SEN(:,14);
-nRef0 = min(round(qcOpts.TrefHours*3600*fs), numel(Traw));
-Tref  = median(Traw(1:nRef0), 'omitnan');
-valid_T = isfinite(Traw) & Traw >= qcOpts.Tvalid(1) & Traw <= qcOpts.Tvalid(2) ...
-          & abs(Traw - Tref) <= qcOpts.TmaxDev;
+phys  = isfinite(Traw) & Traw >= qcOpts.Tvalid(1) & Traw <= qcOpts.Tvalid(2);
+if isfield(qcOpts,'maxJump') && isfinite(qcOpts.maxJump)
+    jump = [false; abs(diff(Traw)) > qcOpts.maxJump];
+    fastStep = jump | [jump(2:end); false];      % flag both sides of a step
+else
+    fastStep = false(size(Traw));
+end
+valid_T = phys & ~fastStep;
 tilt_trusted = valid_T;
 
 %% --- per-channel masks ---
@@ -68,8 +85,23 @@ valid_p    = DAT(:,15) >= pMed/2 & DAT(:,15) <= pMed*2;
 valid_tilt = ~(bad_tilt_var | bad_tilt_abs);
 present    = ~isnan(DAT(:,3)) & ~isnan(DAT(:,4));
 
-% Tilt gates velocity ONLY when the tilt sensor is trustworthy (its sensor block healthy).
-valid_vel  = valid_corr & present & (~tilt_trusted | valid_tilt);
+% Reference water temperature for the c(T) fit, computed ONLY from in-water, physically
+% plausible samples (F1 fix): a leading on-deck warm-up or an early sensor failure no longer
+% poisons it, the way the old first-48h raw median could.
+refSel = valid_T & valid_p;
+if any(refSel), Tref = median(Traw(refSel), 'omitnan');
+else,           Tref = median(Traw(phys), 'omitnan'); end   % fallback: any plausible sample
+
+% Velocity gating.
+%   ABSOLUTE tilt (a toppled frame, |tilt| >= tiltAbsMax) ALWAYS invalidates velocity: a
+%     30-degree reading is physically impossible for a seabed frame, so either the frame
+%     moved or the sensor is lying -- in neither case can the velocity be rotated correctly.
+%     This must not depend on whether the thermistor is healthy (F1 escalation / BT fix):
+%     the old `~tilt_trusted | valid_tilt` let a dead thermistor disable the topple gate.
+%   VARIABILITY tilt (a jittery reading) invalidates velocity only when the tilt sensor is
+%     trusted; when its sensor block has failed, the reading is discarded and a static tilt
+%     from the healthy window is substituted instead (below).
+valid_vel  = valid_corr & present & ~bad_tilt_abs & (~tilt_trusted | ~bad_tilt_var);
 
 % OLD row-level mask, verbatim, so segValid downstream keeps its meaning.
 valid_joint = valid_vel & valid_p & valid_tilt;
@@ -93,9 +125,18 @@ if any(~valid_T & valid_vel)
                 label, 100*mean(~valid_T));
         else
             ab = [ones(sum(gd),1) double(Traw(gd))] \ double(c_rec(gd));
-            c_true = ab(1) + ab(2)*Tref;
-            c_source = sprintf('own c(T) fit: c = %.2f %+.4f*T, Tref = %.2f C -> c_true = %.1f m/s', ...
-                ab(1), ab(2), Tref, c_true);
+            % F7: never EXTRAPOLATE the c(T) fit. The slope is poorly conditioned when the
+            % healthy temperature range is narrow, so evaluate it at the nearest in-range
+            % temperature rather than beyond the data that built it.
+            Tlo = min(Traw(gd));  Thi = max(Traw(gd));
+            Teval = min(max(Tref, Tlo), Thi);
+            c_true = ab(1) + ab(2)*Teval;
+            extrap = '';
+            if Tref < Tlo || Tref > Thi
+                extrap = sprintf(' [Tref %.2f OUT of fit range [%.2f %.2f]; clamped]', Tref, Tlo, Thi);
+            end
+            c_source = sprintf('own c(T) fit: c = %.2f %+.4f*T, Teval = %.2f C -> c_true = %.1f m/s%s', ...
+                ab(1), ab(2), Teval, c_true, extrap);
         end
     end
     if isfinite(c_true)
@@ -106,12 +147,18 @@ if any(~valid_T & valid_vel)
     end
 end
 
-%% --- static-tilt substitution decision ---
-% Where the tilt sensor is untrustworthy but the Doppler is fine, rotate with a static tilt
-% from the healthy window rather than skip the rotation.
-vel_rotation_static = ~tilt_trusted & ~valid_tilt & valid_vel;
+%% --- static-tilt substitution decision (F2 fix) ---
+% Where the tilt sensor is untrustworthy (its block failed) but the Doppler is fine and the
+% frame is not toppled, rotate with a static tilt from the healthy window rather than trust
+% the (possibly garbage) live reading. bad_tilt_abs samples are already invalid (gated
+% above), so this is the variability case only.
 pStat = median(SEN(valid_tilt & tilt_trusted, 12), 'omitnan');
 rStat = median(SEN(valid_tilt & tilt_trusted, 13), 'omitnan');
+% CRUCIAL: only claim a static substitution where one can ACTUALLY be made. If the whole
+% record has no trusted-tilt window (pStat/rStat are NaN), the flag must stay false so a
+% segment is never labelled "static tilt applied" on data that received no correction.
+haveStatic = isfinite(pStat) && isfinite(rStat);
+vel_rotation_static = ~tilt_trusted & bad_tilt_var & ~bad_tilt_abs & valid_vel & haveStatic;
 
 %% --- pack ---
 qc = struct('valid_corr',valid_corr,'valid_p',valid_p,'valid_tilt',valid_tilt, ...

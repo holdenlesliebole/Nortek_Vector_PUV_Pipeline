@@ -127,6 +127,29 @@ fprintf('    Hs  A = %.6f   D = %.6f     depth A = %.4f  D = %.4f\n', A.Hs(1), D
 velProducts = all(isnan(D.Ub)) && all(isnan(D.vmom.skewness)) && all(isnan(D.ztest_SS)) && all(isnan(D.meanDir));
 ok = rep('D4  Ub / skewness / ztest / meanDir are NaN (need velocity)', velProducts, 0) && ok;
 
+%% ---- RUN E: implausible pressure => qc_flag 4, not 1 (F3/F4) ----
+% A pressure sensor failing to a plausible-but-wrong value produces an inflated depth and
+% Hs. The normal path's sanity check catches it (Hs > 1.5 h, or depth far from nominal);
+% previously it set segValid=false but LEFT qc_flag=1 ("good"), and the pressure-only branch
+% skipped the check entirely. Both must now flag qc_flag=4.
+fprintf('\n--- RUN E: implausible depth from a drifting pressure sensor ---\n');
+E_in = PUV;
+E_in.P(:) = (30 - doffp) * rho*g/1e4;                  % a steady ~30 m depth at a 9.4 m site
+instrE = struct('mopStation','','depth_nominal',9.4);  % enable the depth-deviation check
+optsE = opts;  optsE.depthDeviationMax = 0.5;
+E = PUV_L2_spectral(E_in, instrE, optsE);
+ok = rep('E1  normal path: implausible depth => segValid false, qc_flag 4', ...
+    ~any(E.segValid) && all(E.qc_flag==4), sum(E.segValid)) && ok;
+ok = rep('E2  qc_flag 4 present (implausible segments are FAIL, not good)', any(E.qc_flag==4), sum(E.qc_flag==4)) && ok;
+
+% pressure-only branch on the same implausible pressure: must also flag 4, Hs NaN.
+Ep_in = E_in;
+Ep_in.BuoyCoord.U(:) = NaN;  Ep_in.BuoyCoord.V(:) = NaN;
+Ep_in.qc.valid_vel(:) = false;  Ep_in.qc.valid_joint(:) = false;
+Ep = PUV_L2_spectral(Ep_in, instrE, optsE);
+ok = rep('E3  pressure-only branch: implausible depth => qc_flag 4, Hs NaN', ...
+    all(Ep.qc_flag(Ep.qc_flag~=2)==4) && all(isnan(Ep.Hs)), sum(Ep.qc_flag==4)) && ok;
+
 %% ---- RUN C: legacy L1 with no qc masks ----
 fprintf('\n--- RUN C: legacy L1 struct (no PUV.qc) ---\n');
 C_in = rmfield(PUV, 'qc');

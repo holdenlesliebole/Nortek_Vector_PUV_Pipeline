@@ -129,7 +129,7 @@ end
 
 % ---------------- helpers ----------------
 function o = default_qcopts()
-o = struct('corrMin',70,'Tvalid',[-2 40],'TmaxDev',8,'TrefHours',48,'cFactorTol',0.002, ...
+o = struct('corrMin',70,'Tvalid',[-2 40],'maxJump',Inf,'cFactorTol',0.002, ...
     'tiltStdMax',2,'tiltAbsMax',30,'tiltWindow',120);
 end
 

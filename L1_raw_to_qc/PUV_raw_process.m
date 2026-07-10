@@ -427,14 +427,20 @@ function PUV = PUV_raw_process(instr, cfg)
     % from the historical pipeline; only their propagation between channels has changed.
     qcOpts = struct( ...
         'corrMin',     70, ...      % Nortek minimum beam correlation, %
-        'Tvalid',      [-2 40], ... % physically possible seawater temperature, degC
-        'TmaxDev',     8, ...       % max |T - Tref|. MUST exceed the deployment's true
-        ...                         % seasonal range; widen for multi-season records.
-        'TrefHours',   48, ...      % healthy reference window at record start, hours
+        'Tvalid',      [-2 40], ... % PRIMARY thermistor-failure discriminant: plausible
+        ...                         % seawater temperature, degC. Default is a wide absolute
+        ...                         % bound (catches freezing / firmware garbage anywhere);
+        ...                         % SET TO THE SITE'S RANGE (SD coastal ~[9 26]) to catch
+        ...                         % subtler within-bounds failures.
+        'maxJump',     Inf, ...     % optional rate gate: |T[i]-T[i-1]| beyond this = sensor
+        ...                         % glitch. Inf = off. Never fires on genuine drift.
         'cFactorTol',  0.002, ...   % below this, no sound-speed rescale is applied
         'tiltStdMax',  2, ...       % deg, rolling-std tilt-variability threshold
-        'tiltAbsMax',  30, ...      % deg, absolute tilt beyond which data is unreliable
+        'tiltAbsMax',  30, ...      % deg, absolute tilt = toppled; ALWAYS gates velocity
         'tiltWindow',  120);        % samples for the rolling std (60 s at 2 Hz)
+    % TmaxDev / TrefHours (deviation-from-median test, first-48h reference) are REMOVED:
+    % they conflated genuine seasonal range with sensor failure and corrupted good velocity
+    % at the seasonal tails. See docs/OUTSTANDING_channel_decoupling.md and puv_channel_qc.m.
     if isfield(cfg,'qcOpts')
         fn = fieldnames(cfg.qcOpts);
         for q = 1:numel(fn), qcOpts.(fn{q}) = cfg.qcOpts.(fn{q}); end
@@ -640,14 +646,17 @@ function PUV = PUV_raw_process(instr, cfg)
     end
 
     %% ========== TRIM LEADING NaNs ==========
-    % Start the timeseries at the first valid pressure sample so we
-    % don't carry a block of NaN from before the instrument was submerged.
-    validIdx = find(~isnan(DAT(:,15)));
-    if isempty(validIdx)
-        error('PUV_raw_process:noValidData', ...
-            'No valid pressure data remains after QC for %s.', instr.label);
+    % Start the timeseries at the first in-water sample so we don't carry a block of NaN from
+    % before submersion. Channel-aware (F5 fix): a whole-deployment pressure failure with a
+    % healthy Doppler head used to make DAT(:,15) all-NaN and throw, discarding exactly the
+    % velocity Stage 1 exists to rescue. See puv_trim_anchor.m / test_puv_trim_anchor.
+    if all(isnan(DAT(:,15))) && any(~isnan(DAT(:,3)) & ~isnan(DAT(:,4)))
+        warning('PUV_raw_process:noValidPressure', ...
+            ['%s: no valid pressure anywhere; anchoring the trim on velocity instead. ' ...
+             'Pressure-derived products (Hs, depth) unavailable, but velocity is recovered.'], ...
+            instr.label);
     end
-    firstGood = validIdx(1);
+    firstGood = puv_trim_anchor(DAT);
     % Pull the per-sample decisions out of qc and trim them alongside the data.
     vel_c_factor        = qc.vel_c_factor;
     vel_c_corrected     = qc.vel_c_corrected;
