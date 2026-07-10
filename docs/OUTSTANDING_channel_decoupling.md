@@ -5,9 +5,11 @@ Branch `puv-channel-decoupling-2026-07`. Companion to
 `docs/diagnostics_2026-07-09/` (the raw-streaming scripts and derived CSVs).
 
 **One-line status.** The channel-decoupling fix is proven and safe and is not yet
-implemented in the pipeline. The sound-speed rescale is *not* proven and must stay disabled.
-120 hours of storm-peak Doppler data at MOP586_10m are recoverable today, with a 2–3%
-unresolved uncertainty in their absolute velocity scale.
+implemented in the pipeline. The sound-speed rescale is now **also proven** — verified against
+Nortek's documented law in the band that carries the wave energy (Addendum 2). 120 hours of
+storm-peak Doppler data at MOP586_10m are recoverable today. Residual spectral distortion above
+0.12 Hz is bounded at ≲1% on `u_rms` and ≲2–3% on `⟨u³⟩`, and one part of it (a deficit at
+0.12–0.16 Hz) is **not understood**.
 
 ---
 
@@ -44,8 +46,12 @@ frame during Phase A (1.18× at the healthy 7 m frame). In the sea-swell band th
 | reconstructed `Hs` vs the 7 m frame | **−2.6%** |
 | reconstructed `Hs` vs CDIP D0586 | **−3.4%** |
 
-Rows 1 and 2 have opposite sign. `Hs_rec` is a *linear operator* applied to the in-band
-velocity, so both cannot be right unless the operator moved between the two windows.
+> ✅ **RESOLVED by N2.** These never measured the same thing. "+2.2%" was integrated over the
+> *whole* sea-swell band, 0.04–0.25 Hz, absorbing a region above 0.12 Hz where the recovered
+> spectrum is distorted. `Hs_rec` uses a transform weighting 0.25 Hz ~10× over 0.09 Hz, so a
+> defect holding 4.8% of the velocity variance dominated the `Hs` error. Restricted to the
+> swell band, the deflation *is* `c_rec/c_true`. Neither number refutes the correction.
+> What survives as genuinely open is the 0.12–0.16 Hz deficit (N7).
 
 **Eliminated:** depth transfer (0.5 mm); IG-band contamination (SS and total bands move
 together); wave-height confound (refuted, §1); period-dependent operator bias (refuted, §1);
@@ -60,11 +66,14 @@ Chapter 2's transport moment. Hence `qc_flag = 3` on every reconstructed burst.
 
 | # | test | status |
 |---|---|---|
-| N1 | `ztest_SS` vs `Tp`, 5524 healthy bursts | **done — refuted** |
-| N2 | Frequency-resolved `S_eta(f)`: reconstructed 10 m vs 7 m, control and Phase A, sub-band by sub-band. Localises *where in frequency* the energy goes missing | **in progress** |
-| N3 | Within Dec 25 (pressure alive, `c_fac` drifting 1.000 → 1.023) regress uncorrected `Hs_rec/Hs_meas` on `c_fac`. Within-frame, within-day, no 7 m frame involved | pending |
-| N4 | Subtract the Doppler noise floor (fit over 0.6–0.95 Hz) from `Suu+Svv` before the transform; repeat N2 | pending |
-| N5 | Confirm from Nortek whether the Vector scales recorded velocity by the **measured** sound speed. `.hdr` says `Sound speed MEASURED`, but the scaling law is being *inferred*, not read | **pending — needs Nortek** |
+| N1 | `ztest_SS` vs `Tp`, 5524 healthy bursts | **done — refuted.** Spearman −0.022 |
+| N2 | Frequency-resolved velocity and `S_eta` ratios, control vs Phase A | **done.** Swell band (0.04–0.09 Hz) reproduces `c_rec/c_true` = 0.9497 exactly. Residual confined to `f > 0.12` Hz |
+| N2b | Bound-harmonic failure of the linear inversion | **done — refuted.** 5524 healthy bursts: `z` in the harmonic band is flat, near 1, and `z < 1` everywhere (operator reads high, never low) |
+| N2c | Physical harmonic asymmetry between 9.4 m and 7 m | **done — refuted.** Healthy pairs to `Hs7` = 3.02 m: 0.12–0.16 Hz ratio 0.916 → 0.900, not 0.643 |
+| N5 | Nortek's documented scaling law | **done — confirmed.** `V_corrected = V_old·(C_new/C_old)`, N3015-030 §2.4.9 p.53 |
+| **N4** | Subtract the Doppler noise floor (fit over 0.6–0.95 Hz) from `Suu+Svv` before the transform. Explains the 0.20–0.25 Hz **excess**; will not explain the 0.12–0.16 Hz **deficit** (white noise adds, it cannot subtract) | **next** |
+| **N7** | **The 0.12–0.16 Hz deficit is unexplained.** Not noise (wrong sign), not the inversion (N2b), not the wave field (N2c). Small (that band holds 4.8% of Phase-A orbital variance) but not understood | **open** |
+| N3 | Within Dec 25 (pressure alive, `c_fac` drifting 1.000 → 1.023) regress uncorrected `Hs_rec/Hs_meas` on `c_fac`. Within-frame, within-day | lower priority now that N5 settles the law |
 | N6 | Diagnose MOP580_7m (single 523-segment run from 28 Dec 23:29) on the same logic. MOP580_5m and MOP586_5m have many short runs and a different signature — diagnose before assuming | pending |
 
 ## 5. Implementation plan (staged, and the stages are separable)
@@ -85,12 +94,15 @@ that recovers data.
   `qc_flag ∈ {1 good, 2 not evaluated, 3 suspect, 4 fail}`. **Anything reconstructed is 3, never 1.**
 - Gate: `L1_raw_to_qc/test_channel_decoupling.m` must pass. It already does.
 
-**Stage 2 — the rescale**, only once N2–N5 resolve the scale. Until then, bursts with
-`valid_vel && ~valid_T` ship with velocity **uncorrected** and `qc_flag = 3`, and the
-`vel_c_factor` that *would* have been applied is recorded but not used.
+**Stage 2 — the rescale. UNBLOCKED.** N5 confirms Nortek's `V_corrected = V_old·(C_new/C_old)`;
+N2 verifies it against the data in the swell band. Apply it, record `vel_c_factor`, and keep
+`qc_flag = 3` on every burst where it was materially applied.
 
 **Stage 3 — optional `reconstructP` mode.** When `segValid_vel && ~segValid_p`, invert
-`Spp_from_vel` with an externally supplied `h(t)`, set `Hs_source = 'reconstructed'`. Never
+`Spp_from_vel` with an externally supplied `h(t)`, set `Hs_source = 'reconstructed'`.
+**Restrict the inversion to the swell band (0.04–0.12 Hz) and report `Hs_SS`, not full-band
+`Hs`** — above 0.12 Hz the recovered spectrum is distorted (Addendum 2). Subtract the noise
+floor before the transform (N4). Never
 silently mix reconstructed and measured `Hs` in one field — that is exactly the trap
 `L4.Hs_combined` already sets (see `Paper_2/docs/audit_chapter2_2026-07-09.md`, Addendum 5 §5).
 

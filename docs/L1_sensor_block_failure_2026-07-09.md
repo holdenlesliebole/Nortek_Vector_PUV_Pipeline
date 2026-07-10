@@ -71,11 +71,15 @@ pressure channel also destroys the velocity moments — which need no pressure a
 
 ## 4. The velocities are good, and the scale error is exactly the sound-speed error
 
-> 🛑 **THE "AGREE TO 0.55%" RESULT IN THIS SECTION IS RETRACTED.** See the Addendum.
-> The velocities *are* good — that stands. But `u_rms` integrates the Doppler noise floor,
-> which grew 1.88× at this frame during Phase A. Recomputed in the sea-swell band, the
-> deflation is **0.9718**, not 0.9457, and the sound-speed ratio (0.9508) then *over*-corrects
-> by 2.2%. The scale error is **not yet shown to be exactly the sound-speed error.**
+> 🛑 **THE "AGREE TO 0.55%" RESULT IN THIS SECTION IS RETRACTED** (the statistic was
+> contaminated), **but the section's conclusion is correct and is re-established on better
+> evidence in Addendum 2.** `u_rms` is broadband and integrates the Doppler noise floor, which
+> grew 1.88× at this frame during Phase A. Resolved by frequency band (Addendum 2, N2), the
+> deflation in the swell band — 0.9659 / 0.9488 / 0.9353 over 0.040–0.090 Hz — brackets the
+> predicted `c_rec/c_true` = 0.9497. Nortek's manual (§2.4.9, p. 53) documents the law as
+> `V_corrected = V_old·(C_new/C_old)`. **The scale error IS the sound-speed error, in the band
+> that carries the energy.** The numbers in the table below are still contaminated; use
+> Addendum 2's.
 
 - The recorded velocities are in the **instrument frame**. The corrupt compass never touched
   them; it only enters the rotation the pipeline applies afterwards.
@@ -138,6 +142,14 @@ inside `k(f, h)`.
 The two frames' mean depths differ by a constant to within **4 mm** across a 2.3 m tide. So
 `h_10m(t) = h_7m(t) + Δ` reconstructs the missing depth to ±0.4 cm, which is negligible in
 `k(f, h)`.
+
+> **Note on Δ.** The 2.5108 m above used a placeholder `doffp(7 m) = 0.90`. With the config's
+> true value, `doffp(7 m) = 0.67` (`TOR23W_config.m:53`), the same data give
+> **Δ = 2.7436 m** — the 0.23 m difference is exactly the `doffp` change, so the two are
+> consistent. `recover_MOP586_10m_phaseA.m` uses 2.7436. Δ absorbs any `doffp` error because it
+> is calibrated against the 10 m frame's own measured depth, so the transfer is self-consistent
+> either way. The scatter is larger (sd 0.039 m) when `h(7 m)` is interpolated from 20-min bins
+> to hourly segment centres rather than matched bin-to-bin; even that is 1.3 mm in `Hs`.
 
 **Accuracy of the reconstruction.** The z-test *is* the validation, and it has already been
 run on every healthy burst. `ztest_SS = Spp_measured / Spp_from_vel`, median by wave height:
