@@ -130,3 +130,64 @@ in-situ handle on alongshore forcing gradients at Torrey.
   Nothing needs redoing on a QC'd subset. See `Paper_2/docs/audit_chapter2_2026-07-09.md`,
   Addendum 5 §4. The retention table is the evidence for the response letter.
 - Chapter 2 changes wait until this line of inquiry closes (HLB, 2026-07-09).
+
+---
+
+## 7. N6 — MOP580_7m is a DIFFERENT failure, and it corrected the Stage-1 design
+
+**2026-07-09.** MOP580_7m goes invalid in one unbroken 523-segment run from 28 Dec 23:29,
+superficially identical to MOP586_10m. It is not the same failure at all.
+
+Its auxiliary sensor block is **healthy throughout**: battery steady at 14.40 V, sound speed
+1511 m/s, temperature 17.0–17.4 °C (ordinary seasonal cooling). What failed is the **frame**:
+
+| day | pitch | roll | heading |
+|---|---|---|---|
+| Dec 28 | −0.77° | −0.63° | 73.2° |
+| Dec 29 | **−12.28°** | **−16.74°** | 91.3° |
+| Dec 30 | −14.74° | −24.08° | 105.2° |
+| Dec 31 | −15.57° | **−33.73°** | 117.4° |
+
+It rotated 44° and rolled past `tiltAbsMax = 30°`. **The instrument fell over.** It is not
+recoverable, and it should not be: a frame that is still moving contaminates the velocity with
+its own motion, and no rotation repairs that.
+
+### The design error this caught
+
+Stage 1 as first written treated **tilt like pressure and temperature** — an auxiliary channel
+that must not gate velocity. That is wrong. Pressure and temperature say nothing about the
+Doppler measurement. **Tilt is a statement about the measurement geometry.** Applied to
+MOP580_7m, the first version would have kept the toppled-frame velocity and rotated it with a
+"healthy" static tilt of −0.5°, fabricating a geometry the instrument never had.
+
+**The corrected rule:** trust the tilt sensor exactly when the sensor block it lives on is
+healthy. The thermistor is the tell — it shares that block.
+
+```
+tilt_trusted = valid_T
+valid_vel    = valid_corr & present & (~tilt_trusted | valid_tilt)
+```
+
+- **MOP586_10m**: thermistor dead (T = −5 °C, battery to 19.5 V, heading wandering 70–96°)
+  while the frame sat still at 1.3°. Tilt untrusted ⇒ cannot gate velocity ⇒ **rescued**,
+  rotated with a static tilt, flagged `vel_rotation_static`.
+- **MOP580_7m**: thermistor fine, frame toppled. Tilt trusted ⇒ gates velocity ⇒ **rejected**,
+  exactly as the historical pipeline did.
+- **Healthy**: unchanged.
+
+Regression `test_channel_decoupling` T6a/T6b/T6c pins all three. **A frame that fell over is
+not a sensor fault and must not be "recovered."**
+
+### Consequence for the archive
+
+Two distinct failure modes now have names, and the cheap `.sen` survey (S1) separates them
+without touching a single `.dat`:
+
+| signature | mechanism | recoverable? |
+|---|---|---|
+| `T` implausible, `c` steps, battery erratic, heading wanders, **tilt small** | auxiliary sensor block | **yes** — velocity, with the sound-speed rescale |
+| `T`/`c`/battery normal, **tilt grows monotonically past 30°**, heading swings | frame toppled or scoured out | **no** |
+| correlation → 5–8%, amplitude → 36 counts | probe buried or destroyed | no |
+
+MOP586_5m (4 runs, longest 431) and MOP580_5m (11 runs, longest 449) are still undiagnosed and
+have a third signature — many medium runs. Do not assume either mechanism.

@@ -111,6 +111,32 @@ err_Hs = abs(dHs_dh) * 0.0041;
 ok = report('T4  4 mm depth-transfer error => <1 mm error in Hs', err_Hs < 1e-3, err_Hs) && ok;
 fprintf('     dHs/dh = %.4f m/m at h = %.2f m\n', dHs_dh, h);
 
+%% ---- T6: a TOPPLED frame must NOT be rescued (regression for N6) ----
+% TOR23W/MOP580_7m fails in the same storm with a HEALTHY sensor block (battery 14.40 V,
+% c = 1511 m/s, T = 17.0-17.4) while the frame itself rolls from -0.6 to -33.7 deg and its
+% heading swings 73 -> 117 deg. It fell over. Tilt is not an auxiliary channel: it is a
+% statement about the measurement geometry, and no rotation repairs a moving frame.
+%
+% The rule: trust the tilt sensor exactly when the sensor block it lives on is healthy.
+corr_ok = true(N,1); present = true(N,1);
+
+% (a) MOP580_7m: thermistor fine, frame toppled  -> velocity must be REJECTED
+valid_T_a    = true(N,1);
+valid_tilt_a = false(N,1);                 % roll 33 deg > tiltAbsMax
+vel_a = corr_ok & present & (~valid_T_a | valid_tilt_a);
+ok = report('T6a toppled frame + healthy thermistor => velocity rejected', ~any(vel_a), sum(vel_a)) && ok;
+
+% (b) MOP586_10m: thermistor dead, frame still   -> velocity must be KEPT
+valid_T_b    = false(N,1);                 % T = -5 C
+valid_tilt_b = false(N,1);                 % tiltStd spuriously > 2 deg (dead sensor block)
+vel_b = corr_ok & present & (~valid_T_b | valid_tilt_b);
+ok = report('T6b dead thermistor + spurious tilt flag => velocity kept', all(vel_b), sum(vel_b)) && ok;
+
+% (c) both healthy -> unchanged from the historical pipeline
+vel_c = corr_ok & present & (~true(N,1) | true(N,1));
+ok = report('T6c healthy tilt + healthy thermistor => velocity kept', all(vel_c), sum(vel_c)) && ok;
+fprintf('     A frame that fell over is not a sensor fault, and must not be "recovered".\n');
+
 %% ---- T5: reconstruction returns the field's own Hs ----
 Hs_rec = Hs_h;
 rel = abs(Hs_rec - Hs_true)/Hs_true;

@@ -585,12 +585,47 @@ function PUV = PUV_raw_process(instr, cfg)
     % propagation between channels is removed. On healthy data this is a bitwise no-op.
     % See docs/L1_sensor_block_failure_2026-07-09.md and test_channel_decoupling.m.
 
-    valid_vel  = min(DAT(:, 12:14), [], 2) >= qcOpts.corrMin;   % Nortek's 70%, unchanged
+    % TILT IS NOT AN AUXILIARY CHANNEL. Pressure and temperature say nothing about the
+    % Doppler measurement, so they must not gate it. Tilt is different: it is a statement
+    % about the measurement GEOMETRY. A frame that has toppled, or that is still moving,
+    % contaminates the velocity with its own motion, and no rotation repairs that.
+    %
+    % Found the hard way (N6, 2026-07-09). TOR23W/MOP580_7m fails in the same storm and
+    % looks superficially similar -- one unbroken 523-segment run from 28 Dec 23:29 -- but
+    % its sensor block is HEALTHY throughout (battery 14.40 V, c = 1511 m/s, T = 17.0-17.4).
+    % What failed is the frame: pitch -0.8 -> -15.6 deg, roll -0.6 -> -33.7 deg, heading
+    % 73 -> 117 deg over three days. It fell over. Rescuing that velocity and rotating it
+    % with a "healthy" static tilt would fabricate a geometry the instrument never had.
+    %
+    % So: trust the tilt sensor only when the sensor block it lives on is healthy. The
+    % thermistor is the tell -- it shares that block, and it is what failed at MOP586_10m
+    % (T = -5 C, battery swinging to 19.5 V, heading wandering 70-96 deg) while the frame
+    % itself sat still at 1.3 deg.
+    %
+    %   tilt trusted   (valid_T) -> tilt gates velocity, exactly as before
+    %   tilt untrusted (~valid_T) -> tilt cannot gate velocity; rotate with a static tilt
+    %                               from the healthy window, and flag it
+    Traw  = SEN(:, 14);
+    nRef0 = min(round(qcOpts.TrefHours*3600*fs), numel(Traw));
+    Tref  = median(Traw(1:nRef0), 'omitnan');
+    valid_T = isfinite(Traw) & Traw >= qcOpts.Tvalid(1) & Traw <= qcOpts.Tvalid(2) ...
+              & abs(Traw - Tref) <= qcOpts.TmaxDev;
+    tilt_trusted = valid_T;
+
+    valid_corr = min(DAT(:, 12:14), [], 2) >= qcOpts.corrMin;   % Nortek's 70%, unchanged
     valid_p    = DAT(:,15) >= pMed/2 & DAT(:,15) <= pMed*2;     % unchanged
     valid_tilt = ~(bad_tilt_var | bad_tilt_abs);                % unchanged
     % Rows the instrument never wrote (padding, battery cutoff) are invalid everywhere.
     present    = ~isnan(DAT(:,3)) & ~isnan(DAT(:,4));
-    valid_vel  = valid_vel & present;
+
+    valid_vel  = valid_corr & present & (~tilt_trusted | valid_tilt);
+
+    nToppled = sum(valid_corr & present & tilt_trusted & ~valid_tilt);
+    if nToppled > 0
+        fprintf(['  %d samples (%.1f%%) have healthy Doppler but a TRUSTED bad tilt ' ...
+                 '(frame moved or toppled): velocity invalidated, as before.\n'], ...
+                nToppled, 100*nToppled/numel(valid_vel));
+    end
 
     % Preserve the OLD joint mask verbatim, so `segValid` downstream keeps its old meaning
     % and nothing silently changes in L4 / PUV_L4_moments.
@@ -623,10 +658,12 @@ function PUV = PUV_raw_process(instr, cfg)
     DAT(1:firstGood-1, :) = [];
     SEN(1:firstGood-1, :) = [];
     full_date(1:firstGood-1) = [];
-    valid_vel(1:firstGood-1)   = [];
-    valid_p(1:firstGood-1)     = [];
-    valid_tilt(1:firstGood-1)  = [];
-    valid_joint(1:firstGood-1) = [];
+    valid_vel(1:firstGood-1)     = [];
+    valid_p(1:firstGood-1)       = [];
+    valid_tilt(1:firstGood-1)    = [];
+    valid_joint(1:firstGood-1)   = [];
+    valid_T(1:firstGood-1)       = [];
+    tilt_trusted(1:firstGood-1)  = [];
 
     %% ========== EXTRACT VELOCITY, PRESSURE, TEMPERATURE ==========
     U = DAT(:,3);   % East / X velocity (m/s)
@@ -657,13 +694,8 @@ function PUV = PUV_raw_process(instr, cfg)
     % The factor is EXACTLY 1 wherever the thermistor is healthy, so this is a bitwise
     % no-op on good data -- a property, not a gate. test_channel_decoupling T3 asserts it.
 
-    % Reference temperature from a healthy window at the start of the record.
-    nRef  = min(round(qcOpts.TrefHours*3600*fs), numel(T));
-    Tref  = median(T(1:nRef), 'omitnan');
-
-    valid_T = isfinite(T) & T >= qcOpts.Tvalid(1) & T <= qcOpts.Tvalid(2) ...
-              & abs(T - Tref) <= qcOpts.TmaxDev;
-
+    % Tref and valid_T were computed above, before the QC block, because tilt trust
+    % depends on them. They have been trimmed alongside the data.
     vel_c_factor    = ones(numel(T),1,'single');
     vel_c_corrected = false(numel(T),1);
 
@@ -725,14 +757,13 @@ function PUV = PUV_raw_process(instr, cfg)
     %
     % The pitch/roll values from SEN are at 1 Hz (duplicated to 2 Hz),
     % so the correction is applied sample-by-sample.
-    % Where the tilt sensor failed but the Doppler did not, rotate with a ROBUST STATIC
-    % tilt taken from the healthy samples rather than skipping the rotation. The frame is
-    % bolted to the seabed, and a 1.3 deg tilt changes horizontal velocity by 0.03%, so the
-    % choice is immaterial in magnitude -- but it must be recorded, not assumed.
-    vel_rotation_static = ~valid_tilt & valid_vel;
+    % Static tilt substitution applies ONLY where the tilt sensor itself is untrustworthy
+    % (its sensor block failed), never where a trusted sensor reports a real tilt. In the
+    % latter case the velocity has already been invalidated above. See N6.
+    vel_rotation_static = ~tilt_trusted & ~valid_tilt & valid_vel;
     if any(vel_rotation_static)
-        pStat = median(SEN(valid_tilt,12), 'omitnan');
-        rStat = median(SEN(valid_tilt,13), 'omitnan');
+        pStat = median(SEN(valid_tilt & tilt_trusted, 12), 'omitnan');
+        rStat = median(SEN(valid_tilt & tilt_trusted, 13), 'omitnan');
         if isfinite(pStat) && isfinite(rStat)
             SEN(vel_rotation_static,12) = pStat;
             SEN(vel_rotation_static,13) = rStat;
