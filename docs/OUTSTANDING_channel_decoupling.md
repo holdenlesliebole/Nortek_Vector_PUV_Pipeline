@@ -58,9 +58,12 @@ together); wave-height confound (refuted, §1); period-dependent operator bias (
 the grown noise floor (ruled out **by sign** — the transform weights 0.25 Hz ~10× more than
 0.09 Hz, so extra white noise pushes `Hs_rec` **up**, and the observed bias is **down**).
 
-Consequence: **2–3% uncertainty in recovered velocity ⇒ 6–9% in ⟨u³⟩** (the moment goes as
-`c³`; `test_channel_decoupling` measures 14.9% for a 5.2% velocity error). Material for
-Chapter 2's transport moment. Hence `qc_flag = 3` on every reconstructed burst.
+~~Consequence: 2–3% uncertainty in recovered velocity ⇒ 6–9% in ⟨u³⟩.~~ **Superseded.** With
+the scale verified in the swell band, the only residual is the spectral distortion above
+0.12 Hz, a band holding **4.8%** of Phase-A orbital variance. Bound: **≲1% on `u_rms`, ≲2–3%
+on `⟨u³⟩`.** (`test_channel_decoupling` still measures 14.9% in `⟨u³⟩` for a 5.2% velocity
+error — that is why the rescale must be applied, not why the recovery is uncertain.)
+`qc_flag = 3` stays on every reconstructed burst regardless.
 
 ## 4. Next tests
 
@@ -78,8 +81,8 @@ Chapter 2's transport moment. Hence `qc_flag = 3` on every reconstructed burst.
 
 ## 5. Implementation plan (staged, and the stages are separable)
 
-**Stage 1 — ship the decoupling, disable the rescale.** Safe on its own, and it is the piece
-that recovers data.
+**Stage 1 — ship the decoupling.** Safe on its own, and it is the piece that recovers data.
+It is a bitwise no-op wherever the sensors are healthy. Independent of Stage 2.
 
 - `PUV_raw_process.m`: emit per-channel masks `valid_vel` (min beam correlation ≥ 70 **and**
   amplitude in range), `valid_p`, `valid_tilt`, `valid_T`. Stop propagating any of them across
