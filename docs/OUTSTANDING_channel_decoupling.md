@@ -4,9 +4,11 @@ Branch `puv-channel-decoupling-2026-07`. Companion to
 `docs/L1_sensor_block_failure_2026-07-09.md` (the diagnosis) and
 `docs/diagnostics_2026-07-09/` (the raw-streaming scripts and derived CSVs).
 
-**One-line status.** The channel-decoupling fix is proven and safe and is not yet
-implemented in the pipeline. The sound-speed rescale is now **also proven** — verified against
-Nortek's documented law in the band that carries the wave energy (Addendum 2). 120 hours of
+**One-line status.** Stages 1 and 2 are **implemented and committed** (`e2e069b`, corrected by
+`dc1d265`). Two test suites pass: `test_channel_decoupling` (algebra + the toppled-frame
+regression) and `test_L2_channel_decoupling` (integration, driving the real `PUV_L2_spectral`).
+The sound-speed rescale is verified against Nortek's documented law in the band that carries the
+wave energy (Addendum 2). The real-data regression on TOR23W/MOP586_10m is **pending**. 120 hours of
 storm-peak Doppler data at MOP586_10m are recoverable today. Residual spectral distortion above
 0.12 Hz is bounded at ≲1% on `u_rms` and ≲2–3% on `⟨u³⟩`, and one part of it (a deficit at
 0.12–0.16 Hz) is **not understood**.
@@ -23,7 +25,7 @@ storm-peak Doppler data at MOP586_10m are recoverable today. Residual spectral d
 | `PUV_raw_process.m:554-564` nulls the whole DAT row on a pressure or tilt fault | code; and `test_channel_decoupling` T1a reproduces it (`nanFrac(u) = 0.333`) |
 | `PUV_L2_spectral.m:298` computes `nanFrac` jointly on `(p,u,v)` | so dead pressure destroys velocity moments that never needed pressure |
 | L1's heading rotation is **static** (`theta_mag = instr.heading` from config + IGRF declination) | `PUV_raw_process.m:666-677`. The corrupt compass never entered L1's rotation. One less thing to fix. |
-| Tilt correction is negligible here | frame tilt 1.3° ⇒ 0.03% on horizontal velocity |
+| Tilt correction is negligible **at MOP586_10m** | frame tilt 1.3° ⇒ 0.03% on horizontal velocity. NOT general: MOP580_7m rolled to −33.7°, see §7 |
 | Depth transfer from the 7 m frame works | `Δ = h(10m) − h(7m) = 2.7436 m`; on Phase-A pressure-alive hours `H_meas − H_trans = −0.014 m` ⇒ **0.5 mm** in `Hs` |
 | The z-test inversion (HLB's idea) reconstructs `Spp` from `(Suu+Svv)` | control `Hs_rec/Hs_meas = 1.0260` vs `1/√z = 1.0287` predicted. Agreement 0.26% |
 | Operator bias is **not** period-dependent | 5524 healthy bursts: Spearman(`Tp`,`z`) = −0.022; drift over `Tp` 10→15.5 s = −0.04% |
@@ -77,7 +79,9 @@ error — that is why the rescale must be applied, not why the recovery is uncer
 | **N4** | Subtract the Doppler noise floor (fit over 0.6–0.95 Hz) from `Suu+Svv` before the transform. Explains the 0.20–0.25 Hz **excess**; will not explain the 0.12–0.16 Hz **deficit** (white noise adds, it cannot subtract) | **next** |
 | **N7** | **The 0.12–0.16 Hz deficit is unexplained.** Not noise (wrong sign), not the inversion (N2b), not the wave field (N2c). Small (that band holds 4.8% of Phase-A orbital variance) but not understood | **open** |
 | N3 | Within Dec 25 (pressure alive, `c_fac` drifting 1.000 → 1.023) regress uncorrected `Hs_rec/Hs_meas` on `c_fac`. Within-frame, within-day | lower priority now that N5 settles the law |
-| N6 | Diagnose MOP580_7m (single 523-segment run from 28 Dec 23:29) on the same logic. MOP580_5m and MOP586_5m have many short runs and a different signature — diagnose before assuming | pending |
+| N6 | Diagnose MOP580_7m | **done — DIFFERENT failure.** Sensor block healthy; the frame toppled (roll → −33.7°, heading 73 → 117°). Not recoverable, and it corrected the Stage-1 tilt rule. See §7 |
+| **N8** | Diagnose MOP586_5m (4 runs, longest 431) and MOP580_5m (11 runs, longest 449). A **third** signature — many medium runs. Do not assume either known mechanism | open |
+| **R** | Real-data regression: rerun L1+L2 on TOR23W/MOP586_10m with the new code and check (R1) healthy segments unchanged, (R2) Phase-A segments reappear as `segValid_vel`, (R3) rescale fires only where the thermistor failed | **running** |
 
 ## 5. Implementation plan (staged, and the stages are separable)
 
@@ -95,7 +99,10 @@ It is a bitwise no-op wherever the sensors are healthy. Independent of Stage 2.
   `vel_c_corrected` (bool), `vel_c_factor` (double, exactly 1.0 on healthy data),
   `vel_rotation_static` (bool), `Hs_source ∈ {'measured','reconstructed','none'}`,
   `qc_flag ∈ {1 good, 2 not evaluated, 3 suspect, 4 fail}`. **Anything reconstructed is 3, never 1.**
-- Gate: `L1_raw_to_qc/test_channel_decoupling.m` must pass. It already does.
+- Gate: `L1_raw_to_qc/test_channel_decoupling.m` and `L2_spectral/test_L2_channel_decoupling.m`
+  must pass. Both do.
+- **Tilt is NOT an auxiliary channel** — see §7. `valid_vel = valid_corr & present &
+  (~tilt_trusted | valid_tilt)` where `tilt_trusted = valid_T`.
 
 **Stage 2 — the rescale. UNBLOCKED.** N5 confirms Nortek's `V_corrected = V_old·(C_new/C_old)`;
 N2 verifies it against the data in the swell band. Apply it, record `vel_c_factor`, and keep
