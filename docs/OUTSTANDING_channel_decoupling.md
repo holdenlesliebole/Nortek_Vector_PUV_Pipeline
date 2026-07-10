@@ -1,5 +1,27 @@
 # Outstanding work — PUV channel decoupling & Phase-A recovery
 
+> **UPDATE 2026-07-10.** The eight audit defects (§ below, from the independent review) are
+> CLOSED and each is covered by a test that drives the real code. Root cause fixed: the QC
+> decision logic is now in pure, tested functions (`puv_channel_qc`, `puv_trim_anchor`,
+> `seg_is_bad`) — the previous suites only exercised the algebra, not `PUV_raw_process`.
+> Four suites, 54 assertions, all green:
+> `test_puv_channel_qc` (19), `test_puv_trim_anchor` (3), `test_L2_channel_decoupling` (13),
+> `test_channel_decoupling` (10, algebra). Commits `7d180fc` (harness), `fa8f2ab` (fixes).
+>
+> **Required before the rerun:** set `cfg.qcOpts.Tvalid = [9 26]` for San Diego coastal
+> deployments. The default `[-2 40]` is a wide safety bound that catches gross failures
+> everywhere but treats the MOP586_10m Dec 25-26 transitional +8.6/-1.7 C readings as
+> plausible, so it under-detects the early failure. The site range catches them.
+>
+> Fix map: F1 (Tref + topple-gate escalation) → `puv_channel_qc` valid_T/valid_vel + scenarios
+> BT,D. F2 (static no-op flag) → W. F3 (qc_flag on bad_seg) → E1/E2. F4 (pressure-only sanity)
+> → E3. F5 (trim crash) → `puv_trim_anchor` A/B/C. F6 (TmaxDev) → S1/S2/S3. F7 (c(T)
+> extrapolation) → clamp. F8 (static median) → noted.
+
+---
+
+# Outstanding work — PUV channel decoupling & Phase-A recovery (original)
+
 Branch `puv-channel-decoupling-2026-07`. Companion to
 `docs/L1_sensor_block_failure_2026-07-09.md` (the diagnosis) and
 `docs/diagnostics_2026-07-09/` (the raw-streaming scripts and derived CSVs).
