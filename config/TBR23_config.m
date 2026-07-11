@@ -17,6 +17,11 @@ function cfg = TBR23_config()
 
     cfg.name        = 'TBR23';
     cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector/Torrey20230503-20230816';
+
+    % San Diego coastal water-temperature range (deg C): the thermistor-failure
+    % discriminant. TBR23 is a summer deployment, so the thermistor should read ~15-22 C
+    % throughout; a reading below 9 C is a failure. See docs/PUV_Pipeline_Guide.pdf sec 5.
+    cfg.qcOpts.Tvalid = [9 26];
     cfg.outputDir   = fullfile(fileparts(mfilename('fullpath')), '..', 'outputs');
     cfg.fs          = 2;  % Hz
 

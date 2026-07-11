@@ -17,6 +17,12 @@ function cfg = TOR23W_config()
 
     cfg.name        = 'TOR23W';
     cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector';
+
+    % San Diego coastal water-temperature range (deg C): the thermistor-failure
+    % discriminant. Catches the subtle within-bounds sensor-block failures (a December
+    % reading below ~9 C at Torrey Pines is not real water) without mis-flagging genuine
+    % seasonal/upwelling temperatures. See docs/PUV_Pipeline_Guide.pdf sec 5.
+    cfg.qcOpts.Tvalid = [9 26];
     cfg.outputDir   = fullfile(fileparts(mfilename('fullpath')), '..', 'outputs');
     cfg.fs          = 2;  % Hz
 
