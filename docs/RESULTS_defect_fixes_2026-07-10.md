@@ -75,6 +75,6 @@ range**, not the wide default.
 
 ## Still open (unchanged by this work)
 
-- Propagate `qc_flag` into `build_L4_site` before any L4 rebuild.
+- ~~Propagate `qc_flag` into `build_L4_site`~~ **DONE 2026-07-10** (`l4_puv_qc`, `test_l4_puv_qc`): FAIL segments dropped, flags travel per burst, backward-compatible. Full L4 rebuild still waits on the rerun.
 - N7 (0.12-0.16 Hz reconstructed-spectrum deficit), N4 (noise-floor subtraction).
 - The scoped TOR23W + TBR23 rerun, with `Tvalid = [9 26]`.
