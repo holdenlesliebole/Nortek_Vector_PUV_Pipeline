@@ -9,9 +9,11 @@ levels — from QC'd time series up to nonlinear-wave / infragravity (IG)
 dynamics — using a single, deployment-agnostic configuration system. Run any
 deployment through the same drivers and get the same standardized output.
 
-> **New to the repo?** Read this file first, then `docs/pipeline_levels.md`
-> for the detailed level-by-level reference and `PIPELINE_NOTES.md` for design
-> decisions and known issues.
+> **New to the repo?** Read this file for orientation, then
+> **`docs/PUV_Pipeline_Guide.pdf`** — the single step-by-step writeup that takes you from
+> setup through running your own deployment, the quality-control system, methods, and
+> validation. `docs/pipeline_levels.md` is the level-by-level reference and
+> `PIPELINE_NOTES.md` holds design decisions and known issues.
 
 ---
 
@@ -19,7 +21,7 @@ deployment through the same drivers and get the same standardized output.
 
 | Level | Output | One-line description |
 |-------|--------|----------------------|
-| **L1** | QC'd 2 Hz time series | Burst merge, clock-drift + tilt correction, pitch/roll/pressure/correlation QC, rotation to buoy frame |
+| **L1** | QC'd 2 Hz time series | Burst merge, clock-drift + tilt correction, **per-channel** QC (velocity/pressure/temperature/tilt judged independently), sound-speed correction, rotation to buoy frame |
 | **L2** | Per-segment spectra | Multi-taper PSD, pressure correction → surface elevation, bulk wave params (Hs, Tp, direction), near-bed velocity, bed/Reynolds stress, velocity moments |
 | **L3** | Forcing metrics | Frequency-band energy decomposition, storm/event detection, transport proxies (Shields, Rouse), tidal + undertow current decomposition |
 | **L4** | Nonlinear / IG diagnostics | Surface-elevation bands, incident/reflected IG split, bispectra (skewness/asymmetry/bicoherence), IG cross-spectra, velocity PDFs |
@@ -104,6 +106,35 @@ SOL23 SOL24 SOL25A SOL25B TBR23 TOR23W TOR24S TOR24W TOR25S
 
 ---
 
+## Quality control and data provenance
+
+L1 judges each channel independently: **one dead channel never discards data from a channel
+that is still good.** A frame whose pressure sensor and thermistor fail during a storm still
+yields usable velocity if the Doppler channel is healthy — this recovers storm-peak data the
+old row-level QC threw away. Every L2 segment carries provenance so you can filter:
+
+- `segValid` — old-style "all channels good" (unchanged; existing analyses behave as before)
+- `segValid_vel` / `segValid_p` — velocity vs. pressure products usable
+- `qc_flag` — QARTOD-style: **1** good, **2** not evaluated, **3** suspect (recovered or
+  sound-speed-rescaled), **4** fail. Anything reconstructed is `3`, never `1`.
+- `Hs_source` — `'measured'` / `'reconstructed'` / `'none'`
+
+To use clean-only forcing, filter on `qc_flag == 1`. To use recovered storm-peak velocity
+moments, take `qc_flag == 3` with `segValid_vel`, knowing they carry a few-percent scale
+uncertainty. At L4 these travel per burst as `puv_qc_flag` / `puv_segValid_vel` / `puv_segValid_p`.
+
+> **⚠ One config setting matters: `cfg.qcOpts.Tvalid`.** This is the plausible
+> water-temperature range that flags a failed thermistor. The default `[-2 40]` is a wide
+> safety bound; **set it to the site range (San Diego coastal: `[9 26]`)** so subtle
+> thermistor failures are caught without ever mis-flagging genuine cold water. See
+> `docs/PUV_Pipeline_Guide.pdf` §5 for the full rationale.
+
+Three failure signatures are distinguishable from the `.sen` files alone (battery, sound
+speed, tilt): **sensor-block failure** (velocity recoverable), **toppled frame** (not), and
+**Doppler failure** (not). Full detail in `docs/OUTSTANDING_channel_decoupling.md`.
+
+---
+
 ## Repository layout
 
 ```
@@ -146,6 +177,8 @@ that speed up network-mounted I/O.
 
 ## Where to look next
 
+- **`docs/PUV_Pipeline_Guide.pdf`** — the step-by-step writeup: setup, running a deployment,
+  the QC system, methods, validation, and output reference (source: `PUV_Pipeline_Guide.tex`)
 - **`docs/pipeline_levels.md`** — the detailed, current level-by-level reference
   (inputs, outputs, status, output-struct shapes)
 - **`PIPELINE_NOTES.md`** — design decisions, coordinate conventions, known
