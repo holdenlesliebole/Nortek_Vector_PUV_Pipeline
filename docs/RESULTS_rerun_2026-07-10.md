@@ -85,3 +85,33 @@ forcing-record completeness, not new transport data.
   pressure was healthy).
 - Canonical `outputs/` is **not yet promoted**. Promotion overwrites the Ch.1/Ch.2 pipeline
   inputs and is the next deliberate step, followed by the L4 rebuild.
+
+---
+
+## 6. Promoted to canonical + L4 rebuilt (end-to-end verified)
+
+Canonical `outputs/L1,L2/{TOR23W,TBR23}` promoted from the rerun (backup at
+`outputs/_pre_channeldecoupling_backup_2026-07-10/`). PUV L4 (`L4_TP_*.mat`) rebuilt via the
+qc-aware `build_L4_site` (Altimeter_Pipeline `l4-qc-propagation-2026-07`; L4 backup at
+`Altimeter_Pipeline/outputs/_L4_backup_2026-07-10/`).
+
+The qc-aware L4 build fired as designed on MOP586_10m: **876 altimeter bursts matched to
+failed (buried-instrument) PUV segments dropped as `qc_flag=4`; 318 matched to recovered
+segments flagged `qc_flag=3`** (~2 altimeter bursts per hourly PUV segment).
+
+**End-to-end headline — `L4_TP_10m`, 25-29 Dec 2023 storm peak:**
+
+| | bursts in window | with a velocity moment |
+|---|---|---|
+| OLD L4 | 360 | **20** |
+| NEW L4 | 360 | **220** |
+
+An 11× fill of the storm-peak transport signal, now spanning Hs 0.82-3.18 m (skewness 0.11 to
+1.05, median 0.32), all `puv_qc_flag=3`. Clean bursts are bit-identical: 7093 matched, max
+Δskewness = 0.000, max ΔUb = 1.6e-8. `L4_TP_10m` carries `puv_qc_flag`, `puv_segValid_vel`,
+`puv_segValid_p` per burst.
+
+**Chapter 1 (TBR23): no manuscript changes needed.** Every Paper_1 consumer of TBR23 L2 gates
+on `segValid` (bit-identical), and the recovered segments carry `segValid=false`, so they are
+invisible; the reported valid/total counts, Table PUVstats, Table 7, and Hs figures (which use
+the MOP hindcast) all reproduce identically. The recovery is opt-in and Ch.1 does not opt in.
