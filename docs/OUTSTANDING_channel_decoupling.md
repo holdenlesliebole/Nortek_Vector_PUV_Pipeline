@@ -1,5 +1,13 @@
 # Outstanding work — PUV channel decoupling & Phase-A recovery
 
+> **UPDATE 2026-07-12 — rerun + promotion DONE.** The full-archive rerun ran with `Tvalid=[9 26]`;
+> 31/32 deployments validated safe (nStg==nCan + qc3 recovered) and were promoted to canonical
+> `outputs/{L1,L2}` and synced to Reefbreak (`Processed_HLB`). RUBY22/MOP579_6m recovered +1106
+> velocity segments (2nd instrument after MOP586_10m with the sensor-block-failure pattern).
+> **Open items now tracked in `docs/todo.md` (2026-07-12 section):** (1) regenerate L3/L4 from the
+> new L2 and push (rerun was L1→L2 only); (2) SIO24A HELD (regression, 1426→376 valid — diagnose);
+> (3) a few anomalous boundary segments. This supersedes the "Required before the rerun" note below.
+>
 > **UPDATE 2026-07-10.** The eight audit defects (§ below, from the independent review) are
 > CLOSED and each is covered by a test that drives the real code. Root cause fixed: the QC
 > decision logic is now in pure, tested functions (`puv_channel_qc`, `puv_trim_anchor`,
