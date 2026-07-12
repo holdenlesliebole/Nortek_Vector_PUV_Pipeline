@@ -17,7 +17,8 @@ lg = @(varargin) append_log(logf, sprintf(varargin{:}));
 
 jobs = { ...
   'LPL',      {'LPL23','LPL24','LPL25A','LPL25B'}; ...
-  'SIO_Pier', {'SIO24A','SIO24B','SIO24C','SIO25A','SIO25B','SIO25C','SIO25D','SIO25E'} };
+  'SIO_Pier', {'SIO24A','SIO24B','SIO24C','SIO25A','SIO25B','SIO25C','SIO25D','SIO25E'}; ...
+  'Solana',   {'SOL24','SOL25A','SOL25B'} };
 
 lg('==== rerun_parameterized START ====');
 nOK=0; nFail=0; nSkip=0;
