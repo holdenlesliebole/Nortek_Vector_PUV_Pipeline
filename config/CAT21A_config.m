@@ -10,8 +10,10 @@ function cfg = CAT21A_config()
 % Site geometry, latlon, heading, and doffp are placeholders — fill
 % from Catalina-2021 deployment notes before running L2 with shore-
 % normal rotation. Catalina is OUTSIDE the CDIP MOP coverage area, so
-% mopStation is empty and L2 must be run with `opts.doRotate = false`
-% until a manual shore-normal angle is provided.
+% mopStation is empty; to get shore-normal currents and the L4 reflection
+% split, set a manual angle via cfg.instruments(k).shorenormal (deg) —
+% see docs/NEW_DEPLOYMENT.md. Left unset for now (velocity stays in buoy
+% coords, which is the default when no angle is supplied).
 % Author: Holden Leslie-Bole, 2026
 
     cfg.name        = 'CAT21A';

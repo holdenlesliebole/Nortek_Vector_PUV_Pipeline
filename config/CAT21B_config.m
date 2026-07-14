@@ -7,8 +7,10 @@ function cfg = CAT21B_config()
 % 8/16/2021 11:44 PM to 8/31/2021 6:35 PM. Same site as CAT21A.
 %
 % Same caveats as CAT21A on lat/lon, heading, doffp, and the absent
-% MOP coverage. Run L2 with `opts.doRotate = false` until a manual
-% shore-normal angle is provided.
+% MOP coverage. There is no CDIP MOP transect here; to get shore-normal
+% currents and the L4 reflection split, set a manual angle via
+% cfg.instruments(k).shorenormal (deg) — see docs/NEW_DEPLOYMENT.md.
+% Left unset for now (velocity stays in buoy coords).
 % Author: Holden Leslie-Bole, 2026
 
     cfg.name        = 'CAT21B';

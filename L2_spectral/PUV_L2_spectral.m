@@ -28,8 +28,14 @@ function L2 = PUV_L2_spectral(PUV, instr, opts)
 %
 %   INPUTS
 %     PUV   - L1 struct from PUV_raw_process (loaded from *_processed.mat)
-%     instr - instrument config struct (from deployment config), needs:
-%               .mopStation  (string, e.g. 'D0580') for shore-normal rotation
+%     instr - instrument config struct (from deployment config). For
+%             shore-normal rotation it needs ONE of:
+%               .shorenormal (scalar deg) - manual shore-normal angle; use this
+%                              for any site without a CDIP/MOP model transect
+%                              (e.g. non-California deployments). Takes precedence.
+%               .mopStation  (string, e.g. 'D0580') - CDIP/MOP station; the
+%                              angle is fetched live from CDIP THREDDS (CA sites).
+%             If neither is present, velocity stays in buoy coords (+x W, +y N).
 %     opts  - (optional) struct to override defaults:
 %               .segLen   - segment length in samples (default 7200 = 1 hr @ 2 Hz)
 %               .nfft     - pwelch sub-segment length (default 256)
@@ -116,7 +122,25 @@ fprintf('  Segmenting: %d samples → %d segments of %d (%.1f min each)\n', ...
     N, nSeg, segLen, segLen / fs / 60);
 
 %% ======================== SHORE-NORMAL ROTATION ========================
-if opts.doRotate && isfield(instr, 'mopStation') && ~isempty(instr.mopStation)
+% The shore-normal angle can come from two sources, checked in this order:
+%   1. instr.shorenormal — a manual angle (deg) supplied in the config. Use this
+%      for ANY site without a CDIP/MOP model transect (e.g. Hawaii/reef and other
+%      non-California deployments). See docs/NEW_DEPLOYMENT.md for how to obtain it.
+%   2. instr.mopStation — a CDIP MOP station; the angle is fetched live from CDIP
+%      THREDDS (California sites only; requires internet).
+% A finite manual angle always takes precedence. If neither is available the data
+% stay in buoy coords (+x WEST, +y NORTH) and shorenormal = NaN (which also
+% disables the L4 incident/reflected split, so set an angle if you need it).
+hasManualSN   = isfield(instr, 'shorenormal') && ~isempty(instr.shorenormal) ...
+                && isfinite(instr.shorenormal);
+hasMopStation = isfield(instr, 'mopStation')  && ~isempty(instr.mopStation);
+
+if opts.doRotate && hasManualSN
+    shorenormal = instr.shorenormal;
+    [U_sn, V_sn] = apply_shorenormal_rotation( ...
+        PUV.BuoyCoord.U, PUV.BuoyCoord.V, shorenormal);
+    fprintf('  Shore-normal angle (manual, from config): %.1f deg\n', shorenormal);
+elseif opts.doRotate && hasMopStation
     try
         fprintf('  Fetching shore-normal angle for %s...\n', instr.mopStation);
         [U_sn, V_sn, shorenormal] = rotate_shorenormal( ...
@@ -135,8 +159,9 @@ else
     V_sn = PUV.BuoyCoord.V;
     shorenormal = NaN;
     if opts.doRotate
-        warning('PUV_L2_spectral:noMopStation', ...
-            'No mopStation defined — processing in buoy coords.');
+        warning('PUV_L2_spectral:noShoreNormal', ...
+            ['No shore-normal angle available — processing in buoy coords. ' ...
+             'Set instr.shorenormal (manual deg) or instr.mopStation (CDIP) in the config.']);
     end
 end
 

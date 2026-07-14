@@ -39,10 +39,18 @@ L2. See `docs/pipeline_levels.md` for full per-level detail.
   - **Mapping Toolbox** — `igrfmagm` for magnetic declination (IGRF-13/14)
   - **t_tide** (on the path) — tidal harmonic analysis in L3
   - *Aerospace Toolbox is **not** required* (see PIPELINE_NOTES.md)
-- **Internet access at runtime** — shore-normal angle is fetched from CDIP
-  THREDDS during L2 (falls back to buoy coordinates if unavailable)
-- **Access to the lab server** for raw data: `/Volumes/group/PUV_data/Vector/`
-  and deployment metadata: `/Volumes/group/DeploymentNotes/`
+- **Internet access at runtime** — *only* if you use a CDIP MOP station for the
+  shore-normal angle (California sites). A manually specified shore-normal angle
+  (`instr.shorenormal`, see below) needs no network.
+- **Raw data** — point each deployment's `cfg.rawDataRoot` at wherever your raw
+  Nortek files live. A local folder is fine; no lab server is required. *(The
+  bundled San Diego configs happen to point at the SIO group share
+  `/Volumes/group/PUV_data/Vector/`; your own config points wherever you want.)*
+
+> **Running your own deployment (any site, including non-California / reef
+> deployments with no CDIP MOP)?** Start with **`docs/NEW_DEPLOYMENT.md`** and the
+> copy-me template **`config/TEMPLATE_config.m`**. The pipeline is site-agnostic;
+> everything site-specific lives in one config file.
 
 ---
 
@@ -95,14 +103,38 @@ SOL23 SOL24 SOL25A SOL25B TBR23 TOR23W TOR24S TOR24W TOR25S
 
 ### Adding a new deployment
 
-1. Copy an existing `config/<SITE>_config.m` as a template.
-2. Fill in processing parameters from the authoritative source,
-   `/Volumes/group/DeploymentNotes/DeploymentNotes{year}.xls` (lat/lon,
-   heading, clock drift, sensor offset). The annual checkout spreadsheets have
-   serial numbers but **not** the numerical processing parameters.
-3. Register it in `config/deployment_registry.m`.
-4. See `config/CONFIG_REVIEW_NOTES.md` and `config/DOFFP_LOOKUP_CHECKLIST.md`
-   for deployment-specific gotchas.
+**Full walkthrough: `docs/NEW_DEPLOYMENT.md`.** In short:
+
+1. Copy **`config/TEMPLATE_config.m`** (a fully-commented, site-agnostic starting
+   point) to `config/<SITE>_config.m` and rename the function to match.
+2. Fill in the fields for each instrument: `rawDataRoot`, `label`, `filePrefix`,
+   `latlon`, `depth_nominal`, and **`doffp`** (pressure-sensor height above the
+   bed — required). Set `cfg.qcOpts.Tvalid` to your site's water-temperature
+   range (see QC section below).
+3. Set the **shore-normal angle**: `instr.shorenormal` (manual degrees, any site)
+   *or* `instr.mopStation` (CDIP lookup, California only) — see below.
+4. Register it in `config/deployment_registry.m` (one line:
+   `registry('SITE') = @SITE_config;`).
+
+*San Diego users:* the authoritative source for `doffp`/heading/clock drift is
+`/Volumes/group/DeploymentNotes/DeploymentNotes{year}.xls`; see
+`config/CONFIG_REVIEW_NOTES.md` and `config/DOFFP_LOOKUP_CHECKLIST.md` for
+per-deployment gotchas. *Other sites:* take these straight from your field log.
+
+### Shore-normal rotation
+
+L2 rotates buoy-frame velocity (`+x` West, `+y` North) into a shore-normal frame
+(`+x` onshore, `+y` alongshore-north), which drives the cross/alongshore currents
+(L3) and the incident/reflected IG split (L4). Supply the angle one of two ways:
+
+- **`instr.shorenormal = <deg>`** — a manual shore-normal bearing (offshore-
+  pointing, 0 = N, 90 = E). Use this at **any site without a CDIP MOP transect**
+  (i.e. anywhere outside California). No internet needed. *Takes precedence.*
+- **`instr.mopStation = 'D0580'`** — a CDIP MOP station; the angle is fetched
+  live from CDIP THREDDS (California sites; needs internet).
+
+If neither is set, velocity stays in buoy coordinates and the L4
+incident/reflected split is skipped.
 
 ---
 
@@ -125,9 +157,10 @@ uncertainty. At L4 these travel per burst as `puv_qc_flag` / `puv_segValid_vel` 
 
 > **⚠ One config setting matters: `cfg.qcOpts.Tvalid`.** This is the plausible
 > water-temperature range that flags a failed thermistor. The default `[-2 40]` is a wide
-> safety bound; **set it to the site range (San Diego coastal: `[9 26]`)** so subtle
-> thermistor failures are caught without ever mis-flagging genuine cold water. See
-> `docs/PUV_Pipeline_Guide.pdf` §5 for the full rationale.
+> safety bound; **set it to your site's range** so subtle thermistor failures are caught
+> without mis-flagging genuine water (San Diego coastal `[9 26]`; tropical reef `[22 31]`).
+> Do **not** copy a cold-water range to a warm site — it would flag healthy warm water as
+> sensor failure. See `docs/PUV_Pipeline_Guide.pdf` §5 for the full rationale.
 
 Three failure signatures are distinguishable from the `.sen` files alone (battery, sound
 speed, tilt): **sensor-block failure** (velocity recoverable), **toppled frame** (not), and
@@ -141,6 +174,7 @@ speed, tilt): **sensor-block failure** (velocity recoverable), **toppled frame**
 PUV_Pipeline/
   startup_puv.m         run first — adds all subdirs to the MATLAB path
   config/               per-deployment config functions + registry
+                        (TEMPLATE_config.m = copy-me starting point for a new site)
   L1_raw_to_qc/         raw .dat/.sen/.hdr  ->  QC'd PUV timeseries
   L2_spectral/          spectral analysis, wave stats, bed velocity
   L3_forcing/           band decomposition, storms, transport proxies, currents
@@ -177,6 +211,9 @@ that speed up network-mounted I/O.
 
 ## Where to look next
 
+- **`docs/NEW_DEPLOYMENT.md`** — start here to run the pipeline on your own
+  deployment at any site (metadata checklist, shore-normal without CDIP/MOP,
+  temperature QC, troubleshooting); pairs with `config/TEMPLATE_config.m`
 - **`docs/PUV_Pipeline_Guide.pdf`** — the step-by-step writeup: setup, running a deployment,
   the QC system, methods, validation, and output reference (source: `PUV_Pipeline_Guide.tex`)
 - **`docs/pipeline_levels.md`** — the detailed, current level-by-level reference
