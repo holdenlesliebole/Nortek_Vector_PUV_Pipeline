@@ -19,10 +19,10 @@ network, or any San Diego data to process your own deployment.
   - **Aerospace Toolbox** (required — `igrfmagm` for magnetic declination at L1;
     works at any latitude/longitude worldwide. *Not* Mapping Toolbox — a common
     mix-up; `igrfmagm` is an Aerospace function)
-  - **Statistics and Machine Learning Toolbox** (required — `skewness`/`kurtosis`
-    for L2 velocity moments, `corr` at L4)
   - **t_tide** on the path (external; only for L3 tidal harmonic analysis —
     L1/L2/L4 do not need it)
+  - *Statistics and Machine Learning Toolbox is NOT needed for L1–L4* (moments and
+    correlations are computed inline); only a few optional `validation/` scripts use it.
 - Your **raw Nortek Vector files** for the deployment: the `.dat`, `.sen`, and
   `.hdr` files (or `.VEC` exports). Put them in any folder you like.
 - The **deployment metadata** you recorded in the field (see step 2).
@@ -260,7 +260,6 @@ back to a generic path) at other sites — they never crash the run:
 | L4 reflection output is empty | `L2.shorenormal` is `NaN` — supply a shore-normal angle (§5) and re-run L2 |
 | Lots of `qc_flag == 4` on temperature; velocities rescaled | `Tvalid` too narrow for your site — widen it (§4) |
 | `Undefined function 'igrfmagm'` | install / license the **Aerospace Toolbox** (not Mapping) |
-| `Undefined function 'skewness'` / `'kurtosis'` | install / license the **Statistics and Machine Learning Toolbox** |
 | Raw files not found | check `cfg.rawDataRoot`, `rawSubfolder`, and `filePrefix` against your actual filenames |
 | `No CDIP data for buoy … in [window]` | wrong `refStation` id, no internet, or the buoy has no data in your deployment window — verify the station at cdip.ucsd.edu and check connectivity |
 | Reference/validation says *looks like a MOP model point … not on the path* | you set a MOP id (`D0###`) off the California grid — use a CDIP buoy id (e.g. `233p1`) in `refStation` instead |

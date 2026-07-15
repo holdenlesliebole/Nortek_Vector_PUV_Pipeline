@@ -31,8 +31,15 @@ stats.u_abs4  = mean(abs_u.^4);
 stats.u_uabs2 = mean(u .* abs_u.^2);
 stats.u_uabs3 = mean(u .* abs_u.^3);
 
-stats.skewness = skewness(u);
-stats.kurtosis = kurtosis(u);
+% Skewness and (non-excess) kurtosis with population/biased normalization —
+% identical to MATLAB's skewness()/kurtosis() defaults, computed inline so the
+% pipeline does not require the Statistics and Machine Learning Toolbox. u is
+% NaN-free here (stripped above).
+mu = mean(u);
+du = u - mu;
+m2 = mean(du.^2);
+stats.skewness = mean(du.^3) / m2^(3/2);
+stats.kurtosis = mean(du.^4) / m2^2;
 
 % Velocity asymmetry via Hilbert transform (Elgar & Guza 1985; Ruessink et al. 2012).
 % Sign convention: A_s < 0 for the forward-pitched (steep-front) shoaling wave,

@@ -37,11 +37,12 @@ L2. See `docs/pipeline_levels.md` for full per-level detail.
 - **MATLAB** (developed on R2023b+). Required toolboxes:
   - **Signal Processing Toolbox** — DPSS multi-taper spectra, Welch fallback (L2)
   - **Aerospace Toolbox** — `igrfmagm` for magnetic declination / IGRF (L1 heading)
-  - **Statistics and Machine Learning Toolbox** — `skewness`/`kurtosis` for
-    velocity moments (L2) and `corr` (L4)
   - **t_tide** (on the path, external) — tidal harmonic analysis in L3 only
   - *Mapping Toolbox is **not** required* (`igrfmagm` is an Aerospace Toolbox
     function; `decyear` was replaced by an inline calc — see PIPELINE_NOTES.md)
+  - *Statistics and Machine Learning Toolbox is **not** required by the L1–L4
+    pipeline* (skewness/kurtosis/corr are computed inline). A few optional
+    standalone scripts under `validation/` still use it (`quantile`, `regress`).
 - **Internet access at runtime** — only if you use a CDIP source: a MOP station
   for the shore-normal angle (California), or a CDIP `refStation` for the offshore
   wave reference (any site). A manual `instr.shorenormal` and no `refStation` need

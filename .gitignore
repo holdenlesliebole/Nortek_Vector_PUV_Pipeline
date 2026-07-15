@@ -43,3 +43,8 @@ docs/altimeter_correlation_plan.md
 docs/meeting_walkthrough/
 TestPUVholden.m
 wu-thornton-1986-wave-numbers-of-linear-progressive-waves.pdf
+
+# Large slide deck (regenerable from .tex; not needed for pipeline use)
+docs/puv_pipeline_slides.pdf
+# One-off San Diego diagnostic dump (hardcoded local paths + SD sample data)
+docs/diagnostics_2026-07-09/

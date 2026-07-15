@@ -137,7 +137,8 @@ for fi = 1:nf
     xv = Sv(fi, :).';
     ok = ~isnan(xv) & ~isnan(yv);
     if nnz(ok) < 30, continue; end
-    r(fi) = corr(xv(ok), yv(ok));
+    c = corrcoef(xv(ok), yv(ok));   % base MATLAB; = corr() for two vectors
+    r(fi) = c(1, 2);
 end
 end
 
