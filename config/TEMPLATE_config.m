@@ -104,6 +104,18 @@ function cfg = TEMPLATE_config()
     %  If you set NEITHER, L2 leaves velocity in buoy coords and L4 reflection
     %  is skipped.
 
+    % --- Offshore reference station (OPTIONAL; distinct from shore-normal) ---
+    % A nearby CDIP station used as the offshore wave reference — for the L2
+    % validation figures (Hs/Tp/direction, bound-wave, directional-spread) and
+    % the L3 storm/forcing context (fills PUV data gaps). This is NOT the
+    % shore-normal source; it is the role the CDIP MOP model plays in San Diego.
+    % Accepts any CDIP station id:
+    %    * a directional BUOY, e.g. '233p1' (Pearl Harbor) — read generically
+    %      via cdip_station_reference (needs internet; no extra toolbox); or
+    %    * a MOP model point, e.g. 'D0580' (California; needs read_MOPline2).
+    % Leave unset / '' to skip the reference-based validation and storm context.
+    cfg.instruments(k).refStation    = '233p1';   % <<< EDIT or delete
+
     % ======================================================================
     % INSTRUMENT 2, 3, ...  — copy the block above, incrementing k each time.
     % ======================================================================

@@ -30,14 +30,17 @@ end
 g = 9.81;
 rho = 1025;
 
-%% Load MOP
-if isfield(L2, 'mopStation') && ~isempty(L2.mopStation)
+%% Load offshore reference (CDIP MOP point or directional buoy)
+if isfield(L2, 'refStation') && ~isempty(L2.refStation)
+    mopStation = L2.refStation;
+elseif isfield(L2, 'mopStation') && ~isempty(L2.mopStation)
     mopStation = L2.mopStation;
 else
     mopNum = regexp(L2.label, 'MOP(\d+)', 'tokens', 'once');
     if isempty(mopNum)
         error('analyze_bound_waves:noStation', ...
-            'Cannot determine MOP station for label: %s', L2.label);
+            ['Cannot determine an offshore-reference station for label %s. ' ...
+             'Set instr.refStation (CDIP buoy or MOP) in the config.'], L2.label);
     end
     mopStation = ['D0' mopNum{1}];
 end
@@ -47,8 +50,8 @@ tStart = min(L2.time(validIdx));
 tEnd   = max(L2.time(validIdx));
 if isempty(tStart.TimeZone), tStart.TimeZone = 'UTC'; tEnd.TimeZone = 'UTC'; end
 
-fprintf('Loading MOP data for %s...\n', mopStation);
-MOP = read_MOPline2(mopStation, tStart, tEnd);
+fprintf('Loading offshore reference %s...\n', mopStation);
+MOP = cdip_station_reference(mopStation, tStart, tEnd);
 
 h_mop = double(MOP.depth);
 h_puv = median(L2.depth(validIdx), 'omitnan');

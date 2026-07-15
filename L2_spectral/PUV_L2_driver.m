@@ -76,8 +76,11 @@ for k = 1:nInstr
                 instr.label, validPct);
         end
 
-        % Run MOP validation if this instrument has a MOP station
-        if isfield(instr, 'mopStation') && ~isempty(instr.mopStation)
+        % Run offshore-reference validation if this instrument has a reference
+        % station (a CDIP MOP point or a directional buoy via instr.refStation)
+        hasRef = (isfield(instr, 'refStation') && ~isempty(instr.refStation)) || ...
+                 (isfield(instr, 'mopStation') && ~isempty(instr.mopStation));
+        if hasRef
             fprintf('  Running bound wave validation...\n');
             try
                 analyze_bound_waves(L2);

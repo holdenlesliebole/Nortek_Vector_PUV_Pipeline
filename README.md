@@ -39,9 +39,10 @@ L2. See `docs/pipeline_levels.md` for full per-level detail.
   - **Mapping Toolbox** — `igrfmagm` for magnetic declination (IGRF-13/14)
   - **t_tide** (on the path) — tidal harmonic analysis in L3
   - *Aerospace Toolbox is **not** required* (see PIPELINE_NOTES.md)
-- **Internet access at runtime** — *only* if you use a CDIP MOP station for the
-  shore-normal angle (California sites). A manually specified shore-normal angle
-  (`instr.shorenormal`, see below) needs no network.
+- **Internet access at runtime** — only if you use a CDIP source: a MOP station
+  for the shore-normal angle (California), or a CDIP `refStation` for the offshore
+  wave reference (any site). A manual `instr.shorenormal` and no `refStation` need
+  no network.
 - **Raw data** — point each deployment's `cfg.rawDataRoot` at wherever your raw
   Nortek files live. A local folder is fine; no lab server is required. *(The
   bundled San Diego configs happen to point at the SIO group share
@@ -135,6 +136,20 @@ L2 rotates buoy-frame velocity (`+x` West, `+y` North) into a shore-normal frame
 
 If neither is set, velocity stays in buoy coordinates and the L4
 incident/reflected split is skipped.
+
+### Offshore wave reference (optional)
+
+Separately from shore-normal, you can attach a **CDIP station as an offshore
+reference** — the role the MOP model plays in San Diego. It drives the L2
+validation figures (Hs/Tp/direction, bound-wave, directional spread) and the L3
+storm/forcing context. Set `instr.refStation` to any CDIP station id:
+
+- a **directional buoy**, e.g. `'233p1'` — read generically by
+  `shared/cdip_station_reference.m` (works at any site; needs internet); or
+- a **MOP model point**, e.g. `'D0580'` — delegated to `read_MOPline2` (California).
+
+A buoy is **not** a shore-normal source (it reports direction in a true-north
+frame); keep `instr.shorenormal` set for rotation. See `docs/NEW_DEPLOYMENT.md` §6.
 
 ---
 

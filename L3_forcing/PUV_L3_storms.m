@@ -108,11 +108,17 @@ end
 fprintf('  L3b storms (PUV): %d events detected (Hs > %.1f m, min %.0f hr)\n', ...
     length(events), Hs_storm_thresh, min_duration_hr);
 
-%% ======================== MOP CONTEXT ========================
-% Load MOP hourly data to provide continuous forcing context,
-% including during PUV data gaps (storms that damaged instruments).
+%% ======================== OFFSHORE REFERENCE CONTEXT ========================
+% Load hourly offshore-reference wave data to provide continuous forcing
+% context, including during PUV data gaps (storms that damaged instruments).
+% The reference is any CDIP station via cdip_station_reference: a CDIP MOP
+% model point (California) or a directional buoy (e.g. '233p1' near Pearl
+% Harbor). Station precedence: explicit L2.refStation, then L2.mopStation,
+% then a MOP number parsed from the instrument label (legacy San Diego).
 
-if isfield(L2, 'mopStation') && ~isempty(L2.mopStation)
+if isfield(L2, 'refStation') && ~isempty(L2.refStation)
+    mopStation = L2.refStation;
+elseif isfield(L2, 'mopStation') && ~isempty(L2.mopStation)
     mopStation = L2.mopStation;
 else
     mopNum = regexp(L2.label, 'MOP(\d+)', 'tokens', 'once');
@@ -133,20 +139,23 @@ if ~isempty(mopStation)
     tEnd_ext   = tEnd + days(7);
 
     try
-        fprintf('  Loading MOP data for %s (extended window)...\n', mopStation);
-        MOP = read_MOPline2(mopStation, tStart_ext, tEnd_ext);
+        fprintf('  Loading offshore reference %s (extended window)...\n', mopStation);
+        MOP = cdip_station_reference(mopStation, tStart_ext, tEnd_ext);
 
         if ~isempty(MOP.time)
-            % MOP Hs at 10m depth (not shoaled — for storm detection only)
+            % Reference Hs at the station depth (not shoaled — for storm
+            % detection / gap context only). Field kept as L3.mop for backward
+            % compatibility; .source records whether it is a buoy or MOP point.
             L3.mop.time = MOP.time;
             L3.mop.Hs = double(MOP.Hs);
             L3.mop.Tp = 1 ./ double(MOP.fp);
             L3.mop.Dp = double(MOP.Dp);
             L3.mop.station = mopStation;
             L3.mop.depth = double(MOP.depth);
+            if isfield(MOP,'source'), L3.mop.source = MOP.source; else, L3.mop.source = 'MOP'; end
 
-            fprintf('    MOP: %d hourly records, Hs range: %.2f–%.2f m\n', ...
-                length(MOP.time), min(L3.mop.Hs), max(L3.mop.Hs));
+            fprintf('    Reference (%s): %d records, Hs range: %.2f–%.2f m\n', ...
+                L3.mop.source, length(MOP.time), min(L3.mop.Hs), max(L3.mop.Hs));
 
             % Ensure PUV event times have timezone for comparison with MOP
             mopTZ = MOP.time.TimeZone;
@@ -230,11 +239,11 @@ end
             end
         end
     catch ME
-        warning('PUV_L3_storms:mopFailed', ...
-            'MOP data load failed: %s\nStorm detection uses PUV only.', ME.message);
+        warning('PUV_L3_storms:refFailed', ...
+            'Offshore reference load failed: %s\nStorm detection uses PUV only.', ME.message);
     end
 else
-    fprintf('  No MOP station — storm detection from PUV only\n');
+    fprintf('  No offshore reference station — storm detection from PUV only\n');
 end
 
 %% Sort events chronologically

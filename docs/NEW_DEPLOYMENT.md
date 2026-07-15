@@ -157,7 +157,55 @@ internet). This only works at San Diego / California MOP transects.
 
 ---
 
-## 6. Run the levels in order
+## 6. Optional: offshore wave reference (CDIP buoy or MOP)
+
+This is **separate from the shore-normal angle** and easy to confuse with it. A
+nearby CDIP station can serve as an *offshore wave reference* — the role the CDIP
+MOP model plays in San Diego. It feeds:
+
+- the **L2 validation figures** (compare PUV-derived Hs/Tp/direction, bound-wave
+  scaling, and directional spread against the offshore station), and
+- the **L3 storm/forcing context** (continuous external wave conditions that fill
+  PUV data gaps when an instrument is buried, fouled, or damaged).
+
+Set one field:
+
+```matlab
+cfg.instruments(k).refStation = '233p1';   % e.g. CDIP buoy near Pearl Harbor
+```
+
+`refStation` accepts **any CDIP station id**:
+
+- a **directional buoy** like `233p1` — read generically from CDIP THREDDS by
+  `shared/cdip_station_reference.m` (needs internet; no extra toolbox); or
+- a **MOP model point** like `D0580` — delegated to `read_MOPline2` (California;
+  needs that SIO toolbox on the path).
+
+Leave it unset (`''`) to skip reference-based validation and storm context —
+L1–L4 still run fully on PUV data alone.
+
+> **A buoy is NOT a shore-normal source.** A directional buoy reports wave
+> direction in a true-north frame and carries no `metaShoreNormal`. Shore-normal
+> is your site's bathymetry orientation — always set `instr.shorenormal` (§5)
+> regardless of whether you also set `refStation`. A nearby buoy's dominant peak
+> direction (`waveDp`) can *help you choose* the manual shore-normal, but it is
+> not a substitute for it.
+>
+> **Depth note:** offshore buoys sit in deeper water than a MOP transect (233p1
+> is ~35 m). The validation figures shoal the reference spectrum to the PUV
+> depth using linear theory, so a deep buoy is fine — just be aware the reference
+> is farther offshore than a shore-transect MOP point.
+
+You can also fetch a station's timeseries directly for your own use:
+
+```matlab
+REF = cdip_station_reference('233p1', datetime(2025,7,1), datetime(2025,7,31));
+% REF.time/.Hs/.Tp/.Dp/.depth + directional spectra (.frequency/.spec1D/.a1/...)
+```
+
+---
+
+## 7. Run the levels in order
 
 Set `deployment_name` at the top of each driver to your key, then run L1 → L4:
 
@@ -174,22 +222,22 @@ Set `deployment_name` at the top of each driver to your key, then run L1 → L4:
 ```
 
 Each level reads the previous level's `.mat` files and errors clearly if they're
-missing, so always run in sequence. `PUV_L2_driver` also runs a couple of
-MOP-specific validation figures — those are **skipped automatically** when there
-is no `mopStation`, which is expected at a non-California site.
+missing, so always run in sequence. `PUV_L2_driver` also runs the offshore-
+reference validation figures when a `refStation` (or `mopStation`) is set (§6);
+they are **skipped automatically** when neither is present.
 
 ---
 
-## 7. What is San-Diego-specific and safe to ignore
+## 8. What is San-Diego-specific and safe to ignore
 
-These pieces assume the San Diego MOP/CDIP network and simply **no-op** at other
-sites (they never crash the run):
+These pieces assume the San Diego MOP/CDIP network and simply **no-op** (or fall
+back to a generic path) at other sites — they never crash the run:
 
-- **MOP storm context** (`L3_forcing/PUV_L3_storms.m`) — pulls external MOP
-  hourly wave conditions via `read_MOPline2` (an SIO/CDIP toolbox function you
-  will not have). Wrapped in try/catch: storm detection falls back to PUV-only.
-- **Bound-wave / directional-spread validation figures** in `PUV_L2_driver` —
-  gated on `mopStation`; skipped when absent.
+- **Offshore-reference storm context / validation figures** — if you set a
+  `refStation` (§6), these work anywhere via `cdip_station_reference`. If you set
+  a MOP point instead, they need `read_MOPline2` (an SIO toolbox you won't have
+  off the California grid). Either way the calls are wrapped in try/catch: with no
+  reference set, storm detection falls back to PUV-only and the figures are skipped.
 - **Per-site grain size** (`shared/site_grain_size.m`) — a table of San Diego
   sand samples. If your site label has no entry, L2 falls back to a default
   `D50` (0.25 mm) for the bed-stress estimate. **Sediment-transport proxies (L3
@@ -200,16 +248,18 @@ sites (they never crash the run):
 
 ---
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 | Symptom | Cause / fix |
 |---------|-------------|
 | `doffp is NaN … fill from ... before running L2` | set `cfg.instruments(k).doffp` (pressure-sensor height above bed, m) |
-| Warning: *"No shore-normal angle available — processing in buoy coords"* | set `cfg.instruments(k).shorenormal` (or `mopStation` for CA); see step 5 |
-| L4 reflection output is empty | `L2.shorenormal` is `NaN` — supply a shore-normal angle (step 5) and re-run L2 |
-| Lots of `qc_flag == 4` on temperature; velocities rescaled | `Tvalid` too narrow for your site — widen it (step 4) |
+| Warning: *"No shore-normal angle available — processing in buoy coords"* | set `cfg.instruments(k).shorenormal` (or `mopStation` for CA); see §5 |
+| L4 reflection output is empty | `L2.shorenormal` is `NaN` — supply a shore-normal angle (§5) and re-run L2 |
+| Lots of `qc_flag == 4` on temperature; velocities rescaled | `Tvalid` too narrow for your site — widen it (§4) |
 | `Undefined function 'igrfmagm'` | install / license the **Mapping Toolbox** |
 | Raw files not found | check `cfg.rawDataRoot`, `rawSubfolder`, and `filePrefix` against your actual filenames |
+| `No CDIP data for buoy … in [window]` | wrong `refStation` id, no internet, or the buoy has no data in your deployment window — verify the station at cdip.ucsd.edu and check connectivity |
+| Reference/validation says *looks like a MOP model point … not on the path* | you set a MOP id (`D0###`) off the California grid — use a CDIP buoy id (e.g. `233p1`) in `refStation` instead |
 
 ---
 

@@ -714,11 +714,21 @@ L2.params.bedstress_D84_m       = D84_used;
 L2.params.bedstress_D50_m_used  = D50_used;
 L2.params.bedstress_gs_status   = gs_status;
 
-% Store MOP station for validation scripts
+% Store the offshore-reference station(s) for L3 storm context and the
+% L2/L3 validation figures. mopStation = CDIP MOP model point (California);
+% refStation = any CDIP station id — a directional buoy (e.g. '233p1') or a
+% MOP point — read generically via cdip_station_reference at other sites.
 if isfield(instr, 'mopStation')
     L2.mopStation = instr.mopStation;
 else
     L2.mopStation = '';
+end
+if isfield(instr, 'refStation') && ~isempty(instr.refStation)
+    L2.refStation = instr.refStation;
+elseif ~isempty(L2.mopStation)
+    L2.refStation = L2.mopStation;   % default the generic reference to the MOP point
+else
+    L2.refStation = '';
 end
 
 end
