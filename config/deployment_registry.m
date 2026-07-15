@@ -3,9 +3,12 @@ function registry = deployment_registry()
 %
 %   registry = deployment_registry()
 %
+%   See config/README.md for how the config system fits together and how to add
+%   a new deployment (or docs/NEW_DEPLOYMENT.md for the full walkthrough).
+%
 %   Usage:
 %       reg = deployment_registry();
-%       cfg = reg('TBR23')();   % returns TBR23 config struct
+%       cfg = reg('TOR24S')();  % returns the Torrey spring 2024 config
 %       cfg = reg('SIO24A')();  % returns SIO Pier spring 2024 config
 %
 %   Deployment naming convention:

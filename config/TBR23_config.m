@@ -3,7 +3,7 @@ function cfg = TBR23_config()
 %   Torrey Pines, summer 2023 — same site as TOR23W/TOR24S. (Named for the
 %   surveys+PUV campaign; under the SITE+season convention this would be TOR23S.)
 %
-%   cfg = TBR23_config()
+%   cfg = TBR23_config()   (also reachable via the 'TOR23S' registry key)
 %
 %   Deployment: May-August 2023, Torrey Pines State Beach
 %   MOP lines 580 and 586, each with 5m and 7m instruments.
