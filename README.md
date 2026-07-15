@@ -102,8 +102,11 @@ SOL23 SOL24 SOL25A SOL25B TBR23 TOR23W TOR24S TOR24W TOR25S
 ```
 
 **Naming convention:** `SITE + year + optional season letter`
-(`TBR23` = Torrey Black's Rock summer 2023; `TOR24S` = Torrey spring 2024;
-`SIO24A–C` = SIO Pier 2024 chronological). Full key in
+(`TOR24S` = Torrey spring 2024; `SIO24A–C` = SIO Pier 2024 chronological).
+`TBR23` is the one legacy exception: it is named for the **Torrey Pines Beach
+Recovery 2023** field campaign (surveys + PUV), but the deployment itself is a
+Torrey Pines PUV deployment at the same site as `TOR23W`/`TOR24S` — under the
+convention above it would be `TOR23S`. Full key in
 `config/deployment_registry.m`.
 
 ### Adding a new deployment

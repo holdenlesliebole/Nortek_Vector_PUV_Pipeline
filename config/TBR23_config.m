@@ -1,5 +1,7 @@
 function cfg = TBR23_config()
-% TBR23_CONFIG  Deployment configuration for Torrey Black's Rock Summer 2023.
+% TBR23_CONFIG  Torrey Pines Beach Recovery 2023 (TBR23) campaign PUV deployment.
+%   Torrey Pines, summer 2023 — same site as TOR23W/TOR24S. (Named for the
+%   surveys+PUV campaign; under the SITE+season convention this would be TOR23S.)
 %
 %   cfg = TBR23_config()
 %

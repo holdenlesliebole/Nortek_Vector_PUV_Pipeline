@@ -10,7 +10,9 @@ function registry = deployment_registry()
 %
 %   Deployment naming convention:
 %     SITE + year(s) + optional season letter
-%     TBR23    = Torrey Black's Rock summer 2023
+%     TBR23    = Torrey Pines Beach Recovery 2023 campaign (Torrey Pines PUV
+%                deployment; same site as TOR23W/TOR24S. Named for the campaign,
+%                not the SITE+season convention — would otherwise be TOR23S.)
 %     TOR23W   = Torrey winter 2023-24 (was part of NN24)
 %     SOL23    = Solana winter 2023-24 (was part of NN24)
 %     TOR24S   = Torrey spring 2024
@@ -28,6 +30,12 @@ function registry = deployment_registry()
 
     % --- Original configs (fully parameterized from DeploymentNotes) ---
     registry('TBR23')  = @TBR23_config;
+    % Convention-consistent alias for the TBR23 Torrey Pines deployment (same
+    % site/season as TOR23W/TOR24S). Both keys load the same config; cfg.name
+    % stays 'TBR23', so outputs/cache and downstream (Paper_1) are unchanged.
+    % TODO: a proper TBR23 -> TOR23S rename (cfg.name + folders + Paper_1) is a
+    % separate coordinated cleanup — see docs/todo.md.
+    registry('TOR23S') = @TBR23_config;   % alias -> TBR23
     registry('TOR23W') = @TOR23W_config;    % Nov 2023-Feb 2024, 6 instruments (was NN24 Torrey)
     registry('SOL23')  = @SOL23_config;     % Nov 2023-Jan 2024, 3 instruments (was NN24 Solana)
 
