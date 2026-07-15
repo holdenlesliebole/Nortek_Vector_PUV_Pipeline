@@ -188,45 +188,9 @@ fits are the next major build.
 
 ---
 
-## Analysis Layer (paper-specific, not in pipeline)
+## Analysis layer (downstream of the pipeline)
 
-These use pipeline outputs but live in paper-specific repos.
-
-### TBR23 Paper (Paper 1) — active
-- Forcing-response time series + transport mechanism figures (built)
-- Skewness vs Ruessink 2012 validation (built)
-- Tidal modulation of undertow (built)
-- Bailard / Hoefel & Elgar transport calculation against survey bed
-  change (open)
-- LPA D50 ingestion → re-run bed-stress/Shields (open)
-- Fig 10 |u|-crossover vs Shields-threshold for real TBR23 D50 (open)
-
-### PUV Wave Dynamics Paper — `/Users/holden/Documents/Scripps/Research/PUV_paper/`
-GitHub: `holdenlesliebole/PUV_Wave_Dynamics_Paper`
-- MOP spectral peak broadening (cross-deployment)
-- SIO Pier canyon focusing
-- Depth trend in peak ratio
-- Seasonal variability of spectral shape bias
-- Slope-vs-kh validation of u-skewness predictor across 38 instruments
-  (Bill MOP511 reverse-engineered, see `PUV_paper/docs/bill_skewness_extensions.md`)
-- Bispectral coupling variability vs predictor residuals
-
-### Vector Mean-Flow Validation Technical Note —
-`/Users/holden/Documents/Scripps/Research/Vector_MeanFlow_Note/`
-- 5-test framework (Hs² scaling, cross-instrument, tidal modulation,
-  Reynolds stress, range setting)
-- 33-instrument cross-deployment results at 17-min and 1-hour cadence
-- Alongshore robustness + wave-direction discrimination tests
-- Target: short JTECH-O methods note
-
-### Paper 3 — Decadal Coastal Morphodynamics (San Diego + Baja)
-`/Users/holden/Documents/Scripps/Research/Paper_3/`
-- Multi-site (4 SD + 4 Baja) EOF + diffusion-model framework
-- Sarah's 2014–2023 8 Hz Torrey archive (~9-year record, currently
-  mislabeled "LPL") feeds the long-term wave-forcing dataset
-
-### Other future papers
-- Lagoon dynamics (LPL post-2023 deployments only — Sarah's archive is
-  actually Torrey)
-- Pre-2023 historical archive ingestion (Cardiff, Coronado, Imperial
-  Beach, Catalina) for broader site coverage in the wave-dynamics paper
+Pipeline outputs (the L1–L4 `.mat` files documented above) feed site-specific
+analysis and figures, which live outside this repo. The pipeline itself is
+analysis-agnostic: it produces the standardized per-level outputs, and
+downstream studies consume them however they need.

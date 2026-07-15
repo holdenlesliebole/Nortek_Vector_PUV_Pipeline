@@ -149,15 +149,18 @@ Local cache goes to `PUV_Pipeline/raw_cache/`.
 - Transport sign convention: q_x positive = onshore flux
 - Pressure: dBar (raw from instrument, not converted to Pa)
 
-### Magnetic declination: no Aerospace Toolbox required
-`decyear()` requires Aerospace Toolbox. Replaced with inline calculation:
+### Magnetic declination: Aerospace Toolbox required (for `igrfmagm`)
+We avoid the `decyear()` Aerospace function by inlining the decimal-year calc:
 ```matlab
 doy   = datenum(yr, mo, dy) - datenum(yr, 1, 0);
 isLeap = (mod(yr,4)==0 && mod(yr,100)~=0) || mod(yr,400)==0;
 decYr  = yr + (doy-1) / (365 + double(isLeap));
 ```
-`igrfmagm()` requires Mapping Toolbox (available). Use this, not `wrldmagm()` (Aerospace Toolbox).
-`wrldmagm` is limited to a 5-year WMM lifespan and errors on older deployment dates.
+but the declination itself uses `igrfmagm()`, which **is an Aerospace Toolbox
+function** (`toolbox/aero/aero/igrfmagm.m`) — so **Aerospace Toolbox is required**.
+(An earlier version of this note mislabeled it as Mapping Toolbox; it is not.)
+We use `igrfmagm`, not `wrldmagm` (also Aerospace): `wrldmagm` is limited to a
+5-year WMM lifespan and errors on older deployment dates.
 `igrfmagm(height_km, lat, lon, decYr, 13)` — height in km, IGRF model epoch 13.
 
 ---
@@ -191,6 +194,39 @@ mixed in a single misnamed folder (`MOP586-7m17047`). Fixed on 2026-04-01:
 ## Known Issues and Review Items
 
 See also: `config/CONFIG_REVIEW_NOTES.md` for deployment-specific items.
+
+### L2 Z-test formula — fixed 2026-06-05
+`PUV_L2_spectral.m` formerly computed the predicted pressure spectrum from
+velocity as `Spp_from_vel = (Suu+Svv) · vel2pres²` with
+`vel2pres = (g·k/ω)·cosh(k·d)/cosh(k·h)`. At sensor depth the cosh factors
+should cancel and the (g·k/ω) factor enters as its inverse, so the
+correct relation is `Spp_from_vel = (Suu+Svv)·(ω/(g·k))²`. The bug
+produced a monotonic depth dependence in `ztest_SS` and `ztest_IG`
+(median Z ≈ 0.33 at H=5 m climbing to ≈ 2.8 at H=15 m) that mimicked
+shoaling-wave nonlinearity but was a pure formula error. Net error
+factor was `(g·k/ω)⁴·cosh²(k·d)/cosh²(k·h)`, monotonic in depth.
+
+Status:
+- Fix landed in `L2_spectral/PUV_L2_spectral.m`, Z-test block ~line 393.
+- TBR23 L2 files reprocessed 2026-06-05; medians now Z = 0.91–0.99.
+- All other deployments reprocessed via `PUV_L2_rerun_for_Zfix.m`
+  on the same date; corrected medians sit at Z = 0.92–0.97 across
+  depths 4–18 m (saved at
+  `Paper_1/paper/figures/figS_Z_corrected_all_deployments_20260605.txt`).
+- Regression guard: `L2_spectral/test_ztest_linear.m` feeds a synthetic
+  linear surface wave through the spectral routine and asserts Z = 1.0
+  within tolerance at H = 3, 5, 7, 10, 15, 20 m. Now invoked from
+  `scripts/test_new_L2_fields.m`; run before any future L2-touching
+  publication.
+- No downstream pipeline product (L3 transport, L4 IG, bulk wave
+  parameters) reads or filters on Z, so manuscript-bound quantities
+  (Sk, As, bispectra) were not affected.
+
+Naming note: the diagnostic is called Z in the literature (Elgar,
+Raubenheimer & Guza 2005, MST 16), not z². The L2 field name
+`ztest_SS` is retained for code-style consistency, but user-facing
+text, figure captions, and equations should write Z. Retention
+window 0.5 < Z < 2.
 
 ### bed_velocity_ifft.m — potential conjugate symmetry bug
 In the loop over FFT bins, the negative-frequency bin is set to the conjugate
