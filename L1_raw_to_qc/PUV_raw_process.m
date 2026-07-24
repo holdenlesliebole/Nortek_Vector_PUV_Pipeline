@@ -111,6 +111,42 @@ function PUV = PUV_raw_process(instr, cfg)
             ~isempty(cfg.qcOpts.cutoffGapSec)
         cutoffGapSec = cfg.qcOpts.cutoffGapSec;
     end
+
+    % A gap at the very start of a burst is a power-on glitch, not battery
+    % death: some recorders write a single sample when switched on, then a big
+    % gap, then the real deployment. TOR16B opens with one ping and a 2463 s
+    % gap. Trim those isolated leading samples off the front burst(s) so the
+    % record starts at the first continuous data, instead of reading the glitch
+    % as an end-of-life cutoff. Only the leading edge is trimmed; an interior
+    % gap still marks a real cutoff below.
+    b = 1;
+    while b <= nBursts
+        S = SEN_bursts{b};
+        if isempty(S), b = b + 1; continue; end
+        tt = datetime([S(:,3) S(:,1:2) S(:,4:6)], 'InputFormat', 'YYYYMMDDHHmmSS');
+        g = find(diff(tt) > seconds(cutoffGapSec), 1, 'first');
+        if isempty(g)
+            break;                     % this burst starts clean — done trimming
+        end
+        % Drop samples 1..g (the isolated leading ping and the gap) from burst b.
+        keepFrom = g + 1;
+        DATb = DAT_bursts{b};
+        S(1:g, :) = [];
+        DATb(1 : min(g*fs, size(DATb,1)), :) = [];
+        if isempty(S)
+            SEN_bursts(b) = []; DAT_bursts(b) = [];
+            date_start(b,:) = []; date_end(b,:) = [];
+            nBursts = nBursts - 1;     % re-check the same index, now the next burst
+        else
+            SEN_bursts{b} = S; DAT_bursts{b} = DATb;
+            date_start(b,:) = [S(1,3) S(1,1:2) S(1,4:6)];
+            fprintf('  Trimmed %d leading glitch sample(s) from burst %d (power-on gap)\n', ...
+                keepFrom-1, b);
+            break;                     % front is now clean
+        end
+    end
+
+    % Now scan for a genuine interior cutoff (battery death / clock jump).
     cutoff = [];
     for ii = 1:nBursts
         SENii = SEN_bursts{ii};
@@ -865,7 +901,9 @@ function [DAT_bursts, SEN_bursts, date_start, date_end, fs, coordSystem] = ...
     % the battery-cutoff detector below, which truncates the record at the
     % first gap over a second — IB-S02 loses a second across its _4/_5 seam
     % and would lose four months of good data to it.
-    [DAT_bursts, SEN_bursts, meta] = read_VEC(vecFiles, 'Split', true);
+    % Verbose off: these deployments have hundreds of hourly files and the
+    % per-file line is just noise once the decoder is trusted.
+    [DAT_bursts, SEN_bursts, meta] = read_VEC(vecFiles, 'Split', true, 'Verbose', false);
 
     keep = ~cellfun(@isempty, SEN_bursts);
     if ~any(keep)
