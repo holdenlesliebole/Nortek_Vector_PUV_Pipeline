@@ -143,6 +143,48 @@ Files on `/Volumes/group/` are on a network mount — copy to local disk first
 using `copy_raw_to_local(cfg)` before running L1 processing.
 Local cache goes to `PUV_Pipeline/raw_cache/`.
 
+### Raw-binary ingestion: read_VEC (added 2026-07)
+L1 reads either the Nortek ExploreV ASCII export (`.dat`/`.sen`/`.hdr`) or the
+raw recorder binary (`.VEC`/`.vec`/`.049`), via `L1_raw_to_qc/read_VEC.m`.
+ExploreV — and Windows — are not required. This was needed to process the
+pre-2019 archive (`recopied/`), most of which has no ASCII export at all, and to
+avoid a partial-export trap (one deployment's `.dat` covers 5 of 174 days and
+ends mid-line).
+
+Decoder facts and design choices:
+- **Verified bit-exact** against the one overlapping ASCII export
+  (`test_read_VEC.m`): velocity/amp/corr/clock/flags identical over 886k velocity
+  + 443k system records; pressure/attitude agree to the ASCII print precision.
+- Records are confirmed by their Nortek checksum before use (`0xA5` occurs freely
+  inside velocity data, so a sync-byte match alone is not enough).
+- **fs is measured from the decoded records** (velocity-count / 1 Hz system-count),
+  NOT from `512/AvgInterval`. The config derivation is right on firmware 3.43 but
+  reports 8 Hz on firmware 1.21 where the data is 2 Hz; `read_VEC` keeps the config
+  value as `fs_config` and warns on disagreement. This is why the 2015–2018 set was
+  wrongly believed to need 8 Hz pipeline support — it does not.
+- **Coordinate system + sampling rate come from the binary's User Configuration
+  record**, so a 0-byte `.hdr` (unreadable from ASCII) is not fatal. Every file
+  checked is XYZ.
+- **One burst per raw file.** Both ingest paths treat each `_N` / hourly file as a
+  separate burst, so the battery-cutoff detector never reads a file seam as a gap.
+  Bursts are merged in **chronological order** (sorted by their monotonic clock),
+  not filename order — `MMDDHHMM` names sort January ahead of the previous
+  November, which scrambled the year-crossing Cardiff 2015–16 record until fixed.
+- `.049` files (Cardiff) are ordinary Vector binary missing only the leading
+  `0xA5` sync byte; `read_VEC` restores it.
+
+### Wrong-epoch clock recovery: vec_clock_from_filenames (added 2026-07)
+The firmware-1.21 recorders stamp a nonsense clock epoch (2000-01-01 / 2002-01-01),
+but the clock *runs* correctly and each hourly file is named `MMDDHHMM` for the
+true wall-clock hour. A single constant offset (median over all files) reconciles
+them; opt in per instrument with `clockSource='filename'` + `deployYear`. The guard
+rejects on the 98th-percentile spread (not the max), so a few dying-battery outlier
+files near end-of-life don't veto an otherwise-clean deployment. Every recovered
+span matches the logged deployment date; Cardiff1049 (whose clock *was* set right)
+is the control and agrees to 33 s. Related L1 robustness added at the same time:
+`cfg.qcOpts.cutoffGapSec` (raise above the benign ~3 s per-file hiccups),
+power-on-glitch trimming, and end-of-life clock-jump truncation.
+
 ### Coordinate conventions
 - After L1 rotation: +x WEST, +y NORTH, +z UP (left-handed, MOP convention)
 - After L2 shorenormal rotation: +x onshore (shore-normal), +y alongshore north
