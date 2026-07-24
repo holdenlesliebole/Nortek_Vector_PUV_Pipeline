@@ -240,10 +240,21 @@ function PUV = PUV_raw_process(instr, cfg)
             nFill = min(nFill, length(full_date) - iStart + 1);
             DAT(iStart : iStart+nFill-1, :) = DATii(1:nFill, :);
 
-            % SEN is at 1 Hz — duplicate each sample to fill 2 Hz slots
-            senEnd = min(iEnd+1, length(full_date));
-            SEN(iStart   : 2 : senEnd, :) = SENii(1:min(size(SENii,1), numel(iStart:2:senEnd)), :);
-            SEN(iStart+1 : 2 : iEnd,   :) = SENii(1:min(size(SENii,1)-1, numel(iStart+1:2:iEnd)), :);
+            % SEN is at 1 Hz — duplicate each sample to fill 2 Hz slots. When a
+            % burst has an internal gap (the firmware-1.21 recorders drop a few
+            % seconds in nearly every hourly file), its grid span iEnd-iStart is
+            % larger than its SEN row count, so the destination index can have
+            % more slots than there are source rows. Truncate BOTH sides to the
+            % common length rather than only the source, or the assignment sizes
+            % disagree. (Latent since the pipeline began; the gap-free modern
+            % bursts never exposed it.)
+            senEnd  = min(iEnd+1, length(full_date));
+            evenIdx = iStart   : 2 : senEnd;
+            oddIdx  = iStart+1 : 2 : iEnd;
+            nEven = min(numel(evenIdx), size(SENii,1));
+            nOdd  = min(numel(oddIdx),  size(SENii,1));
+            SEN(evenIdx(1:nEven), :) = SENii(1:nEven, :);
+            SEN(oddIdx(1:nOdd),   :) = SENii(1:nOdd,  :);
         end
     else
         % 1 Hz sampling
@@ -274,7 +285,8 @@ function PUV = PUV_raw_process(instr, cfg)
             nFill = min(nFill, size(DATii, 1));
             nFill = min(nFill, length(full_date) - iStart + 1);
             DAT(iStart : iStart+nFill-1, :) = DATii(1:nFill, :);
-            SEN(iStart : iStart+nFill-1, :) = SENii(1:min(nFill, size(SENii,1)), :);
+            nSenFill = min(nFill, size(SENii,1));   % SEN can be shorter than the span
+            SEN(iStart : iStart+nSenFill-1, :) = SENii(1:nSenFill, :);
         end
     end
 
