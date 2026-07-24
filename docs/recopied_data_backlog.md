@@ -39,11 +39,28 @@ the affected configs pin `rawFormat = 'VEC'`.
 
 2 Hz, firmware 3.43, valid real-time clock. Decoded from `.VEC` and run L1→L4.
 
-| Folder | Deployment | Instrument | Window |
-|---|---|---|---|
-| `TorreyPines2019-2020MOP582_10meter` | **TOR19W** | S/N 15277, MOP582 10 m | 2019-11-15 → 2020-05-06 |
-| `TorreyPines2020-2021_10meter` | **TOR20W** | S/N 15277, MOP582 10 m | 2020-10-29 → 2021-03-31 |
-| `2019-2020-IB-Cortez` | **IB19W** | S/N 15032, MOP045 Cortez 6 m | 2019-11-18 → 2020-05-27 |
+| Folder | Deployment | Instrument | Deployed → recovered | L1 record retained | Hourly segments (valid) |
+|---|---|---|---|---|---|
+| `TorreyPines2019-2020MOP582_10meter` | **TOR19W** | S/N 15277, MOP582 10 m | 2019-11-15 → 2020-05-06 | 2019-11-15 → 2020-04-03 (139.5 d, 24.1 M samples) | 3347 (2858) |
+| `TorreyPines2020-2021_10meter` | **TOR20W** | S/N 15277, MOP582 10 m | 2020-10-29 → 2021-03-31 | 2020-10-29 → 2021-03-31 (153.2 d, 26.5 M samples) | 3676 (2965) |
+| `2019-2020-IB-Cortez` | **IB19W** | S/N 15032, MOP045 Cortez 6 m | 2019-11-18 → 2020-05-27 | 2019-11-18 → 2020-02-19 (92.4 d, 16.0 M samples) | 2217 (1771) |
+
+The binary covers the full deployment in every case (TOR19W decodes 26.0 M samples to 2020-05-07,
+IB19W 18.3 M to 2020-05-28). The shortfall in the L1 record is the pipeline's existing
+battery-cutoff rule, which truncates at the first gap over a second once the instrument starts
+recording intermittently late in these 5-6 month single-battery deployments — not a decode limit.
+
+**Validation against CDIP MOP**, hourly Hs over the full records:
+
+| | n | R² | bias (PUV−MOP) | RMSE | slope |
+|---|---|---|---|---|---|
+| TOR19W vs D0582 | 2858 | 0.884 | −0.022 m | 0.132 m | 0.926 |
+| TOR20W vs D0582 | 2965 | 0.944 | −0.009 m | 0.123 m | 0.987 |
+| IB19W vs D0045 | 1771 | 0.893 | +0.037 m | 0.147 m | 0.863 |
+
+An independent check also falls out of the two Torrey deployments: L2 median depth differs by
+0.33 m between them (11.37 vs 11.70 m), matching the 0.29 m difference in `doffp` recorded in the
+field notes.
 
 TOR19W was the priority: it is co-located with the MOP582.2 Aquadopp ADCP (S/N 2141, ~15 m)
 over the same window, so it is the independent-instrument check on that ADCP's currents for
