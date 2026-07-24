@@ -100,10 +100,30 @@ function registry = deployment_registry()
     % A season here has up to four sequential 5-6 week deployments of one
     % instrument at one station; the trailing letter is that ordinal, taken from
     % PandPUV2015-2025.xlsx. Only the deployments present in recopied/ appear.
-    registry('TOR15A') = @() TorreyOffshore_config('TOR15A');  % Torrey MOP591 9m, Nov-Dec 2015
-    registry('TOR15B') = @() TorreyOffshore_config('TOR15B');  % Torrey MOP591 9m, Jan-Feb 2016
-    registry('TOR16B') = @() TorreyOffshore_config('TOR16B');  % Torrey MOP591 8m, Jan-Feb 2017
-    registry('TOR17D') = @() TorreyOffshore_config('TOR17D');  % Torrey MOP591 8m, Mar-Apr 2018
+    % The Torrey / Los Peñasquitos-mouth offshore station (~MOP590/591, ~8-9 m),
+    % one instrument swapped every 5-6 weeks each winter 2014-2021. Naming is
+    % TOR<yy><ordinal>; the archive holds only some of each season's swaps. The
+    % 2015-2018 subset that also had standalone recopied/ folders was ingested
+    % first (2026-07); the rest come from the multi-year CPG archive under
+    % Sarah_LPL_2014-2023/. TOR19A/TOR20A are this station and do NOT collide
+    % with TOR19W/TOR20W (the separate MOP582 10 m station).
+    registry('TOR14A') = @() TorreyOffshore_config('TOR14A');  % 2014-15 #1
+    registry('TOR14B') = @() TorreyOffshore_config('TOR14B');  % 2014-15 #2
+    registry('TOR14C') = @() TorreyOffshore_config('TOR14C');  % 2014-15 #3
+    registry('TOR15A') = @() TorreyOffshore_config('TOR15A');  % 2015-16 #1 (Nov-Dec 2015)
+    registry('TOR15B') = @() TorreyOffshore_config('TOR15B');  % 2015-16 #2 (Jan-Feb 2016)
+    registry('TOR15D') = @() TorreyOffshore_config('TOR15D');  % 2015-16 #4 (Mar-Apr 2016)
+    registry('TOR16A') = @() TorreyOffshore_config('TOR16A');  % 2016-17 #1
+    registry('TOR16B') = @() TorreyOffshore_config('TOR16B');  % 2016-17 #2 (Jan-Feb 2017)
+    registry('TOR16C') = @() TorreyOffshore_config('TOR16C');  % 2016-17 #3
+    registry('TOR16D') = @() TorreyOffshore_config('TOR16D');  % 2016-17 #4
+    registry('TOR17A') = @() TorreyOffshore_config('TOR17A');  % 2017-18 #1
+    registry('TOR17B') = @() TorreyOffshore_config('TOR17B');  % 2017-18 #2
+    registry('TOR17C') = @() TorreyOffshore_config('TOR17C');  % 2017-18 #3
+    registry('TOR17D') = @() TorreyOffshore_config('TOR17D');  % 2017-18 #4 (Mar-Apr 2018)
+    registry('TOR18A') = @() TorreyOffshore_config('TOR18A');  % 2018-19 #1
+    registry('TOR19A') = @() TorreyOffshore_config('TOR19A');  % 2019-20 "Los Pen offshore"
+    registry('TOR20A') = @() TorreyOffshore_config('TOR20A');  % 2020-21 "Los Pen offshore"
     registry('CDF15A') = @() Cardiff_config('CDF15A');         % Cardiff MOP677 9m, Nov 2015-Jan 2016
     registry('CDF15C') = @() Cardiff_config('CDF15C');         % Cardiff MOP677 10m, Feb-Mar 2016
     registry('COR16B') = @() Coronado_config('COR16B');        % Coronado MOP158 9m, Jan-Feb 2017
