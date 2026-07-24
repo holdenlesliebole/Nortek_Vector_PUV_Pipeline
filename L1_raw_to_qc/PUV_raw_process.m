@@ -924,6 +924,27 @@ function [DAT_bursts, SEN_bursts, date_start, date_end, fs, coordSystem] = ...
         meta.files = meta.files(keep);
     end
 
+    % Order bursts chronologically by their first clock timestamp. read_VEC
+    % returns them in filename order, which is NOT chronological when the raw
+    % files are named MMDDHHMM and the deployment crosses a year boundary: the
+    % January files sort before the previous November, scrambling the record
+    % (Cardiff 2015-2016 is the case). The instrument clock is monotonic even
+    % from a wrong epoch, so sorting on it recovers the true order regardless of
+    % filename or of the clock-epoch recovery applied next.
+    nB0 = numel(SEN_bursts);
+    firstT = NaT(nB0, 1);
+    for ii = 1:nB0
+        S = SEN_bursts{ii};
+        firstT(ii) = datetime(S(1,3), S(1,1), S(1,2), S(1,4), S(1,5), S(1,6));
+    end
+    if any(diff(firstT) < 0)
+        [~, chrono] = sort(firstT);
+        DAT_bursts = DAT_bursts(chrono);
+        SEN_bursts = SEN_bursts(chrono);
+        meta.files = meta.files(chrono);
+        fprintf('  Reordered %d bursts into chronological order (filename order was not)\n', nB0);
+    end
+
     fs = meta.fs;
     if isempty(fs) || isnan(fs) || fs <= 0
         error('PUV_raw_process:fsNotFound', ...
