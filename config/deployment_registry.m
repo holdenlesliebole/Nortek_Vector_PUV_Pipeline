@@ -13,6 +13,9 @@ function registry = deployment_registry()
 %
 %   Deployment naming convention:
 %     SITE + year(s) + optional season letter
+%     TOR19W   = Torrey winter 2019-20 (MOP582 10m)
+%     TOR20W   = Torrey winter 2020-21 (MOP582 10m)
+%     IB19W    = Imperial Beach winter 2019-20 (Cortez Ave 6m)
 %     TBR23    = Torrey Pines Beach Recovery 2023 campaign (Torrey Pines PUV
 %                deployment; same site as TOR23W/TOR24S. Named for the campaign,
 %                not the SITE+season convention — would otherwise be TOR23S.)
@@ -76,5 +79,12 @@ function registry = deployment_registry()
     % --- Pre-2023 archive (recopied/) — Tier 2 (new sites) ---
     registry('IB18W')  = @IB18W_config;                  % Imperial Beach winter 2018-19 (Nov 2018-Mar 2019)
     registry('IB19S')  = @IB19S_config;                  % Imperial Beach spring 2019 (Mar 2019-Apr 2019)
+
+    % --- Pre-2023 archive (recopied/) — decoded from raw .VEC binary ---
+    % These have no usable ASCII export; they ingest via read_VEC (see each
+    % config's rawFormat = 'VEC'). Added 2026-07.
+    registry('TOR19W') = @TOR19W_config;                 % Torrey MOP582 10m, Nov 2019-May 2020
+    registry('TOR20W') = @TOR20W_config;                 % Torrey MOP582 10m, Oct 2020-Mar 2021
+    registry('IB19W')  = @IB19W_config;                  % Imperial Beach Cortez 6m, Nov 2019-May 2020
 
 end
