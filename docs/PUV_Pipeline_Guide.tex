@@ -34,7 +34,7 @@
 \title{\textbf{Nortek Vector PUV Pipeline}\\[2pt]
        \large User Guide and Reference}
 \author{Holden Leslie-Bole \\ Scripps Institution of Oceanography}
-\date{July 2026}
+\date{Revised July 2026}
 
 \begin{document}
 \maketitle
@@ -61,9 +61,13 @@ the code, read \S\ref{sec:start}--\ref{sec:running} and \S\ref{sec:qc}.
 
 Nearshore wave and current dynamics are measured with bottom-mounted Nortek Vector acoustic
 Doppler velocimeters (ADVs) in pressure--velocity mode, sampling continuously at 2~Hz. The
-pipeline turns the raw instrument files (\code{.dat}/\code{.sen}/\code{.hdr}) into standardized
-outputs at five levels. Every deployment runs through the same drivers and produces the same
-output structures, so results are comparable across sites and years.
+pipeline turns the raw instrument files into standardized outputs at five levels. It ingests
+either form of Nortek raw data --- the ExploreV ASCII export (\code{.dat}/\code{.sen}/%
+\code{.hdr}) or the raw recorder binary (\code{.VEC}/\code{.vec}/\code{.049}), which it decodes
+itself (\S\ref{sec:vec}); no Windows tooling is required. Every deployment runs through the
+same drivers and produces the same output structures, so results are comparable across sites
+and years. The catalog currently spans 26 deployments and 45 instrument-records, from a 2015
+Cardiff winter through the 2025 Torrey and SIO Pier seasons.
 
 \begin{center}
 \begin{tabular}{@{}c l p{9.3cm}@{}}
@@ -97,13 +101,18 @@ in order.
 
 \begin{itemize}
 \item \textbf{MATLAB} R2023b or newer, with the \textbf{Signal Processing Toolbox}
-  (multi-taper and Welch spectra) and the \textbf{Mapping Toolbox}
-  (\code{igrfmagm} for magnetic declination). \code{t\_tide} must be on the path for L3
-  tidal analysis. The Aerospace Toolbox is \emph{not} required.
+  (multi-taper and Welch spectra) and the \textbf{Aerospace Toolbox}
+  (\code{igrfmagm}, the IGRF magnetic-declination model used in the L1 heading rotation).
+  \code{t\_tide} must be on the path for the L3 tidal analysis. The Mapping Toolbox is
+  \emph{not} required (a common mix-up --- \code{igrfmagm} is an Aerospace function), and
+  neither is the Statistics and Machine Learning Toolbox (skewness, kurtosis, and correlation
+  are computed inline in L1--L4; only a few optional \code{validation/} scripts use it).
 \item \textbf{Internet at runtime}: L2 fetches the shore-normal angle from the CDIP THREDDS
   server (it falls back to buoy coordinates if unavailable).
-\item \textbf{Lab server access} for raw data and deployment metadata:
-  \code{/Volumes/group/PUV\_data/Vector/} and \code{/Volumes/group/DeploymentNotes/}.
+\item \textbf{Raw data}: point each deployment's \code{cfg.rawDataRoot} at wherever the raw
+  Nortek files live; a local folder is fine, no lab server is required. The bundled San Diego
+  configs read from the SIO group share \code{/Volumes/group/PUV\_data/Vector/}, with
+  deployment metadata in \code{/Volumes/group/DeploymentNotes/}.
 \end{itemize}
 
 \subsection{First run}
@@ -141,7 +150,9 @@ Every deployment is registered in \code{config/deployment\_registry.m}, which ma
 name to a config function --- for example \code{'TBR23'} $\rightarrow$ \code{@TBR23\_config}.
 The naming convention is \code{SITE + year + optional season letter} (\code{TBR23} = Torrey
 Pines summer 2023; \code{TOR24S} = Torrey spring 2024; \code{SIO24A--C} = SIO Pier 2024
-chronological).
+chronological). For the pre-2019 seasons, which ran one instrument at a fixed station and
+swapped it every 5--6 weeks, the trailing letter is instead the deployment \emph{ordinal}
+within that winter (\code{TOR15A} = first Torrey deployment of 2015--16).
 
 \subsection{Adding a new deployment}
 
@@ -156,6 +167,15 @@ chronological).
 \item Check \code{config/CONFIG\_REVIEW\_NOTES.md} and \code{config/DOFFP\_LOOKUP\_CHECKLIST.md}
   for deployment-specific gotchas.
 \end{enumerate}
+
+\noindent
+For a deployment ingested from raw binary (\S\ref{sec:vec}), also set
+\code{instr.rawFormat = 'VEC'}, and for a firmware-1.21 recorder with a wrong clock epoch add
+\code{instr.clockSource = 'filename'}, \code{instr.deployYear}, and
+\code{cfg.qcOpts.cutoffGapSec = 60}. See \code{config/TorreyOffshore\_config.m} for a worked
+example. Metadata for the older seasons lives in \code{PandPUV2015-2025.xlsx} (the
+season-by-season PUV inventory) and the \code{VectorPUV\_Winter201*Checkout.xlsx} sheets rather
+than the \code{DeploymentNotes} files.
 
 \subsection{Quality-control options: \texttt{cfg.qcOpts}}
 \label{sec:qcopts}
@@ -178,6 +198,9 @@ Field & Default & Meaning \\
 \code{tiltAbsMax} & 30 & Absolute tilt = toppled frame; always invalidates velocity. \\
 \code{tiltWindow} & 120 & Samples for the rolling std (60~s at 2~Hz). \\
 \code{cFactorTol} & 0.002 & Below this, no sound-speed rescale is applied. \\
+\code{cutoffGapSec} & 1 & Gap between consecutive sensor records that counts as a battery
+  cutoff (s). Raise it (e.g.\ 60) for the firmware-1.21 recorders, which leave a benign few-second
+  gap in nearly every hourly file (\S\ref{sec:vec}). \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -193,6 +216,78 @@ thermistor as valid. For San Diego coastal deployments set
 mis-flagging genuine seasonal or upwelling temperatures. Section~\ref{sec:qc} explains why.
 }}
 \end{center}
+
+% ======================================================================
+\section{Raw-binary ingestion and the pre-2019 archive}
+\label{sec:vec}
+
+Most deployments before 2019 exist only as raw Nortek recorder binary
+(\code{.VEC}/\code{.vec}/\code{.049}), with no ExploreV ASCII export --- and where an export
+does exist it can be partial (one deployment's \code{.dat} covers 5~days of a 174-day record
+and ends mid-line). The pipeline therefore decodes the binary directly with
+\code{read\_VEC.m}, so ExploreV --- and Windows --- are never needed. The decoder is verified
+bit-exact against the one ASCII export that overlaps it: over 886{,}319 velocity and 443{,}131
+system records, every integer-valued column (velocity counts, amplitude, correlation, clock,
+flags) is identical, and pressure and attitude agree to the ASCII's print precision
+(\code{test\_read\_VEC.m}).
+
+\subsection{Choosing the ingest path}
+
+Set \code{instr.rawFormat} to \code{'VEC'} or \code{'ASCII'} to force a path; left unset, L1
+auto-detects and prefers the ASCII export when a \code{.dat} is present. \emph{That preference
+is a trap for an interrupted export}, so L1 warns whenever both forms exist and points at
+\code{rawFormat = 'VEC'}; pin it whenever the ASCII might be short. Sampling rate and coordinate
+system come from the binary's User Configuration record, so a deployment with a 0-byte
+\code{.hdr} --- which cannot be read at all from ASCII --- still ingests.
+
+\subsection{Two things the firmware-1.21 recorders get wrong}
+
+The 2015--2018 instruments run firmware 1.21 and need two corrections, both handled
+automatically once the config opts in:
+
+\paragraph{Sample rate.} The User Configuration field implies 8~Hz on this firmware, but the
+records are unambiguously 2~Hz. \code{read\_VEC} measures the rate from the decoded records
+(the ratio of velocity to 1~Hz system records) rather than trusting the configuration field,
+and warns when the two disagree. This is confirmed three independent ways: the decoded record
+ratio is exactly~2, the system-record count equals the clock span in seconds, and the field
+checkout sheet states ``Sample rate = 2Hz, Samples per block = 7168, Block time = 3600~s''.
+
+\paragraph{Clock epoch.} These recorders stamp their first sample with a nonsense epoch
+(2000-01-01 or 2002-01-01). The clock is not dead --- it \emph{runs} correctly, just from the
+wrong start --- and the recorder names each hourly file \code{MMDDHHMM} for the true wall-clock
+hour. A single constant offset reconciles the two, recovered by \code{vec\_clock\_from\_filenames.m}:
+opt in with \code{instr.clockSource = 'filename'} and \code{instr.deployYear}. The offset is
+the median over every file and is rejected (on the 98th percentile, so a few dying-battery
+outliers do not veto a good deployment) if it is not near-constant, so a wrong filename
+convention fails loudly rather than silently shifting the record. Every recovered span matches
+the logged deployment date; the one instrument in the set whose clock \emph{was} set correctly
+serves as the control, and filename-derived time agrees with it to 33~s.
+
+\subsection{Robustness the archive forced}
+
+Processing these records surfaced several edge cases the modern continuously-sampled
+instruments never produced, now handled in L1:
+\begin{itemize}
+\item \textbf{Benign hourly gaps.} Firmware 1.21 drops a few seconds in nearly every hourly
+  file. \code{cfg.qcOpts.cutoffGapSec} (\S\ref{sec:qcopts}) raises the battery-cutoff threshold
+  above them (60~s for these configs) so a hiccup is not read as the instrument dying.
+\item \textbf{Power-on glitch.} Some recorders write one sample at power-on, then a multi-minute
+  gap, then the deployment. The leading glitch is trimmed off the front rather than ending the
+  record.
+\item \textbf{Battery-death clock drift.} A dying battery pulls the clock off in the last hours;
+  the record is truncated at that jump, and the affected tail is flagged as having approximate
+  absolute timing (its wave statistics are unaffected).
+\item \textbf{Year-crossing deployments.} \code{MMDDHHMM} filenames sort January ahead of the
+  previous November, so a deployment that spans New Year is reordered chronologically by its
+  (monotonic) clock before the bursts are merged.
+\end{itemize}
+
+\subsection{Split recorder files}
+
+The recorder splits large records at 100~MiB with a \code{\_N} suffix, and names hourly files
+by wall-clock hour; either way each raw file is treated as its own burst, so the battery-cutoff
+detector never mistakes a file-boundary seam for a real gap. Files are concatenated in
+chronological (not lexical) order.
 
 % ======================================================================
 \section{Running the pipeline, level by level}
@@ -367,11 +462,13 @@ are necessarily good.
 
 \subsection{L1: quality control and coordinate rotation}
 
-Raw burst files are merged into a continuous 2~Hz series. Clock drift is corrected linearly
-over each deployment from the drift measured at recovery. A battery-cutoff detector flags
-intermittent sampling by finding gaps over 1~s between consecutive sensor records and
-discarding everything after the first such gap. Per-channel QC (\S\ref{sec:qc}) is then
-applied. Samples with stable but non-zero tilt (e.g.\ a pipe bent during a storm) are retained
+Raw burst files --- decoded from ASCII or binary (\S\ref{sec:vec}) --- are merged into a
+continuous 2~Hz series in chronological order. Clock drift is corrected linearly over each
+deployment from the drift measured at recovery. A battery-cutoff detector flags intermittent
+sampling by finding gaps beyond \code{cfg.qcOpts.cutoffGapSec} (default 1~s) between consecutive
+sensor records and discarding everything after the first such gap; a power-on glitch at the
+very start of the record is trimmed rather than treated as a cutoff. Per-channel QC
+(\S\ref{sec:qc}) is then applied. Samples with stable but non-zero tilt (e.g.\ a pipe bent during a storm) are retained
 and corrected by a sample-by-sample rotation using the measured pitch $\phi$ and roll $\theta$,
 \[
   \mathbf{v}_\text{corrected}
@@ -463,6 +560,14 @@ prior processing pipeline, and its mean-flow output has been tested against phys
   magnitude, and response to averaging-window length, and are incompatible with the offset and
   noise hypotheses. The segment-mean noise floor ($\sim$0.24~mm\,s$^{-1}$ at 1-hour averaging)
   is well below every reported slope and modulation amplitude.
+\item \textbf{Binary decoder.} \code{read\_VEC} is verified bit-exact against the ASCII export
+  (\S\ref{sec:vec}). As an independent end-to-end check, every binary-decoded deployment's
+  hourly $H_s$ was compared to the CDIP MOP model: the modern 2~Hz records
+  (\code{TOR19W}/\code{TOR20W}/\code{IB19W}) give $R^2 = 0.88$--$0.94$ with 1--4~cm bias and
+  near-unit slope, and the older firmware-1.21 records ($R^2 = 0.65$--$0.87$, all biases under
+  9~cm) track the model well given their greater distance from the MOP transect and lower
+  Doppler SNR. The near-zero mean vertical velocity in every decoded record independently
+  confirms the decode and the coordinate rotation.
 \end{itemize}
 
 \noindent
