@@ -74,24 +74,64 @@ Two things to carry forward:
   (~47 cm of erosion). L2 uses a single fixed `doffp`, so depth-attenuation corrections late
   in that record are more uncertain than the nominal value suggests.
 
-## Tier B — still outstanding
+## Tier B — DONE (2026-07-24), and the "8 Hz / dead RTC" framing was wrong
 
-All of these are readable by `read_VEC`. The blocker is no longer file format; it is that
-they are **8 Hz** (firmware 1.21) with a **dead real-time clock** — every file reports
-`2013-06-28 09:52:25`, so true timestamps must be reconstructed from the `MMDDHHMM`
-filenames and cross-checked against the checkout sheets. Both problems are shared with the
-Sarah archive, so they are worth solving once.
+Eight pre-2019 deployments across three stations, decoded from raw `.VEC`/`.049` and run
+L1→L4:
 
-- `Torrey1181_2015`, `Torrey1053_2016`, `Torrey1049_2017`, `Torrey0806_2018`
-- `Cardiff1049_2015-2016`, `Cardiff1053_2016`, `Cardiffbackbeach_Jan2016`
-- `CoronadoJan_2017`, `Coronado4thDeployment_2018`
+| Deployment | Station | S/N | Recovered span | L1 days |
+|---|---|---|---|---|
+| `TOR15A` | Torrey offshore MOP591 | 1181 | 2015-11-19 → 2015-12-10 | 21 (died early) |
+| `TOR15B` | Torrey offshore MOP591 | 1053 | 2016-01-04 → 2016-02-08 | 35 (clock jump at end) |
+| `TOR16B` | Torrey offshore MOP591 | 1049 | 2017-01-05 → 2017-02-09 | 35 |
+| `TOR17D` | Torrey offshore MOP591 | 0806 | 2018-03-20 → 2018-04-26 | 37 |
+| `CDF15A` | Cardiff MOP677 (new site) | 1049 | 2015-11-19 → 2016-01-05 | 47 |
+| `CDF15C` | Cardiff MOP677 (new site) | 1053 | 2016-02-24 → 2016-04-01 | 37 |
+| `COR16B` | Coronado MOP158 (new site) | 1181 | 2017-01-05 → 2017-02-09 | 35 |
+| `COR17D` | Coronado MOP158 (new site) | 1181 | 2018-03-20 → 2018-04-26 | 37 |
+
+Two claims in the previous version of this section were **wrong**, both corrected while
+processing:
+
+1. **Not 8 Hz — 2 Hz.** `read_VEC` derived the rate as `512/AvgInterval`, which is right on
+   firmware 3.43 but reports 8 Hz on firmware 1.21 where the records are unambiguously 2 Hz.
+   Confirmed three independent ways: the decoded velocity/system record ratio is exactly 2, the
+   1 Hz system-record count equals the RTC span in seconds, and the field checkout sheet states
+   "Sample rate = 2Hz, Samples per block = 7168, Block time = 3600 s". No L2 rework or
+   decimation was needed. The reader now measures the rate from the records.
+
+2. **The clock is not dead — it runs from a wrong epoch.** Files stamp 2000-01-01 or
+   2002-01-01, but the clock advances correctly, and the recorder names each hourly file
+   `MMDDHHMM` for the real wall-clock hour. A single constant offset reconciles them
+   (`vec_clock_from_filenames`, opt in with `clockSource = 'filename'`). Every recovered span
+   above matches the logged deployment date. `Cardiff1049` is the control: its RTC was actually
+   set correctly, and filename-derived time agrees with it to 33 s.
+
+Other things that surfaced and are now handled in the pipeline (see the L1 commits):
+- Firmware 1.21 leaves one benign 3-4 s gap in nearly every hourly file → configurable
+  `cfg.qcOpts.cutoffGapSec` (60 s here) so a hiccup is not read as battery death.
+- Power-on glitch (one ping, then a multi-minute gap, then the deployment) trimmed off the
+  front instead of ending the record (TOR16B).
+- A dying battery pulls the clock in the last hours → the offset guard judges the bulk spread
+  (98th percentile), not the worst file, so TOR15B's 2 late files don't reject 922 good ones.
+- Year-crossing deployments: `MMDDHHMM` filenames sort January ahead of the previous November,
+  so bursts are reordered by their (monotonic) clock before merging (CDF15A).
+
+Metadata came from `PandPUV2015-2025.xlsx` (the season-by-season PUV inventory, which resolved
+every folder to a logged deployment) and the `VectorPUV_Winter201*Checkout.xlsx` sheets; MOP
+transects were resolved from CDIP station coordinates (D0591 315 m, D0677 257 m, D0158 381 m).
+
+### Still not done
+
+- `Cardiffbackbeach_Jan2016` — a 2-day back-beach test (Jan 6-8 2016), different mixed file
+  set; skipped as a short special-purpose deployment, not part of the offshore series.
 - `Sarah_LPL_2014-2023` — **mislabeled**: the `.hdr` files identify the contents as Torrey
-  Pines (`C:\PROJECTS\SoCal2014\TorreyPines\`), not Los Peñasquitos. Also 8 Hz with
-  hour-named files and multiple deployments per season. Ownership/scope still to confirm.
-
-Needed for Tier B, in order: (1) 8 Hz support in L2 — segment-length defaults assume 2 Hz —
-or a decimation step at L1; (2) filename → timestamp reconstruction with a validation check;
-(3) per-deployment configs from `SoCal_instruments_201*.xls` and the winter checkout sheets.
+  Pines (`C:\PROJECTS\SoCal2014\TorreyPines\`), not Los Peñasquitos. Multiple deployments per
+  season across nine years; the `read_VEC` + `clockSource='filename'` machinery now built
+  should handle it, but ownership/scope is still to confirm with Sarah before processing.
+- The 2nd/4th Cardiff and 1st/3rd Torrey deployments of 2015-16, and the 1st/3rd Coronado and
+  2nd Torrey of 2016-17, etc. — the archive only holds a subset of each season's four swaps;
+  the missing ones are simply not in `recopied/`.
 
 ## Already processed — do NOT redo
 

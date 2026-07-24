@@ -72,14 +72,19 @@ raw binary `.VEC` files, which `read_VEC` now ingests directly. What
 separates the ones already done from the ones still outstanding is the
 instrument vintage, not the file format:
 
-| | firmware | fs | RTC | status |
+| | firmware | fs | clock | status |
 |---|---|---|---|---|
 | TORREY02 (2019-20, 2020-21), IB-S02 (2019-20) | 3.43 | 2 Hz | valid | **ingested** as TOR19W / TOR20W / IB19W |
-| Torrey 1181/1053/1049/0806, Cardiff, Coronado | 1.21 | **8 Hz** | **dead — every file reports `2013-06-28 09:52:25`** | still blocked |
+| Torrey 1181/1053/1049/0806, Cardiff, Coronado | 1.21 | 2 Hz | wrong epoch, recovered from filenames | **ingested** as TOR15A/B, TOR16B, TOR17D, CDF15A/C, COR16B/D (2026-07-24) |
 
-The 8 Hz set needs L2 segment-length work (or decimation to 2 Hz) plus
-timestamp reconstruction from the `MMDDHHMM` filenames — the same two
-problems already documented for the Sarah archive below.
+**Both blockers listed here on 2026-07-23 were wrong** (see
+`docs/recopied_data_backlog.md` for the full account). The firmware-1.21
+set is **2 Hz, not 8 Hz** — `read_VEC` was mis-deriving the rate from the
+User Configuration; it now measures it from the records. The clock is not
+dead — it runs from a wrong epoch (2000/2002) and is recovered from the
+`MMDDHHMM` filenames (`vec_clock_from_filenames`). No L2 rework or
+decimation was needed. All eight are processed and every recovered span
+matches the logged deployment date.
 
 | Deployment folder | Site | Years | `.VEC` count |
 |---|---|---|---|
