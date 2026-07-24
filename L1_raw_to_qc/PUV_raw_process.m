@@ -841,6 +841,27 @@ function [DAT_bursts, SEN_bursts, date_start, date_end, fs, coordSystem] = ...
     end
     coordSystem = string(meta.coordSystem);
 
+    % Some pre-2019 instruments recorded with the real-time clock set to a
+    % nonsense epoch (2000-01-01, 2002-01-01). The clock still RAN correctly, and
+    % the recorder named each hourly file for the true wall-clock hour, so the
+    % epoch is recoverable — see vec_clock_from_filenames. Opt in per instrument
+    % with clockSource = 'filename' plus deployYear.
+    if isfield(instr, 'clockSource') && strcmpi(instr.clockSource, 'filename')
+        if ~isfield(instr, 'deployYear') || isempty(instr.deployYear)
+            error('PUV_raw_process:noDeployYear', ...
+                ['instr.clockSource = ''filename'' needs instr.deployYear — the ' ...
+                 'MMDDHHMM filenames carry no year.']);
+        end
+        [offSec, cdiag] = vec_clock_from_filenames(meta.files, SEN_bursts, ...
+            struct('startYear', instr.deployYear));
+        fprintf(['  Clock recovered from filenames: offset %.3f days, ' ...
+                 'residual spread %.0f s, drift %+.0f s over %d files\n'], ...
+            offSec/86400, cdiag.maxDevSec, cdiag.driftSec, cdiag.nFiles);
+        fprintf('  Recovered span: %s to %s\n', ...
+            string(cdiag.firstTime), string(cdiag.lastTime));
+        SEN_bursts = shift_SEN_time(SEN_bursts, offSec);
+    end
+
     % SEN columns are [month day year hour minute second ...]; the caller wants
     % [year month day hour minute second], one row per burst.
     nB = numel(SEN_bursts);
@@ -860,6 +881,21 @@ function [DAT_bursts, SEN_bursts, date_start, date_end, fs, coordSystem] = ...
     fprintf('  Decoded %d velocity samples in %d burst(s), %s to %s\n', nSamp, nB, ...
         string(datetime(date_start(1,   :), 'InputFormat', 'YYYYMMDDHHmmSS')), ...
         string(datetime(date_end(end, :),   'InputFormat', 'YYYYMMDDHHmmSS')));
+end
+
+% ======================================================================
+function SEN_bursts = shift_SEN_time(SEN_bursts, offsetSec)
+% Add a constant offset to the clock columns of every SEN burst.
+% SEN columns 1:6 are [month day year hour minute second].
+    for ii = 1:numel(SEN_bursts)
+        S = SEN_bursts{ii};
+        if isempty(S), continue; end
+        t = datetime(S(:,3), S(:,1), S(:,2), S(:,4), S(:,5), S(:,6)) + seconds(offsetSec);
+        [y, mo, d] = ymd(t);
+        [h, mi, s] = hms(t);
+        S(:, 1:6) = [mo d y h mi round(s)];
+        SEN_bursts{ii} = S;
+    end
 end
 
 % ======================================================================

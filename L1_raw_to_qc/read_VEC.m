@@ -52,8 +52,15 @@ function [DAT, SEN, meta] = read_VEC(vecFiles, varargin)
 %              15 ain1  16 ain2
 %            System records are written at 1 Hz, so M ~ N/fs.
 %     meta - struct: serialNo, headSerialNo, fwVersion, coordSystem
-%            ('ENU'|'XYZ'|'BEAM'), fs (Hz), nBeams, deployName, clockDeploy
-%            (datetime), headFreq_kHz, velScale, nFiles, files, nBadChecksum.
+%            ('ENU'|'XYZ'|'BEAM'), fs (Hz), fs_config, nBeams, deployName,
+%            clockDeploy (datetime), headFreq_kHz, velScale, nFiles, files,
+%            nBadChecksum.
+%
+%            fs is measured from the decoded records (velocity count / system
+%            count, the latter being 1 Hz); fs_config is what the User
+%            Configuration implies. They disagree on firmware 1.21, where the
+%            configuration claims 8 Hz and the records are 2 Hz — fs is the one
+%            to trust.
 %
 %   RECORD FORMAT (Nortek System Integrator Manual). Every record is
 %   sync 0xA5, id, then a 16-bit little-endian size in WORDS. Records used:
@@ -174,15 +181,34 @@ function [DAT, SEN, meta] = read_VEC(vecFiles, varargin)
     % Cross-check the decoded sample ratio against the configured rate. A
     % mismatch means dropped records or a wrong fs, both of which would
     % silently corrupt every downstream timestamp.
-    if isfield(meta, 'fs') && ~isempty(meta.fs) && ~isnan(meta.fs) && nSenRows > 0
+    % Sampling rate. The System Data record is emitted at exactly 1 Hz (verified
+    % here: its record count equals its own timestamp span in seconds), so the
+    % decoded velocity/system ratio IS the sample rate, and it is ground truth.
+    %
+    % Prefer it over the User Configuration derivation, which is not reliable
+    % across firmware: 512/AvgInterval gives the right answer on firmware 3.43
+    % (AvgInterval 256 -> 2 Hz) but claims 8 Hz on firmware 1.21 (AvgInterval 64)
+    % where the records are unambiguously 2 Hz. Getting this wrong would rescale
+    % every timestamp in the record.
+    meta.fs_config = meta.fs;
+    if nSenRows > 0
         ratio = nDatRows / nSenRows;
-        if abs(ratio - meta.fs) > 0.05 * meta.fs
-            warning('read_VEC:rateMismatch', ...
-                ['Decoded %d velocity / %d system records = %.3f samples per second, ' ...
-                 'but the User Configuration reports fs = %g Hz. Records may be ' ...
-                 'missing or the deployment changed rate mid-record.'], ...
-                nDatRows, nSenRows, ratio, meta.fs);
+        meta.fs = round(ratio * 100) / 100;
+        if abs(ratio - round(ratio)) < 0.02
+            meta.fs = round(ratio);   % snap to the integer rate
         end
+        if ~isempty(meta.fs_config) && ~isnan(meta.fs_config) && ...
+                abs(ratio - meta.fs_config) > 0.05 * meta.fs_config
+            warning('read_VEC:rateFromRecords', ...
+                ['User Configuration implies fs = %g Hz, but %d velocity / %d ' ...
+                 'system records give %.3f Hz. Using the decoded rate (%g Hz); ' ...
+                 'the configuration field is not consistent across firmware ' ...
+                 'versions (firmware here: %s).'], ...
+                meta.fs_config, nDatRows, nSenRows, ratio, meta.fs, meta.fwVersion);
+        end
+    elseif isempty(meta.fs) || isnan(meta.fs)
+        warning('read_VEC:noRate', ...
+            'No system records and no usable configuration rate for %s.', vecFiles{1});
     end
 end
 
