@@ -143,17 +143,68 @@ so the absolute Hs is well tracked. The two lowest — TOR15B (0.67, RMSE 0.41) 
 consistent with those specific records: TOR15B's degraded-timestamp tail near battery death
 smears the time alignment against the model.
 
-### Still not done
+## Tier C — the `Sarah_LPL_2014-2023` archive (done 2026-07-24)
+
+Despite the folder name, this is **not** a Los Peñasquitos-lagoon archive and it is not
+"Sarah's" in any exclusive sense — it is the multi-year CPG record of **one offshore ~8-9 m
+station near the mouth of Los Peñasquitos Lagoon**, which sits inside Torrey Pines State Beach
+(~MOP590/591). The lab logged this station as "Torrey offshore" in 2015-2018 and "Los Pen
+offshore" in 2019-2021; the `.hdr` project path (`…TorreyPines…`) and the folder name "LPL"
+are the same place. Serial-number + start-date cross-referencing against `PandPUV2015-2025.xlsx`
+resolved every folder.
+
+**Four folders duplicated already-processed Tier B deployments** (same S/N + dates) and were
+skipped: `151119`=TOR15A, `160104`=TOR15B, `170105`=TOR16B, `180320`=TOR17D.
+
+**Twelve new deployments of the station** were processed L1→L4 and pushed, extending the record
+to a continuous 2014-2020 series under the `TOR<yy><ordinal>` naming (`TOR19A`/`TOR20A`
+deliberately do not collide with the MOP582 10 m station's `TOR19W`/`TOR20W`):
+
+| | S/N | recovered span | MOP R² | bias |
+|---|---|---|---|---|
+| TOR14A | 1181 | 2014-12-09 → 12-20 (11 d) | — (46 seg) | — |
+| TOR14B | 0475 | 2015-02-25 → 03-18 | 0.71 | −0.11 m |
+| TOR14C | 0806 | 2015-03-16 → 04-28 | 0.56 | −0.05 m |
+| TOR15D | 0824 | 2016-03-31 → 05-04 | 0.75 | −0.04 m |
+| TOR16A | 0824 | 2016-11-30 → 2017-01-05 | 0.64 | −0.03 m |
+| TOR16C | 0824 | 2017-02-09 → 03-20 | 0.74 | +0.03 m |
+| TOR16D | 1049 | 2017-03-21 → 05-03 | 0.61 | −0.05 m |
+| TOR17A | 1049 | 2017-11-29 → 2018-01-08 | 0.79 | −0.04 m |
+| TOR17B | 0806 | 2018-01-08 → 02-12 | 0.82 | −0.06 m |
+| TOR17C | 1049 | 2018-02-12 → 03-20 | 0.52 | −0.07 m |
+| TOR18A | 1049 | 2018-12-21 → 2019-02-06 | 0.94 | +0.05 m |
+| TOR19A | 0806 | 2019-12-03 → 2020-02-19 (78 d) | 0.89 | +0.02 m |
+
+The chronological-burst-sort fix (from CDF15A) was exercised again on the three year-crossing
+deployments (TOR16A, TOR17A, TOR18A) and worked. R² sits in the same 0.5-0.9 band as the other
+firmware-1.21 records at this station, for the same reasons (distance from the MOP transect,
+older instruments). Config: `config/TorreyOffshore_config.m`, now table-driven for the whole
+station.
+
+### Two deployments in this archive are deferred — genuine new code paths, not configs
+
+- **`TOR20A`** (2020-21 "Los Pen offshore", S/N 1053). Its raw files are named with a
+  **sequence counter, not wall-clock `MMDDHHMM`** — consecutive files are one minute apart, and
+  ~12% roll over in a way that lands exactly 24 h off, so `clockSource='filename'` cannot recover
+  it and the offset guard correctly rejected it. The RTC itself runs correctly (strictly
+  monotonic from a 2000 epoch), and the 2020-2021 checkout sheet gives the programmed start
+  (**10/5/2020 ~17:00**), so it is recoverable with a *fixed-offset* clock mode
+  (`offset = deployStart − firstRTC`) — a small new `clockSource='fixed'` path — ideally with a
+  MOP cross-correlation to refine the ~1-day start-time uncertainty. Not yet built.
+- **`2023Jan_LPL_DYE01_ADV`** (S/N 12412, `LPSDYE02`/`LPSDYE03`). This one is genuinely
+  **8 Hz** (firmware 3.42, correct clock, ASCII export present) — a Los Peñasquitos surfzone
+  **dye study** on a tripod, a different site and purpose from the offshore wave-climate station.
+  8 Hz needs real pipeline work (the L1 burst-merge has 2 Hz / 1 Hz branches only, and L2's
+  1-hour segment assumes 7200 samples = 2 Hz), or a decimation-to-2 Hz step at L1. Deferred as a
+  scoped follow-up; decide first whether the wave-climate products (fine at 2 Hz) or the
+  turbulence/dye products (need 8 Hz) are the goal.
+
+### Other `recopied/` items still not done
 
 - `Cardiffbackbeach_Jan2016` — a 2-day back-beach test (Jan 6-8 2016), different mixed file
   set; skipped as a short special-purpose deployment, not part of the offshore series.
-- `Sarah_LPL_2014-2023` — **mislabeled**: the `.hdr` files identify the contents as Torrey
-  Pines (`C:\PROJECTS\SoCal2014\TorreyPines\`), not Los Peñasquitos. Multiple deployments per
-  season across nine years; the `read_VEC` + `clockSource='filename'` machinery now built
-  should handle it, but ownership/scope is still to confirm with Sarah before processing.
-- The 2nd/4th Cardiff and 1st/3rd Torrey deployments of 2015-16, and the 1st/3rd Coronado and
-  2nd Torrey of 2016-17, etc. — the archive only holds a subset of each season's four swaps;
-  the missing ones are simply not in `recopied/`.
+- The season swaps not present in the archive at all (e.g. the missing 3rd deployment of the
+  2015-16 station winter) — simply not in `recopied/`.
 
 ## Already processed — do NOT redo
 
