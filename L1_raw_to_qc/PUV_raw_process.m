@@ -52,184 +52,32 @@ function PUV = PUV_raw_process(instr, cfg)
             'Instrument directory not found: %s', instrDir);
     end
 
-    % Discover all .dat files (one per burst) and extract the common prefix.
-    % If instr.filePrefix is specified, restrict to .dat files matching it —
-    % this is necessary when one folder holds files from multiple deployments
-    % with different prefixes (e.g., Catalina_2021 has both CATISL02.dat and
-    % CATISL03_*.dat from two separate deployments).
-    if isfield(instr, 'filePrefix') && ~isempty(instr.filePrefix)
-        datFiles = dir(fullfile(instrDir, [instr.filePrefix '*.dat']));
-        if isempty(datFiles)
-            error('PUV_raw_process:noFiles', ...
-                'No .dat files matching prefix "%s" found in %s', ...
-                instr.filePrefix, instrDir);
-        end
-    else
-        datFiles = dir(fullfile(instrDir, '*.dat'));
-        if isempty(datFiles)
-            error('PUV_raw_process:noFiles', ...
-                'No .dat files found in %s', instrDir);
-        end
+    %% ========== LOAD RAW DATA ==========
+    % Two ingest paths produce the same DAT/SEN matrices:
+    %   ASCII - the .dat/.sen/.hdr export written by Nortek ExploreV
+    %   VEC   - the raw recorder binary, decoded by read_VEC
+    %
+    % Most of the pre-2023 archive was never exported to ASCII, and some of the
+    % exports that do exist are partial (TORREY02_1.dat holds 5.1 days of a
+    % 174-day record) or ship 0-byte .hdr files, which leaves sampling rate and
+    % coordinate system unrecoverable from ASCII. Decoding the binary avoids
+    % both problems and needs no Windows tooling.
+    %
+    % Set instr.rawFormat to 'VEC' or 'ASCII' to force a path. Leaving it unset
+    % auto-detects and prefers ASCII, so deployments with a partial export MUST
+    % set 'VEC' explicitly — see the warning in select_raw_format.
+    rawFormat = select_raw_format(instrDir, instr);
+    fprintf('  Ingest format: %s\n', rawFormat);
+
+    switch rawFormat
+        case 'ASCII'
+            [DAT_bursts, SEN_bursts, date_start, date_end, fs, coordSystem] = ...
+                load_from_ASCII(instrDir, instr);
+        case 'VEC'
+            [DAT_bursts, SEN_bursts, date_start, date_end, fs, coordSystem] = ...
+                load_from_VEC(instrDir, instr);
     end
-
-    filenames = {datFiles.name};
-    nBursts   = numel(filenames);
-
-    % The common prefix is the part of the filename that is identical across
-    % all burst files (e.g. "7M_58602_MOP586_"). We find the first column
-    % where any character differs across files.
-    if nBursts == 1
-        % Single burst file: strip the trailing '.dat' to get the full name.
-        % The file has no _N burst suffix, so we use the full name as prefix
-        % and set burstID to '' in the loading loop.
-        depstr = filenames{1}(1:end-4);  % remove '.dat'
-    else
-        nameChars = char(filenames(:));
-        firstDiff = find(any(diff(nameChars, 1, 1), 1), 1, 'first');
-        depstr    = filenames{1}(1:firstDiff-1);
-    end
-
-    fprintf('  Found %d burst files, prefix: %s\n', nBursts, depstr);
-
-    %% ========== LOAD ALL BURSTS ==========
-    % NOTE: If rawDataRoot is a network mount (/Volumes/group/...), reading
-    % large ASCII files over the network will be slow regardless of parser.
-    % For fastest processing, consider copying raw files to a local directory
-    % and pointing rawDataRoot there. On a local disk, each burst should load
-    % in ~5-15 seconds; over the network, expect 1-5 min per burst.
-    SEN_bursts = cell(1, nBursts);
-    DAT_bursts = cell(1, nBursts);
-    date_start = zeros(nBursts, 6);   % [YYYY MM DD HH mm SS]
-    date_end   = zeros(nBursts, 6);
-
-    tLoad = tic;
-    for ii = 1:nBursts
-        if nBursts == 1
-            burstID = '';  % single-burst file has no _N suffix
-        else
-            burstID = num2str(ii);
-        end
-        senfile = fullfile(instrDir, [depstr burstID '.sen']);
-        datfile = fullfile(instrDir, [depstr burstID '.dat']);
-
-        % Handle prefix mismatch between .dat and .sen files.
-        % Some deployments use underscore in .dat but hyphen in .sen
-        % (e.g., 6M_51102_1.dat vs 6M-51102_1.sen), or the common
-        % prefix across .dat files is too short. Search for matching
-        % .sen and .dat files by burst number pattern if direct path fails.
-        if ~isfile(senfile)
-            % Try swapping _ <-> - in prefix
-            altPrefix = strrep(depstr, '_', '-');
-            altSen = fullfile(instrDir, [altPrefix burstID '.sen']);
-            if isfile(altSen)
-                senfile = altSen;
-            else
-                altPrefix = strrep(depstr, '-', '_');
-                altSen = fullfile(instrDir, [altPrefix burstID '.sen']);
-                if isfile(altSen)
-                    senfile = altSen;
-                else
-                    % Fallback: find any .sen file ending with burstID.sen
-                    senCandidates = dir(fullfile(instrDir, ['*' burstID '.sen']));
-                    if ~isempty(senCandidates)
-                        senfile = fullfile(instrDir, senCandidates(1).name);
-                    end
-                end
-            end
-        end
-        if ~isfile(datfile)
-            % Try swapping _ <-> - in prefix
-            altPrefix = strrep(depstr, '_', '-');
-            altDat = fullfile(instrDir, [altPrefix burstID '.dat']);
-            if isfile(altDat)
-                datfile = altDat;
-            else
-                % Fallback: find any .dat file ending with burstID.dat
-                datCandidates = dir(fullfile(instrDir, ['*' burstID '.dat']));
-                if ~isempty(datCandidates)
-                    datfile = fullfile(instrDir, datCandidates(1).name);
-                end
-            end
-        end
-
-        fprintf('  Loading burst %d/%d: .sen ...', ii, nBursts);
-        t1 = tic;
-        fid = fopen(senfile, 'r');
-        raw = textscan(fid, repmat('%f', 1, 16), 'CollectOutput', true);
-        fclose(fid);
-        SEN_bursts{ii} = raw{1};
-        fprintf(' %.1fs  .dat ...', toc(t1));
-
-        t1 = tic;
-        fid = fopen(datfile, 'r');
-        raw = textscan(fid, repmat('%f', 1, 18), 'CollectOutput', true);
-        fclose(fid);
-        DAT_bursts{ii} = raw{1};
-        fprintf(' %.1fs\n', toc(t1));
-
-        % SEN columns: 1=Month, 2=Day, 3=Year, 4=Hour, 5=Minute, 6=Second
-        % Reorder to [YYYY MM DD HH mm SS] for datetime construction
-        date_start(ii,:) = [SEN_bursts{ii}(1,3)   SEN_bursts{ii}(1,1:2)   SEN_bursts{ii}(1,4:6)];
-        date_end(ii,:)   = [SEN_bursts{ii}(end,3) SEN_bursts{ii}(end,1:2) SEN_bursts{ii}(end,4:6)];
-    end
-    fprintf('  All bursts loaded in %.1f min\n', toc(tLoad)/60);
-
-    %% ========== PARSE SAMPLING RATE AND COORDINATE SYSTEM FROM HDR ==========
-    if nBursts == 1
-        hdrFile = fullfile(instrDir, [depstr '.hdr']);
-    else
-        hdrFile = fullfile(instrDir, [depstr '1.hdr']);
-    end
-
-    % Handle prefix mismatch (same logic as .sen/.dat)
-    if ~isfile(hdrFile)
-        altPrefix = strrep(depstr, '_', '-');
-        if nBursts == 1
-            altHdr = fullfile(instrDir, [altPrefix '.hdr']);
-        else
-            altHdr = fullfile(instrDir, [altPrefix '1.hdr']);
-        end
-        if isfile(altHdr)
-            hdrFile = altHdr;
-        else
-            % Fallback: find any .hdr file
-            hdrCandidates = dir(fullfile(instrDir, '*.hdr'));
-            if ~isempty(hdrCandidates)
-                hdrFile = fullfile(instrDir, hdrCandidates(1).name);
-            end
-        end
-    end
-
-    fid = fopen(hdrFile, 'r');
-    if fid == -1
-        error('PUV_raw_process:hdrNotFound', ...
-            'Cannot open header file: %s', hdrFile);
-    end
-
-    % Read sampling rate from line 12
-    frewind(fid);
-    C_fs = split(string(textscan(fid, '%s', 1, 'delimiter', '\n', 'headerlines', 11)));
-    fsIdx = find(C_fs == "Sampling", 1);
-    if isempty(fsIdx)
-        fclose(fid);
-        error('PUV_raw_process:fsNotFound', ...
-            'Could not find "Sampling rate" on line 12 of %s', hdrFile);
-    end
-    fs = double(C_fs(3));
-    fprintf('  Sampling rate: %d Hz\n', fs);
-
-    % Read coordinate system from line 32
-    frewind(fid);
-    C_coord = split(string(textscan(fid, '%s', 1, 'delimiter', '\n', 'headerlines', 31)));
-    fclose(fid);
-
-    coordIdx = find(C_coord == "Coordinate", 1);
-    if isempty(coordIdx)
-        error('PUV_raw_process:coordNotFound', ...
-            'Could not find "Coordinate system" on line 32 of %s', hdrFile);
-    end
-    coordSystem = C_coord(3);
-    fprintf('  Coordinate system: %s\n', coordSystem);
+    nBursts = numel(DAT_bursts);
 
     %% ========== CLOCK DRIFT CORRECTION ==========
     % Total deployment duration in seconds (start of first burst to end of last)
@@ -873,4 +721,317 @@ function PUV = PUV_raw_process(instr, cfg)
 
     fprintf('  PUV struct built: %d samples, %.1f days\n', ...
         length(PUV.time), days(PUV.time(end) - PUV.time(1)));
+end
+
+
+% ======================================================================
+function fmt = select_raw_format(instrDir, instr)
+% Decide whether to ingest the Nortek ASCII export or the raw .VEC binary.
+%
+% Auto-detection prefers ASCII when a .dat file is present, because that is the
+% path the existing 33 instrument-deployments were processed through. That
+% preference is a trap for deployments whose export was interrupted, so when
+% both forms exist this warns rather than silently ingesting the shorter one.
+    if isfield(instr, 'rawFormat') && ~isempty(instr.rawFormat)
+        fmt = upper(char(instr.rawFormat));
+        if ~ismember(fmt, {'ASCII', 'VEC'})
+            error('PUV_raw_process:badRawFormat', ...
+                'instr.rawFormat must be ''ASCII'' or ''VEC'', got ''%s''.', fmt);
+        end
+        return
+    end
+
+    datFiles = list_raw_files(instrDir, instr, {'.dat'});
+    vecFiles = list_raw_files(instrDir, instr, {'.VEC', '.vec', '.049'});
+
+    if ~isempty(datFiles)
+        fmt = 'ASCII';
+        if ~isempty(vecFiles)
+            warning('PUV_raw_process:asciiPreferredOverVEC', ...
+                ['Both ASCII (%d file(s)) and raw binary (%d file(s)) are present in\n' ...
+                 '%s\nDefaulting to ASCII. If the export was interrupted, the ASCII\n' ...
+                 'covers only part of the record — set instr.rawFormat = ''VEC'' to\n' ...
+                 'decode the full deployment.'], ...
+                numel(datFiles), numel(vecFiles), instrDir);
+        end
+    elseif ~isempty(vecFiles)
+        fmt = 'VEC';
+    else
+        error('PUV_raw_process:noFiles', ...
+            'No .dat or .VEC/.vec/.049 files%s found in %s', ...
+            prefix_note(instr), instrDir);
+    end
+end
+
+% ======================================================================
+function files = list_raw_files(instrDir, instr, exts)
+% Raw files in instrDir matching the instrument prefix, as a cellstr.
+%
+% macOS and SMB mounts are case-insensitive, so dir('*.VEC') can also return
+% *.vec entries; unique() collapses those to one entry per physical file.
+    if isfield(instr, 'filePrefix') && ~isempty(instr.filePrefix)
+        pat = [instr.filePrefix '*'];
+    else
+        pat = '*';
+    end
+    names = {};
+    for e = 1:numel(exts)
+        d = dir(fullfile(instrDir, [pat exts{e}]));
+        if ~isempty(d)
+            d = d(~[d.isdir]);
+            names = [names, {d.name}];   %#ok<AGROW>
+        end
+    end
+    names = unique(names);
+    if isempty(names)
+        files = {};
+    else
+        files = cellfun(@(n) fullfile(instrDir, n), names, 'UniformOutput', false);
+    end
+end
+
+% ======================================================================
+function s = prefix_note(instr)
+    if isfield(instr, 'filePrefix') && ~isempty(instr.filePrefix)
+        s = sprintf(' matching prefix "%s"', instr.filePrefix);
+    else
+        s = '';
+    end
+end
+
+% ======================================================================
+function [DAT_bursts, SEN_bursts, date_start, date_end, fs, coordSystem] = ...
+        load_from_VEC(instrDir, instr)
+% Decode the raw Nortek recorder binary into the same matrices the ASCII path
+% produces. Sampling rate and coordinate system come from the binary's User
+% Configuration record, so this works on deployments whose .hdr is 0 bytes.
+    vecFiles = list_raw_files(instrDir, instr, {'.VEC', '.vec', '.049'});
+    if isempty(vecFiles)
+        error('PUV_raw_process:noFiles', ...
+            'No .VEC/.vec/.049 files%s found in %s', ...
+            prefix_note(instr), instrDir);
+    end
+    fprintf('  Found %d raw binary file(s)\n', numel(vecFiles));
+
+    [DAT, SEN, meta] = read_VEC(vecFiles);
+
+    if isempty(SEN)
+        error('PUV_raw_process:noSystemRecords', ...
+            ['Decoded %d velocity records but no system records from %s, so the ' ...
+             'record cannot be timestamped.'], size(DAT, 1), instrDir);
+    end
+
+    fs = meta.fs;
+    if isempty(fs) || isnan(fs) || fs <= 0
+        error('PUV_raw_process:fsNotFound', ...
+            'Sampling rate did not decode from the User Configuration in %s', ...
+            vecFiles{1});
+    end
+    coordSystem = string(meta.coordSystem);
+
+    % The recorder splits files at 100 MiB, which is a file-size boundary and
+    % not a break in sampling, so the decoded record is one continuous burst.
+    DAT_bursts = {DAT};
+    SEN_bursts = {SEN};
+
+    % SEN columns are [month day year hour minute second ...]; the caller wants
+    % [year month day hour minute second].
+    date_start = [SEN(1,   3) SEN(1,   1:2) SEN(1,   4:6)];
+    date_end   = [SEN(end, 3) SEN(end, 1:2) SEN(end, 4:6)];
+
+    fprintf('  Serial %s (head %s), firmware %s\n', ...
+        meta.serialNo, meta.headSerialNo, meta.fwVersion);
+    fprintf('  Sampling rate: %g Hz\n', fs);
+    fprintf('  Coordinate system: %s\n', coordSystem);
+    fprintf('  Decoded %d velocity samples, %s to %s\n', size(DAT, 1), ...
+        string(datetime(date_start, 'InputFormat', 'YYYYMMDDHHmmSS')), ...
+        string(datetime(date_end,   'InputFormat', 'YYYYMMDDHHmmSS')));
+end
+
+% ======================================================================
+function [DAT_bursts, SEN_bursts, date_start, date_end, fs, coordSystem] = ...
+        load_from_ASCII(instrDir, instr)
+% Ingest the Nortek ExploreV ASCII export (.dat/.sen/.hdr).
+%
+% Moved verbatim out of the body of PUV_raw_process when the .VEC path was
+% added; behaviour is unchanged.
+
+    % Discover all .dat files (one per burst) and extract the common prefix.
+    % If instr.filePrefix is specified, restrict to .dat files matching it —
+    % this is necessary when one folder holds files from multiple deployments
+    % with different prefixes (e.g., Catalina_2021 has both CATISL02.dat and
+    % CATISL03_*.dat from two separate deployments).
+    if isfield(instr, 'filePrefix') && ~isempty(instr.filePrefix)
+        datFiles = dir(fullfile(instrDir, [instr.filePrefix '*.dat']));
+        if isempty(datFiles)
+            error('PUV_raw_process:noFiles', ...
+                'No .dat files matching prefix "%s" found in %s', ...
+                instr.filePrefix, instrDir);
+        end
+    else
+        datFiles = dir(fullfile(instrDir, '*.dat'));
+        if isempty(datFiles)
+            error('PUV_raw_process:noFiles', ...
+                'No .dat files found in %s', instrDir);
+        end
+    end
+
+    filenames = {datFiles.name};
+    nBursts   = numel(filenames);
+
+    % The common prefix is the part of the filename that is identical across
+    % all burst files (e.g. "7M_58602_MOP586_"). We find the first column
+    % where any character differs across files.
+    if nBursts == 1
+        % Single burst file: strip the trailing '.dat' to get the full name.
+        % The file has no _N burst suffix, so we use the full name as prefix
+        % and set burstID to '' in the loading loop.
+        depstr = filenames{1}(1:end-4);  % remove '.dat'
+    else
+        nameChars = char(filenames(:));
+        firstDiff = find(any(diff(nameChars, 1, 1), 1), 1, 'first');
+        depstr    = filenames{1}(1:firstDiff-1);
+    end
+
+    fprintf('  Found %d burst files, prefix: %s\n', nBursts, depstr);
+
+    %% ========== LOAD ALL BURSTS ==========
+    % NOTE: If rawDataRoot is a network mount (/Volumes/group/...), reading
+    % large ASCII files over the network will be slow regardless of parser.
+    % For fastest processing, consider copying raw files to a local directory
+    % and pointing rawDataRoot there. On a local disk, each burst should load
+    % in ~5-15 seconds; over the network, expect 1-5 min per burst.
+    SEN_bursts = cell(1, nBursts);
+    DAT_bursts = cell(1, nBursts);
+    date_start = zeros(nBursts, 6);   % [YYYY MM DD HH mm SS]
+    date_end   = zeros(nBursts, 6);
+
+    tLoad = tic;
+    for ii = 1:nBursts
+        if nBursts == 1
+            burstID = '';  % single-burst file has no _N suffix
+        else
+            burstID = num2str(ii);
+        end
+        senfile = fullfile(instrDir, [depstr burstID '.sen']);
+        datfile = fullfile(instrDir, [depstr burstID '.dat']);
+
+        % Handle prefix mismatch between .dat and .sen files.
+        % Some deployments use underscore in .dat but hyphen in .sen
+        % (e.g., 6M_51102_1.dat vs 6M-51102_1.sen), or the common
+        % prefix across .dat files is too short. Search for matching
+        % .sen and .dat files by burst number pattern if direct path fails.
+        if ~isfile(senfile)
+            % Try swapping _ <-> - in prefix
+            altPrefix = strrep(depstr, '_', '-');
+            altSen = fullfile(instrDir, [altPrefix burstID '.sen']);
+            if isfile(altSen)
+                senfile = altSen;
+            else
+                altPrefix = strrep(depstr, '-', '_');
+                altSen = fullfile(instrDir, [altPrefix burstID '.sen']);
+                if isfile(altSen)
+                    senfile = altSen;
+                else
+                    % Fallback: find any .sen file ending with burstID.sen
+                    senCandidates = dir(fullfile(instrDir, ['*' burstID '.sen']));
+                    if ~isempty(senCandidates)
+                        senfile = fullfile(instrDir, senCandidates(1).name);
+                    end
+                end
+            end
+        end
+        if ~isfile(datfile)
+            % Try swapping _ <-> - in prefix
+            altPrefix = strrep(depstr, '_', '-');
+            altDat = fullfile(instrDir, [altPrefix burstID '.dat']);
+            if isfile(altDat)
+                datfile = altDat;
+            else
+                % Fallback: find any .dat file ending with burstID.dat
+                datCandidates = dir(fullfile(instrDir, ['*' burstID '.dat']));
+                if ~isempty(datCandidates)
+                    datfile = fullfile(instrDir, datCandidates(1).name);
+                end
+            end
+        end
+
+        fprintf('  Loading burst %d/%d: .sen ...', ii, nBursts);
+        t1 = tic;
+        fid = fopen(senfile, 'r');
+        raw = textscan(fid, repmat('%f', 1, 16), 'CollectOutput', true);
+        fclose(fid);
+        SEN_bursts{ii} = raw{1};
+        fprintf(' %.1fs  .dat ...', toc(t1));
+
+        t1 = tic;
+        fid = fopen(datfile, 'r');
+        raw = textscan(fid, repmat('%f', 1, 18), 'CollectOutput', true);
+        fclose(fid);
+        DAT_bursts{ii} = raw{1};
+        fprintf(' %.1fs\n', toc(t1));
+
+        % SEN columns: 1=Month, 2=Day, 3=Year, 4=Hour, 5=Minute, 6=Second
+        % Reorder to [YYYY MM DD HH mm SS] for datetime construction
+        date_start(ii,:) = [SEN_bursts{ii}(1,3)   SEN_bursts{ii}(1,1:2)   SEN_bursts{ii}(1,4:6)];
+        date_end(ii,:)   = [SEN_bursts{ii}(end,3) SEN_bursts{ii}(end,1:2) SEN_bursts{ii}(end,4:6)];
+    end
+    fprintf('  All bursts loaded in %.1f min\n', toc(tLoad)/60);
+
+    %% ========== PARSE SAMPLING RATE AND COORDINATE SYSTEM FROM HDR ==========
+    if nBursts == 1
+        hdrFile = fullfile(instrDir, [depstr '.hdr']);
+    else
+        hdrFile = fullfile(instrDir, [depstr '1.hdr']);
+    end
+
+    % Handle prefix mismatch (same logic as .sen/.dat)
+    if ~isfile(hdrFile)
+        altPrefix = strrep(depstr, '_', '-');
+        if nBursts == 1
+            altHdr = fullfile(instrDir, [altPrefix '.hdr']);
+        else
+            altHdr = fullfile(instrDir, [altPrefix '1.hdr']);
+        end
+        if isfile(altHdr)
+            hdrFile = altHdr;
+        else
+            % Fallback: find any .hdr file
+            hdrCandidates = dir(fullfile(instrDir, '*.hdr'));
+            if ~isempty(hdrCandidates)
+                hdrFile = fullfile(instrDir, hdrCandidates(1).name);
+            end
+        end
+    end
+
+    fid = fopen(hdrFile, 'r');
+    if fid == -1
+        error('PUV_raw_process:hdrNotFound', ...
+            'Cannot open header file: %s', hdrFile);
+    end
+
+    % Read sampling rate from line 12
+    frewind(fid);
+    C_fs = split(string(textscan(fid, '%s', 1, 'delimiter', '\n', 'headerlines', 11)));
+    fsIdx = find(C_fs == "Sampling", 1);
+    if isempty(fsIdx)
+        fclose(fid);
+        error('PUV_raw_process:fsNotFound', ...
+            'Could not find "Sampling rate" on line 12 of %s', hdrFile);
+    end
+    fs = double(C_fs(3));
+    fprintf('  Sampling rate: %d Hz\n', fs);
+
+    % Read coordinate system from line 32
+    frewind(fid);
+    C_coord = split(string(textscan(fid, '%s', 1, 'delimiter', '\n', 'headerlines', 31)));
+    fclose(fid);
+
+    coordIdx = find(C_coord == "Coordinate", 1);
+    if isempty(coordIdx)
+        error('PUV_raw_process:coordNotFound', ...
+            'Could not find "Coordinate system" on line 32 of %s', hdrFile);
+    end
+    coordSystem = C_coord(3);
+    fprintf('  Coordinate system: %s\n', coordSystem);
 end
