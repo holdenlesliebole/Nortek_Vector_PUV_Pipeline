@@ -1,6 +1,12 @@
 # PUV Pipeline Processing Levels
 
-Updated: May 11, 2026
+Updated: July 24, 2026
+
+**Catalog size:** 45 instrument-records across 26 deployments, present at every
+level L1–L4; 9 deployments also carry `L4_xspec`. The "33/40" figures that
+appeared in earlier revisions of this file predate the pre-2023 archive
+additions (CAT21A/B, RUBY22, IB18W, IB19S, then TOR19W/TOR20W/IB19W) and have
+been updated in place below.
 
 ## Design Philosophy
 
@@ -17,7 +23,9 @@ get the same standardized output struct.
 
 ## L1: Raw → QC'd Timeseries (COMPLETE)
 
-**Input:** Raw `.dat`/`.sen`/`.hdr` burst files
+**Input:** Raw Nortek files — either the ExploreV ASCII export
+(`.dat`/`.sen`/`.hdr`) or the raw recorder binary (`.VEC`/`.vec`/`.049`),
+selected by `instr.rawFormat` or auto-detected. See `L1_raw_to_qc/read_VEC.m`.
 **Output:** Continuous 2 Hz time series with QC flags applied
 
 - Burst merging, clock drift correction
@@ -26,10 +34,10 @@ get the same standardized output struct.
 - Coordinate rotation to buoy frame (+x West, +y North, +z Up)
 - Output struct: `PUV.{time, P, BuoyCoord, InstrCoord, T, ...}`
 
-**Status:** Complete and verified. 33/40 instrument-deployments processed.
-The 7 dropped are documented hardware failures (battery, tilt, kelp,
-corrosion), correctly rejected — not a bug. See `todo.md` "Verified L1 QC
-behavior" for the per-instrument explanations.
+**Status:** Complete and verified. 45 instrument-records processed across 26
+deployments. Records that were dropped are documented hardware failures
+(battery, tilt, kelp, corrosion), correctly rejected — not a bug. See `todo.md`
+"Verified L1 QC behavior" for the per-instrument explanations.
 
 ---
 
@@ -58,7 +66,7 @@ behavior" for the per-instrument explanations.
 - Mean currents per segment (uMean, vMean)
 - QC diagnostics: nanMaxFrac=0.10 rejection, Z-test stored per segment
 
-**Status:** Complete, verified 8/8 product checks, 33 instruments
+**Status:** Complete, verified 8/8 product checks, 45 instrument-records
 processed at 1-hour cadence. Output: `outputs/L2/{deployment}/{label}_L2.mat`.
 
 ---
@@ -93,8 +101,8 @@ processed at 1-hour cadence. Output: `outputs/L2/{deployment}/{label}_L2.mat`.
 - Undertow magnitude
 - Tidal validation against NOAA Scripps Pier gauge (R=0.995, UTC confirmed)
 
-**Status:** Complete and batch-processed across all 33 instruments. Output:
-`outputs/L3/{deployment}/{label}_L3.mat`.
+**Status:** Complete and batch-processed across all 45 instrument-records.
+Output: `outputs/L3/{deployment}/{label}_L3.mat`.
 
 ---
 
@@ -135,8 +143,8 @@ processed at 1-hour cadence. Output: `outputs/L2/{deployment}/{label}_L2.mat`.
 - **`PUV_L4_boundwave.m`** — bound/free IG separation. Needed for clean
   shoreline reflection coefficients (currently inflated by bound-IG
   contamination).
-- Batch over all 38 instruments. ~21 hr at nfft=1024, ~80 hr at
-  nfft=2048 (paper-quality).
+- Batch over the full catalog (45 instrument-records). ~21 hr at nfft=1024,
+  ~80 hr at nfft=2048 (paper-quality).
 
 ### L4 output struct shape (per instrument)
 ```

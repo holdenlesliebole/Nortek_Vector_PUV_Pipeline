@@ -51,6 +51,9 @@ L2. See `docs/pipeline_levels.md` for full per-level detail.
   Nortek files live. A local folder is fine; no lab server is required. *(The
   bundled San Diego configs happen to point at the SIO group share
   `/Volumes/group/PUV_data/Vector/`; your own config points wherever you want.)*
+  Either form works: the ExploreV ASCII export (`.dat`/`.sen`/`.hdr`) or the raw
+  recorder binary (`.VEC`/`.vec`/`.049`), which the pipeline decodes itself — so
+  **Nortek ExploreV is not required**, and neither is Windows.
 
 > **Running your own deployment (any site, including non-California / reef
 > deployments with no CDIP MOP)?** Start with **`docs/NEW_DEPLOYMENT.md`** and the

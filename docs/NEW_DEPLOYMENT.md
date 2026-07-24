@@ -23,8 +23,18 @@ network, or any San Diego data to process your own deployment.
     L1/L2/L4 do not need it)
   - *Statistics and Machine Learning Toolbox is NOT needed for L1–L4* (moments and
     correlations are computed inline); only a few optional `validation/` scripts use it.
-- Your **raw Nortek Vector files** for the deployment: the `.dat`, `.sen`, and
-  `.hdr` files (or `.VEC` exports). Put them in any folder you like.
+- Your **raw Nortek Vector files** for the deployment, in *either* form. Put them
+  in any folder you like.
+  - the ExploreV ASCII export — `.dat`, `.sen`, `.hdr`; or
+  - the **raw recorder binary** — `.VEC` / `.vec` / `.049`, which the pipeline
+    decodes directly (`L1_raw_to_qc/read_VEC.m`). **Nortek ExploreV is not
+    required**, so no Windows machine is needed, and sampling rate and coordinate
+    system are read out of the binary even when the `.hdr` export is 0 bytes.
+
+  The pipeline auto-detects, preferring the ASCII export when a `.dat` is
+  present, and warns if both forms exist. **If your ASCII export was interrupted
+  it will be silently short** — set `instr.rawFormat = 'VEC'` to force the binary
+  and get the whole record. (`'ASCII'` forces the other way.)
 - The **deployment metadata** you recorded in the field (see step 2).
 - *Internet is only needed if you use a CDIP MOP station for the shore-normal
   angle (California sites). A manually specified angle needs no network.*

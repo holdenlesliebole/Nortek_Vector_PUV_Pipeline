@@ -277,7 +277,7 @@ See `config/CONFIG_REVIEW_NOTES.md` for full list.
 > with the summary below. This section captures the design rationale behind the
 > QC and processing choices.
 
-### L1 — complete, 33/40 instrument-deployments processed
+### L1 — complete, 45 instrument-records across 26 deployments
 - Variability-based tilt QC (2° rolling std threshold, 30° absolute cap)
 - Sample-by-sample tilt correction for bent pipes (3D rotation using pitch/roll)
 - Pressure QC uses a healthy first-burst reference window for the median
@@ -285,6 +285,12 @@ See `config/CONFIG_REVIEW_NOTES.md` for full list.
   bug; protects against the inversion failure mode where >50% of samples
   are saturated)
 - Handles mixed file prefixes (underscore/hyphen), single-burst files, IGRF-14 fallback
+- Two ingest paths (added 2026-07-24): the Nortek ExploreV ASCII export, or the
+  raw recorder binary decoded by `read_VEC`. The binary path removes the
+  Windows-only ExploreV step and recovers sampling rate / coordinate system from
+  the User Configuration record when the `.hdr` export is 0 bytes. Auto-detection
+  prefers ASCII, which is wrong for interrupted exports — pin
+  `instr.rawFormat = 'VEC'` in that case; a warning fires when both forms exist.
 - L1 heading bug fixed at TBR23/MOP580_5m and TOR24S/MOP586_7m (180° error
   surfaced by the per-band R²_swell ≫ R²_IG reflection diagnostic)
 - Dropped records are documented hardware failures (genuine tilt limits — bent
@@ -294,7 +300,7 @@ See `config/CONFIG_REVIEW_NOTES.md` for full list.
 - Catalog: deployments across 6 sites (Torrey, SIO Pier, Solana, LPL lagoon,
   Imperial Beach, Catalina) — see `docs/deployment_database_overview.md`
 
-### L2 — complete, 33/33 instruments processed
+### L2 — complete, 45/45 instrument-records processed
 - Per-segment guard rejects segments with `Hs/h > 1.5` or
   `|h - depth_nominal|/depth_nominal > 0.5` (added May 6; catches
   segments that straddle a sensor-failure boundary in the L1 record);
