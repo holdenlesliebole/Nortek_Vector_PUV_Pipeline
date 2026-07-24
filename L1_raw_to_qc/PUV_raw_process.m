@@ -97,20 +97,32 @@ function PUV = PUV_raw_process(instr, cfg)
     end
 
     %% ========== DETECT BATTERY CUTOFF ==========
-    % If the time gap between consecutive SEN samples exceeds 1 second,
-    % the instrument was intermittently recording (battery depletion).
-    % Truncate data at the first gap.
+    % A large gap between consecutive SEN samples means the instrument was
+    % recording intermittently (battery depletion); truncate at the first one.
+    %
+    % The threshold defaults to 1 s, which suits the modern continuously-sampled
+    % instruments. The firmware-1.21 recorders in the pre-2019 archive instead
+    % put one benign 3-4 s hiccup in essentially every hourly file, so a 1 s
+    % threshold would read the first hiccup as death and discard the whole
+    % record. Those configs set cfg.qcOpts.cutoffGapSec to a value (e.g. 60 s)
+    % that clears the hiccups while still catching a real multi-minute dropout.
+    cutoffGapSec = 1;
+    if isfield(cfg, 'qcOpts') && isfield(cfg.qcOpts, 'cutoffGapSec') && ...
+            ~isempty(cfg.qcOpts.cutoffGapSec)
+        cutoffGapSec = cfg.qcOpts.cutoffGapSec;
+    end
     cutoff = [];
     for ii = 1:nBursts
         SENii = SEN_bursts{ii};
         date_temp = datetime([SENii(:,3) SENii(:,1:2) SENii(:,4:6)], ...
                              'InputFormat', 'YYYYMMDDHHmmSS');
-        gaps = find(diff(date_temp) > seconds(1));
+        gaps = find(diff(date_temp) > seconds(cutoffGapSec));
         if ~isempty(gaps)
             cutoff.burst = ii;
             cutoff.id    = gaps(1);
             warning('PUV_raw_process:cutoffDetected', ...
-                'Battery cutoff detected in burst %d at sample %d.', ii, gaps(1));
+                'Battery cutoff detected in burst %d at sample %d (gap > %g s).', ...
+                ii, gaps(1), cutoffGapSec);
             break
         end
     end
@@ -118,35 +130,58 @@ function PUV = PUV_raw_process(instr, cfg)
     % Trim data at the cutoff point
     if ~isempty(cutoff)
         ii = cutoff.burst;
-        SENii = SEN_bursts{ii};
-        DATii = DAT_bursts{ii};
 
-        % Pad DAT to match fs * length(SEN) before trimming
-        nSEN = size(SENii, 1);
-        nDAT = size(DATii, 1);
-        nCols_DAT = size(DATii, 2);
-        if nDAT < nSEN * fs
-            DATii(end+1 : nSEN*fs, :) = NaN;
+        if cutoff.id <= 1
+            % The gap is at the very start of this burst, so there is nothing
+            % worth keeping in it — the instrument had already gone intermittent
+            % before burst ii opened. Keep bursts 1..ii-1 whole. (Possible with
+            % the per-file bursts of the pre-2019 archive, where each hourly
+            % file is its own burst; the large-burst deployments always had
+            % cutoff.id well inside a burst.)
+            lastKeep = ii - 1;
+            if lastKeep < 1
+                error('PUV_raw_process:cutoffAtStart', ...
+                    ['Battery cutoff at the first sample of the first burst — ' ...
+                     'no usable data in %s.'], instrDir);
+            end
+            SEN_bursts(lastKeep+1 : end) = [];
+            DAT_bursts(lastKeep+1 : end) = [];
+            date_start(lastKeep+1 : end, :) = [];
+            date_end(lastKeep+1 : end, :)   = [];
+            nBursts = lastKeep;
+            fprintf('  Truncated before burst %d (gap at its first sample); kept %d bursts\n', ...
+                ii, lastKeep);
+        else
+            SENii = SEN_bursts{ii};
+            DATii = DAT_bursts{ii};
+
+            % Pad DAT to match fs * length(SEN) before trimming
+            nSEN = size(SENii, 1);
+            nDAT = size(DATii, 1);
+            nCols_DAT = size(DATii, 2);
+            if nDAT < nSEN * fs
+                DATii(end+1 : nSEN*fs, :) = NaN;
+            end
+
+            % Remove everything past the cutoff in this burst
+            SENii(cutoff.id:end, :) = [];
+            DATii(cutoff.id * fs - 1:end, :) = [];
+
+            SEN_bursts{ii} = SENii;
+            DAT_bursts{ii} = DATii;
+
+            % Update the end date for this burst
+            date_end(ii,:) = [SENii(end,3) SENii(end,1:2) SENii(end,4:6)];
+
+            % Discard all bursts after the cutoff
+            SEN_bursts(cutoff.burst+1 : end) = [];
+            DAT_bursts(cutoff.burst+1 : end) = [];
+            date_start(cutoff.burst+1 : end, :) = [];
+            date_end(cutoff.burst+1 : end, :)   = [];
+            nBursts = cutoff.burst;
+
+            fprintf('  Truncated at burst %d, sample %d\n', cutoff.burst, cutoff.id);
         end
-
-        % Remove everything past the cutoff in this burst
-        SENii(cutoff.id:end, :) = [];
-        DATii(cutoff.id * fs - 1:end, :) = [];
-
-        SEN_bursts{ii} = SENii;
-        DAT_bursts{ii} = DATii;
-
-        % Update the end date for this burst
-        date_end(ii,:) = [SENii(end,3) SENii(end,1:2) SENii(end,4:6)];
-
-        % Discard all bursts after the cutoff
-        SEN_bursts(cutoff.burst+1 : end) = [];
-        DAT_bursts(cutoff.burst+1 : end) = [];
-        date_start(cutoff.burst+1 : end, :) = [];
-        date_end(cutoff.burst+1 : end, :)   = [];
-        nBursts = cutoff.burst;
-
-        fprintf('  Truncated at burst %d, sample %d\n', cutoff.burst, cutoff.id);
     end
 
     %% ========== COMBINE ALL BURSTS INTO FULL-DEPLOYMENT ARRAYS ==========
@@ -827,10 +862,16 @@ function [DAT_bursts, SEN_bursts, date_start, date_end, fs, coordSystem] = ...
              'timestamped.'], instrDir);
     end
     if ~all(keep)
+        % Empty trailing files are normal: the recorder keeps opening an hourly
+        % file after the instrument has stopped sampling, so a deployment that
+        % ended early leaves a tail of zero-record files.
         warning('PUV_raw_process:emptyVECFile', ...
             'Dropping %d raw file(s) with no decodable system records.', sum(~keep));
         DAT_bursts = DAT_bursts(keep);
         SEN_bursts = SEN_bursts(keep);
+        % meta.files must stay aligned with the bursts — the filename-based
+        % clock recovery pairs them off by index.
+        meta.files = meta.files(keep);
     end
 
     fs = meta.fs;

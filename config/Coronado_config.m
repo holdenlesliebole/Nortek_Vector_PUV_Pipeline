@@ -36,7 +36,11 @@ function cfg = Coronado_config(deployment_name)
     cfg.outputDir = fullfile(fileparts(mfilename('fullpath')), '..', 'outputs');
     cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector/recopied';
 
-    cfg.qcOpts.Tvalid = [9 26];   % San Diego coastal
+    cfg.qcOpts.Tvalid = [9 26];
+    % Firmware-1.21 recorders leave one benign 3-4 s gap in nearly every
+    % hourly file; raise the battery-cutoff gap threshold above them so a
+    % hiccup is not mistaken for the instrument dying (see PUV_raw_process).
+    cfg.qcOpts.cutoffGapSec = 60;
 
     cor_latlon = [32.66545, -117.16860];
 
