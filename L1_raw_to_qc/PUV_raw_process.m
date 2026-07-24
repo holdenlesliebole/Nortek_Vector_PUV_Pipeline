@@ -813,12 +813,24 @@ function [DAT_bursts, SEN_bursts, date_start, date_end, fs, coordSystem] = ...
     end
     fprintf('  Found %d raw binary file(s)\n', numel(vecFiles));
 
-    [DAT, SEN, meta] = read_VEC(vecFiles);
+    % One burst per recorder file, matching how the ASCII path treats the _N
+    % split files. Concatenating them instead would expose the file seams to
+    % the battery-cutoff detector below, which truncates the record at the
+    % first gap over a second — IB-S02 loses a second across its _4/_5 seam
+    % and would lose four months of good data to it.
+    [DAT_bursts, SEN_bursts, meta] = read_VEC(vecFiles, 'Split', true);
 
-    if isempty(SEN)
+    keep = ~cellfun(@isempty, SEN_bursts);
+    if ~any(keep)
         error('PUV_raw_process:noSystemRecords', ...
-            ['Decoded %d velocity records but no system records from %s, so the ' ...
-             'record cannot be timestamped.'], size(DAT, 1), instrDir);
+            ['Decoded no system records from %s, so the record cannot be ' ...
+             'timestamped.'], instrDir);
+    end
+    if ~all(keep)
+        warning('PUV_raw_process:emptyVECFile', ...
+            'Dropping %d raw file(s) with no decodable system records.', sum(~keep));
+        DAT_bursts = DAT_bursts(keep);
+        SEN_bursts = SEN_bursts(keep);
     end
 
     fs = meta.fs;
@@ -829,23 +841,25 @@ function [DAT_bursts, SEN_bursts, date_start, date_end, fs, coordSystem] = ...
     end
     coordSystem = string(meta.coordSystem);
 
-    % The recorder splits files at 100 MiB, which is a file-size boundary and
-    % not a break in sampling, so the decoded record is one continuous burst.
-    DAT_bursts = {DAT};
-    SEN_bursts = {SEN};
-
     % SEN columns are [month day year hour minute second ...]; the caller wants
-    % [year month day hour minute second].
-    date_start = [SEN(1,   3) SEN(1,   1:2) SEN(1,   4:6)];
-    date_end   = [SEN(end, 3) SEN(end, 1:2) SEN(end, 4:6)];
+    % [year month day hour minute second], one row per burst.
+    nB = numel(SEN_bursts);
+    date_start = zeros(nB, 6);
+    date_end   = zeros(nB, 6);
+    for ii = 1:nB
+        S = SEN_bursts{ii};
+        date_start(ii, :) = [S(1,   3) S(1,   1:2) S(1,   4:6)];
+        date_end(ii, :)   = [S(end, 3) S(end, 1:2) S(end, 4:6)];
+    end
 
+    nSamp = sum(cellfun(@(x) size(x, 1), DAT_bursts));
     fprintf('  Serial %s (head %s), firmware %s\n', ...
         meta.serialNo, meta.headSerialNo, meta.fwVersion);
     fprintf('  Sampling rate: %g Hz\n', fs);
     fprintf('  Coordinate system: %s\n', coordSystem);
-    fprintf('  Decoded %d velocity samples, %s to %s\n', size(DAT, 1), ...
-        string(datetime(date_start, 'InputFormat', 'YYYYMMDDHHmmSS')), ...
-        string(datetime(date_end,   'InputFormat', 'YYYYMMDDHHmmSS')));
+    fprintf('  Decoded %d velocity samples in %d burst(s), %s to %s\n', nSamp, nB, ...
+        string(datetime(date_start(1,   :), 'InputFormat', 'YYYYMMDDHHmmSS')), ...
+        string(datetime(date_end(end, :),   'InputFormat', 'YYYYMMDDHHmmSS')));
 end
 
 % ======================================================================

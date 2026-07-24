@@ -26,8 +26,21 @@ function [DAT, SEN, meta] = read_VEC(vecFiles, varargin)
 %
 %   OPTIONS (name/value)
 %     'Verbose'  - print per-file progress (default true)
+%     'Split'    - return one cell per input file instead of concatenating
+%                  (default false). Use this when the caller treats each
+%                  recorder file as its own burst; see the note below.
 %
-%   OUTPUTS
+%   BURSTS. The recorder splits at 100 MiB mid-sampling, and the resulting
+%   files are not always perfectly abutting: a seam can lose a second (IB-S02
+%   steps 2020-01-21 13:00:10 -> 13:00:12 across the _4/_5 boundary). The ASCII
+%   path treats each _N file as a separate burst, so L1's battery-cutoff
+%   detector — which truncates the record at the first gap longer than one
+%   second — never tested those seams. Concatenating the files here would
+%   expose them and silently truncate good data, so callers should pass
+%   'Split', true to keep one burst per file and leave seam handling to the
+%   burst-merge logic.
+%
+%   OUTPUTS  (cell arrays of the below, one per file, when 'Split' is true)
 %     DAT  - N x 18, matching the ASCII .dat column layout:
 %              1 burst      2 ens        3 u (m/s)    4 v (m/s)    5 w (m/s)
 %              6:8 amp1-3   9:11 snr1-3  12:14 corr1-3
@@ -60,8 +73,10 @@ function [DAT, SEN, meta] = read_VEC(vecFiles, varargin)
 
     p = inputParser;
     addParameter(p, 'Verbose', true, @(x) islogical(x) || isnumeric(x));
+    addParameter(p, 'Split',  false, @(x) islogical(x) || isnumeric(x));
     parse(p, varargin{:});
     verbose = logical(p.Results.Verbose);
+    split   = logical(p.Results.Split);
 
     if ischar(vecFiles) || isstring(vecFiles)
         vecFiles = cellstr(vecFiles);
@@ -134,15 +149,24 @@ function [DAT, SEN, meta] = read_VEC(vecFiles, varargin)
         clear b
     end
 
-    DAT = vertcat(datCell{:});
-    SEN = vertcat(senCell{:});
-    clear datCell senCell
+    if split
+        DAT = datCell;
+        SEN = senCell;
+        nDatRows = sum(cellfun(@(x) size(x, 1), datCell));
+        nSenRows = sum(cellfun(@(x) size(x, 1), senCell));
+    else
+        DAT = vertcat(datCell{:});
+        SEN = vertcat(senCell{:});
+        clear datCell senCell
+        nDatRows = size(DAT, 1);
+        nSenRows = size(SEN, 1);
+    end
 
     meta.nFiles       = nFiles;
     meta.files        = vecFiles;
     meta.nBadChecksum = nBadCS;
 
-    if isempty(DAT)
+    if nDatRows == 0
         error('read_VEC:noData', ...
             'No valid velocity records decoded from %s', vecFiles{1});
     end
@@ -150,14 +174,14 @@ function [DAT, SEN, meta] = read_VEC(vecFiles, varargin)
     % Cross-check the decoded sample ratio against the configured rate. A
     % mismatch means dropped records or a wrong fs, both of which would
     % silently corrupt every downstream timestamp.
-    if isfield(meta, 'fs') && ~isempty(meta.fs) && ~isnan(meta.fs) && ~isempty(SEN)
-        ratio = size(DAT, 1) / size(SEN, 1);
+    if isfield(meta, 'fs') && ~isempty(meta.fs) && ~isnan(meta.fs) && nSenRows > 0
+        ratio = nDatRows / nSenRows;
         if abs(ratio - meta.fs) > 0.05 * meta.fs
             warning('read_VEC:rateMismatch', ...
                 ['Decoded %d velocity / %d system records = %.3f samples per second, ' ...
                  'but the User Configuration reports fs = %g Hz. Records may be ' ...
                  'missing or the deployment changed rate mid-record.'], ...
-                size(DAT,1), size(SEN,1), ratio, meta.fs);
+                nDatRows, nSenRows, ratio, meta.fs);
         end
     end
 end
