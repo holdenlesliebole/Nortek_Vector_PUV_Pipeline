@@ -3,6 +3,35 @@
 **Surveyed:** May 5, 2026, from `/Volumes/group/PUV_data/Vector/recopied/`
 and `/Volumes/group/DeploymentNotes/`.
 
+> ## 2026-07-24 update — the ExploreV blocker was not real
+>
+> The May 5 survey concluded that most of this archive was gated behind a
+> manual Nortek ExploreV `.VEC → ASCII` conversion on Windows. **That is
+> wrong, and three specific claims below are superseded:**
+>
+> 1. **`.VEC` binary does not need ExploreV.** `L1_raw_to_qc/read_VEC.m`
+>    decodes the raw recorder format directly. It is verified bit-exact
+>    against the one ASCII export in the archive that overlaps it
+>    (`test_read_VEC.m`: 886,319 velocity and 443,131 system rows; velocity,
+>    amplitude, correlation, clock and flag columns all exactly equal).
+> 2. **A 0-byte `.hdr` is not fatal.** Sampling rate and coordinate system
+>    live in the binary's User Configuration record, not just the ASCII
+>    header. Every file checked so far reports **XYZ**.
+> 3. **`Cardiff1049_2015-2016/`'s `.049` files are not "pre-Vector
+>    firmware."** They are ordinary Vector binary missing only the leading
+>    `0xA5` sync byte, and parse once it is restored. The "Skip" tier
+>    assignment for them is withdrawn.
+>
+> A fourth finding is new rather than a correction: **the ASCII exports that
+> do exist cannot be trusted to be complete.** `TORREY02_1.dat/.sen` cover
+> 2019-11-14 to 2019-11-19 — 5.1 days of a 174-day deployment — and both
+> terminate mid-line. Ingesting them would have silently yielded 3% of the
+> record. `PUV_raw_process` now warns whenever both forms are present.
+>
+> **Ingested since:** `TOR19W`, `TOR20W`, `IB19W` (see the Tier table at the
+> bottom). The remaining blocker for the rest is not file format — it is the
+> 8 Hz sampling rate and dead real-time clock described under Tier 2B/3.
+
 The current `deployment_registry.m` covers **21 deployments → 40
 instrument-deployments → 33 valid records** (after 7 hardware
 failures), all from 2023 onward. (A "deployment" is a season-site
@@ -35,12 +64,22 @@ These can be ingested directly. Configs landed in May 2026 commit:
 | `Ruby2D_2021-2022/16310_MOP578_10m/` | Torrey MOP578 10m | 2021-2022 | 2 | → `RUBY22.MOP578_10m` (prefix has `_03_` middle) |
 | `Ruby2D_2021-2022/16737_MOP579_6m/` | Torrey MOP579 6m | 2021-2022 | 4 | → `RUBY22.MOP579_6m` |
 
-### Group B — Need Nortek `.VEC` → ASCII conversion (run ExploreV first)
+### Group B — raw `.VEC` binary only
 
-These have only raw binary `.VEC` files. Pipeline can't read them
-directly; user needs to run Nortek ExploreV (Windows-only) to
-generate the `.dat`/`.sen`/`.hdr` companion files. Once converted,
-configs can be added.
+~~Need Nortek `.VEC` → ASCII conversion (run ExploreV first)~~ —
+**superseded 2026-07-24**, see the update box at the top. These have only
+raw binary `.VEC` files, which `read_VEC` now ingests directly. What
+separates the ones already done from the ones still outstanding is the
+instrument vintage, not the file format:
+
+| | firmware | fs | RTC | status |
+|---|---|---|---|---|
+| TORREY02 (2019-20, 2020-21), IB-S02 (2019-20) | 3.43 | 2 Hz | valid | **ingested** as TOR19W / TOR20W / IB19W |
+| Torrey 1181/1053/1049/0806, Cardiff, Coronado | 1.21 | **8 Hz** | **dead — every file reports `2013-06-28 09:52:25`** | still blocked |
+
+The 8 Hz set needs L2 segment-length work (or decimation to 2 Hz) plus
+timestamp reconstruction from the `MMDDHHMM` filenames — the same two
+problems already documented for the Sarah archive below.
 
 | Deployment folder | Site | Years | `.VEC` count |
 |---|---|---|---|
@@ -144,11 +183,12 @@ Based on the actual file inventory:
 | Tier | Deployments | Status |
 |------|-------------|--------|
 | 1 ✅ | CAT21A, CAT21B, RUBY22 (3 instruments) | Ingested. |
+| 1 ✅ | `TorreyPines2019-2020MOP582_10meter` → **TOR19W**, `TorreyPines2020-2021_10meter` → **TOR20W**, `2019-2020-IB-Cortez` → **IB19W** | Ingested 2026-07-24 via `read_VEC`. 2 Hz, valid clock, XYZ. |
 | 2A   | `Sarah_LPL_2014-2023/2023Jan_LPL_DYE01_ADV/` | Drop-in single-record. Needs config + L1 only. |
 | 2B   | Sarah's 2014-2021 multi-deployment seasons | Pipeline adaptation required (8 Hz, hour-files, RTC recovery). Multi-day effort. |
-| 3    | `Cardiff*`, `Coronado*`, `Torrey1181_2015`, `Torrey1053_2016`, `Torrey1049_2017`, `Torrey0806_2018`, `TorreyPines2019-2020*`, `TorreyPines2020-2021*`, the Ruby2D `Torrey_*` empty folders | Need Nortek ExploreV manual conversion of `.VEC → .dat/.sen/.hdr` first (Windows-only). |
-| 4    | `Imperial Beach 2019` deployments | Likely partial / failed deployments; survey before committing time. |
-| Skip | `Cardiff1049_2015-2016/` `.049` files | Pre-Vector firmware; very old format. |
+| 3    | `Cardiff*` (incl. `Cardiff1049_2015-2016`), `Coronado*`, `Torrey1181_2015`, `Torrey1053_2016`, `Torrey1049_2017`, `Torrey0806_2018` | Format is no longer the blocker — `read_VEC` reads them. Blocked on **8 Hz** support and **dead-RTC** timestamp reconstruction, same as 2B. |
+| 4    | `Imperial Beach 2019` deployments (`20190422_IB_North/South`) | Already covered by IB18W/IB19S; the separate Nov 2019-May 2020 Cortez record is now IB19W. |
+| ~~Skip~~ | ~~`Cardiff1049_2015-2016/` `.049` files~~ | **Withdrawn** — standard Vector binary, only the leading sync byte is missing. Folded into Tier 3. |
 
 ---
 
