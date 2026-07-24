@@ -121,6 +121,28 @@ Metadata came from `PandPUV2015-2025.xlsx` (the season-by-season PUV inventory, 
 every folder to a logged deployment) and the `VectorPUV_Winter201*Checkout.xlsx` sheets; MOP
 transects were resolved from CDIP station coordinates (D0591 315 m, D0677 257 m, D0158 381 m).
 
+**Validation against CDIP MOP**, hourly Hs over each record:
+
+| | n | R² | bias (PUV−MOP) | RMSE | slope |
+|---|---|---|---|---|---|
+| TOR15A vs D0591 | 445 | 0.744 | −0.021 m | 0.221 m | 0.874 |
+| TOR15B vs D0591 | 771 | 0.673 | −0.056 m | 0.413 m | 0.795 |
+| TOR16B vs D0591 | 390 | 0.869 | +0.052 m | 0.223 m | 1.016 |
+| TOR17D vs D0591 | 857 | 0.841 | −0.054 m | 0.162 m | 0.916 |
+| CDF15A vs D0677 | 910 | 0.792 | −0.058 m | 0.263 m | 0.812 |
+| CDF15C vs D0677 | 862 | 0.645 | −0.041 m | 0.286 m | 0.742 |
+| COR16B vs D0158 | 474 | 0.871 | +0.002 m | 0.303 m | 1.021 |
+| COR17D vs D0158 | 807 | 0.796 | −0.085 m | 0.177 m | 0.801 |
+
+These R² (0.65–0.87) are lower than Tier A's 0.88–0.94, which is expected rather than a decode
+problem: (a) these instruments sit 250–380 m from the exact MOP transect, vs Tier A's
+near-co-located sites; (b) they are older firmware-1.21 units with lower Doppler SNR (TOR16B and
+COR16B come in at ~50–75% velocity-valid at L1); (c) the MOP model itself is less certain at
+transects this far from a buoy (Bill's Q_p caveat). Biases are all under 9 cm and slopes near 1,
+so the absolute Hs is well tracked. The two lowest — TOR15B (0.67, RMSE 0.41) and CDF15C — are
+consistent with those specific records: TOR15B's degraded-timestamp tail near battery death
+smears the time alignment against the model.
+
 ### Still not done
 
 - `Cardiffbackbeach_Jan2016` — a 2-day back-beach test (Jan 6-8 2016), different mixed file
