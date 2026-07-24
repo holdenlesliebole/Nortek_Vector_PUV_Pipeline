@@ -16,6 +16,15 @@ function registry = deployment_registry()
 %     TOR19W   = Torrey winter 2019-20 (MOP582 10m)
 %     TOR20W   = Torrey winter 2020-21 (MOP582 10m)
 %     IB19W    = Imperial Beach winter 2019-20 (Cortez Ave 6m)
+%     TOR15A-B = Torrey offshore MOP591, winter 2015-16, deployments 1 and 2
+%     TOR16B   = Torrey offshore MOP591, winter 2016-17, deployment 2
+%     TOR17D   = Torrey offshore MOP591, winter 2017-18, deployment 4
+%     CDF15A/C = Cardiff MOP677, winter 2015-16, deployments 1 and 3  (new site)
+%     COR16B   = Coronado MOP158, winter 2016-17, deployment 2        (new site)
+%     COR17D   = Coronado MOP158, winter 2017-18, deployment 4
+%     For pre-2019 seasons the trailing letter is the deployment ORDINAL within
+%     that winter (A=1st ... D=4th), not a season code — one instrument was
+%     swapped every 5-6 weeks at a fixed station.
 %     TBR23    = Torrey Pines Beach Recovery 2023 campaign (Torrey Pines PUV
 %                deployment; same site as TOR23W/TOR24S. Named for the campaign,
 %                not the SITE+season convention — would otherwise be TOR23S.)
@@ -86,5 +95,18 @@ function registry = deployment_registry()
     registry('TOR19W') = @TOR19W_config;                 % Torrey MOP582 10m, Nov 2019-May 2020
     registry('TOR20W') = @TOR20W_config;                 % Torrey MOP582 10m, Oct 2020-Mar 2021
     registry('IB19W')  = @IB19W_config;                  % Imperial Beach Cortez 6m, Nov 2019-May 2020
+
+    % --- Pre-2019 archive — firmware 1.21, clock epoch recovered from filenames ---
+    % A season here has up to four sequential 5-6 week deployments of one
+    % instrument at one station; the trailing letter is that ordinal, taken from
+    % PandPUV2015-2025.xlsx. Only the deployments present in recopied/ appear.
+    registry('TOR15A') = @() TorreyOffshore_config('TOR15A');  % Torrey MOP591 9m, Nov-Dec 2015
+    registry('TOR15B') = @() TorreyOffshore_config('TOR15B');  % Torrey MOP591 9m, Jan-Feb 2016
+    registry('TOR16B') = @() TorreyOffshore_config('TOR16B');  % Torrey MOP591 8m, Jan-Feb 2017
+    registry('TOR17D') = @() TorreyOffshore_config('TOR17D');  % Torrey MOP591 8m, Mar-Apr 2018
+    registry('CDF15A') = @() Cardiff_config('CDF15A');         % Cardiff MOP677 9m, Nov 2015-Jan 2016
+    registry('CDF15C') = @() Cardiff_config('CDF15C');         % Cardiff MOP677 10m, Feb-Mar 2016
+    registry('COR16B') = @() Coronado_config('COR16B');        % Coronado MOP158 9m, Jan-Feb 2017
+    registry('COR17D') = @() Coronado_config('COR17D');        % Coronado MOP158 9m, Mar-Apr 2018
 
 end
