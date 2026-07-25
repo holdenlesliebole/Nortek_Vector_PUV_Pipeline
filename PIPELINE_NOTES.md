@@ -319,7 +319,7 @@ See `config/CONFIG_REVIEW_NOTES.md` for full list.
 > with the summary below. This section captures the design rationale behind the
 > QC and processing choices.
 
-### L1 — complete, 45 instrument-records across 26 deployments
+### L1 — complete, 65 instrument-records across 46 deployments
 - Variability-based tilt QC (2° rolling std threshold, 30° absolute cap)
 - Sample-by-sample tilt correction for bent pipes (3D rotation using pitch/roll)
 - Pressure QC uses a healthy first-burst reference window for the median
@@ -342,7 +342,7 @@ See `config/CONFIG_REVIEW_NOTES.md` for full list.
 - Catalog: deployments across 6 sites (Torrey, SIO Pier, Solana, LPL lagoon,
   Imperial Beach, Catalina) — see `docs/deployment_database_overview.md`
 
-### L2 — complete, 45/45 instrument-records processed
+### L2 — complete, 65/65 instrument-records processed
 - Per-segment guard rejects segments with `Hs/h > 1.5` or
   `|h - depth_nominal|/depth_nominal > 0.5` (added May 6; catches
   segments that straddle a sensor-failure boundary in the L1 record);

@@ -31,7 +31,7 @@ Likewise `outputs/_*_backup_*/` and `outputs/rerun_*/` are frozen snapshots.
 
 ## Current state (2026-07-24)
 
-- **Catalog:** 45 instrument-records across 26 deployments, at every level
+- **Catalog:** 65 instrument-records across 46 deployments, at every level
   L1–L4; 9 deployments also have `L4_xspec` (the multi-instrument ones).
 - **Canonical processed copy:** `/Volumes/group/PUV_data/Vector/Processed_HLB/`,
   laid out `<DEPLOYMENT>/Level{1,2,3,4}_QC/<label>_*.mat`, with `manifest.csv`
