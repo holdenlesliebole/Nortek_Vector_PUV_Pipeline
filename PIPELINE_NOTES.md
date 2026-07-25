@@ -338,9 +338,12 @@ See `config/CONFIG_REVIEW_NOTES.md` for full list.
 - Dropped records are documented hardware failures (genuine tilt limits — bent
   pipes, burial-during-storms, knocked-over instruments; battery, kelp,
   corrosion), correctly rejected — not a bug. Fix candidates and per-instrument
-  explanations in `docs/deployment_database_overview.md` and `docs/todo.md`.
-- Catalog: deployments across 6 sites (Torrey, SIO Pier, Solana, LPL lagoon,
-  Imperial Beach, Catalina) — see `docs/deployment_database_overview.md`
+  explanations in `docs/deployment_database_overview.md` (a superseded 2026-04-05
+  snapshot — its counts are stale) and `docs/todo.md`.
+- Catalog: deployments across 8 sites (Torrey nearshore + offshore/LPL-mouth,
+  SIO Pier, Solana, LPL lagoon, Imperial Beach, Cardiff, Coronado, Catalina) —
+  current status in `docs/pipeline_levels.md`; the 2026-04-05
+  `docs/deployment_database_overview.md` snapshot is superseded.
 
 ### L2 — complete, 65/65 instrument-records processed
 - Per-segment guard rejects segments with `Hs/h > 1.5` or

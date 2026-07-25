@@ -28,9 +28,14 @@ and `/Volumes/group/DeploymentNotes/`.
 > terminate mid-line. Ingesting them would have silently yielded 3% of the
 > record. `PUV_raw_process` now warns whenever both forms are present.
 >
-> **Ingested since:** `TOR19W`, `TOR20W`, `IB19W` (see the Tier table at the
-> bottom). The remaining blocker for the rest is not file format — it is the
-> 8 Hz sampling rate and dead real-time clock described under Tier 2B/3.
+> **Ingested since (all 2026-07-24):** Tier A (`TOR19W`, `TOR20W`, `IB19W`),
+> Tier B (`TOR15A/B`, `TOR16B`, `TOR17D`, `CDF15A/C`, `COR16B/D`), and Tier C —
+> the multi-year Torrey/Los-Peñasquitos-mouth offshore station from
+> `Sarah_LPL_2014-2023/` (`TOR14A`…`TOR19A`). The "8 Hz sampling rate and dead
+> real-time clock" once cited as the remaining blocker was **wrong**: those
+> instruments are 2 Hz, and the clock runs from a wrong epoch recovered from the
+> filenames. Only two deployments are held out (`TOR20A` sequence-counter
+> filenames; the 8 Hz surfzone dye). Full account: `recopied_data_backlog.md`.
 
 The current `deployment_registry.m` covers **21 deployments → 40
 instrument-deployments → 33 valid records** (after 7 hardware
@@ -108,7 +113,7 @@ matches the logged deployment date.
 | `CoronadoJan_2017/` | Coronado | Jan 2017 | 2 | Almost certainly incomplete (only 2 files) |
 | `20190422_IB_North/`, `20190422_IB_South/` | Imperial Beach | Apr 2019 | 10, 9 | Likely partial / failed deployments |
 | `2019-2020-IB-Cortez/` | Imperial Beach (Cortez) | 2019-2020 | 7 | Likely partial |
-| `Sarah_LPL_2014-2023/` | **Mislabeled — actually Torrey Pines** (per `.hdr` content `C:\PROJECTS\SoCal2014\TorreyPines\`) | 2014-2023 | nested by year, multiple deployments per season | **Has full `.dat`/`.hdr`/`.VEC` set, but at 8 Hz (not 2 Hz) with hour-named files**. See "Sarah archive notes" below. |
+| `Sarah_LPL_2014-2023/` | The offshore station near the Los Peñasquitos lagoon mouth (Torrey Pines State Beach, ~MOP590/591); `.hdr` project path says `…TorreyPines…` | 2014-2023 | nested by year, multiple deployments per season | **~~8 Hz~~ actually 2 Hz; processed 2026-07-24 as Tier C** (`TOR14A`…`TOR19A`) — see `recopied_data_backlog.md`. |
 
 Special folders to check separately:
 - `RechargeableBattTest/` — battery test records, not field data
@@ -136,6 +141,18 @@ could enrich cross-deployment analysis.
 ---
 
 ## Sarah archive notes (May 5, 2026 survey)
+
+> **⚠ SUPERSEDED 2026-07-24 — processed as "Tier C" in
+> `docs/recopied_data_backlog.md`; read that instead.** The constraints below
+> were the May-5 guesses and turned out **wrong on both counts**: the archive is
+> **2 Hz, not 8 Hz** (`read_VEC` was mis-deriving the rate), and the clock is
+> **not dead** — it runs from a wrong epoch and is recovered from the `MMDDHHMM`
+> filenames. It was **not** a multi-day pipeline adaptation. 12 of its
+> deployments are ingested (the single offshore station near the Los Peñasquitos
+> lagoon mouth, ~MOP590/591, named `TOR14A`…`TOR19A`); 4 duplicated Tier B and
+> were skipped; `TOR20A` (sequence-counter filenames) and the 8 Hz surfzone dye
+> are held out. The paragraphs below are kept only as a record of the original
+> survey.
 
 The `Sarah_LPL_2014-2023/` folder is **mislabeled** — its contents are
 Torrey Pines deployments, not Los Pe\~nasquitos lagoon. The `.hdr`
@@ -189,9 +206,9 @@ Based on the actual file inventory:
 |------|-------------|--------|
 | 1 ✅ | CAT21A, CAT21B, RUBY22 (3 instruments) | Ingested. |
 | 1 ✅ | `TorreyPines2019-2020MOP582_10meter` → **TOR19W**, `TorreyPines2020-2021_10meter` → **TOR20W**, `2019-2020-IB-Cortez` → **IB19W** | Ingested 2026-07-24 via `read_VEC`. 2 Hz, valid clock, XYZ. |
-| 2A   | `Sarah_LPL_2014-2023/2023Jan_LPL_DYE01_ADV/` | Drop-in single-record. Needs config + L1 only. |
-| 2B   | Sarah's 2014-2021 multi-deployment seasons | Pipeline adaptation required (8 Hz, hour-files, RTC recovery). Multi-day effort. |
-| 3    | `Cardiff*` (incl. `Cardiff1049_2015-2016`), `Coronado*`, `Torrey1181_2015`, `Torrey1053_2016`, `Torrey1049_2017`, `Torrey0806_2018` | Format is no longer the blocker — `read_VEC` reads them. Blocked on **8 Hz** support and **dead-RTC** timestamp reconstruction, same as 2B. |
+| 2A   | `Sarah_LPL_2014-2023/2023Jan_LPL_DYE01_ADV/` | ~~Drop-in single-record~~ — actually a surfzone/intertidal dye study in <1 m water, genuinely 8 Hz; **held out** (unsuitable for the wave-climate pipeline). See `recopied_data_backlog.md`. |
+| 2B   | Sarah's 2014-2021 multi-deployment seasons | ✅ **Done 2026-07-24 (Tier C)** — 2 Hz, clock recovered from filenames; 12 processed as `TOR14A`…`TOR19A`, `TOR20A` held out. NOT a multi-day adaptation. |
+| 3    | `Cardiff*` (incl. `Cardiff1049_2015-2016`), `Coronado*`, `Torrey1181_2015`, `Torrey1053_2016`, `Torrey1049_2017`, `Torrey0806_2018` | ✅ **Done 2026-07-24 (Tier B)** via `read_VEC` — 2 Hz (not 8 Hz), clock from filenames (not dead). |
 | 4    | `Imperial Beach 2019` deployments (`20190422_IB_North/South`) | Already covered by IB18W/IB19S; the separate Nov 2019-May 2020 Cortez record is now IB19W. |
 | ~~Skip~~ | ~~`Cardiff1049_2015-2016/` `.049` files~~ | **Withdrawn** — standard Vector binary, only the leading sync byte is missing. Folded into Tier 3. |
 

@@ -1,5 +1,13 @@
 # PUV Pipeline — Deployment Database Overview
 
+> **⚠ SUPERSEDED SNAPSHOT (as of 2026-04-05).** This is a point-in-time review
+> deliverable, kept as history. Its counts are stale: the catalog is now
+> **65 instrument-records across 46 deployments** (not 40/20/33) after the
+> pre-2023 raw-`.VEC` archive was ingested — see `docs/pipeline_levels.md` for
+> the current status and `docs/recopied_data_backlog.md` for the archive work.
+> (It also calls the instruments "Nortek AWAC"; they are Nortek **Vector** ADVs.)
+> Do not read the numbers below as current.
+
 **Prepared for:** Brian Woodward
 **Date:** April 5, 2026
 **Purpose:** Verify that our automated processing results match field knowledge before finalizing the dataset.
