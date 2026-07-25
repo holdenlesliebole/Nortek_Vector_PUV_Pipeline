@@ -39,9 +39,13 @@ Likewise `outputs/_*_backup_*/` and `outputs/rerun_*/` are frozen snapshots.
   byte-size skip; it also regenerates the manifest and README).
 - **Levels L1–L4 are complete and verified.** L5 (PUV↔altimeter merge) is planned,
   not built.
-- **Pre-2023 archive:** Tier A is done (`TOR19W`, `TOR20W`, `IB19W`, decoded from
-  raw `.VEC`). Tier B is scoped and outstanding — see
-  `docs/recopied_data_backlog.md`.
+- **Pre-2023 archive: Tiers A, B, and C are all done** (2026-07-24), decoded from
+  raw `.VEC` — 23 new deployments back to 2014. Tier A = `TOR19W`/`TOR20W`/`IB19W`;
+  Tier B = `TOR15A/B`, `TOR16B`, `TOR17D`, `CDF15A/C`, `COR16B/D`; Tier C = the
+  Torrey/Los-Peñasquitos-mouth offshore station (`TOR14A`…`TOR19A`). **Two held
+  out** with the reasons documented: `TOR20A` (sequence-counter filenames, timing
+  unvalidatable) and the 2023 LPL dye (surfzone/intertidal, unsuitable). Full
+  account: `docs/recopied_data_backlog.md`.
 
 ---
 
@@ -60,6 +64,16 @@ User Configuration record, so a 0-byte `.hdr` is not fatal.
 separate burst. Do not concatenate them: L1's battery-cutoff rule truncates the
 record at the first gap over a second, and the 100 MiB split seams can lose a
 second, which silently discards months of good data.
+
+**Firmware-1.21 archive quirks (all handled; see `read_VEC.m` /
+`vec_clock_from_filenames.m`).** The pre-2019 instruments report 8 Hz in their
+config but are actually 2 Hz — `read_VEC` measures the rate from the records.
+Their clock runs from a wrong epoch (2000/2002); recover it with
+`instr.clockSource='filename'` + `deployYear` (from the `MMDDHHMM` filenames),
+or `clockSource='fixed'` + `deployStart` when the filenames aren't wall-clock.
+`instr.decimateTo` decimates a genuine high-rate (8 Hz) record to 2 Hz. Set
+`cfg.qcOpts.cutoffGapSec=60` for these (benign per-file hiccups). The "8 Hz +
+dead RTC" framing in older notes was wrong on both counts.
 
 **The pipeline is standalone through L4.** L1–L4 must run without any altimeter
 data. Coupling to the altimeter pipeline happens only at L5.
