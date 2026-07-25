@@ -202,13 +202,20 @@ station.
   the config case, the fixed-offset code path, and this analysis are kept for a future recovery
   given a reliable field start date and a check of the raw-file assembly. `clockSource='fixed'`
   itself is a good general capability and stays.
-- **`2023Jan_LPL_DYE01_ADV`** (S/N 12412, `LPSDYE02`/`LPSDYE03`). This one is genuinely
-  **8 Hz** (firmware 3.42, correct clock, ASCII export present) — a Los Peñasquitos surfzone
-  **dye study** on a tripod, a different site and purpose from the offshore wave-climate station.
-  8 Hz needs real pipeline work (the L1 burst-merge has 2 Hz / 1 Hz branches only, and L2's
-  1-hour segment assumes 7200 samples = 2 Hz), or a decimation-to-2 Hz step at L1. Deferred as a
-  scoped follow-up; decide first whether the wave-climate products (fine at 2 Hz) or the
-  turbulence/dye products (need 8 Hz) are the goal.
+- **`2023Jan_LPL_DYE01_ADV`** (S/N 12412, `LPSDYE02`/`LPSDYE03`) — **not a wave-climate
+  deployment; not added to the catalog.** It is genuinely **8 Hz** (firmware 3.42), which the
+  earlier note flagged as needing work, and that work is now done: `instr.decimateTo` decimates
+  a high-rate record to 2 Hz at L1 (anti-aliased velocity/pressure, block-worst QC), verified to
+  run at factor 4 on this data. But the 8 Hz was never the real obstacle. Measuring the record
+  shows it is a **surfzone / intertidal dye + OBS experiment in <1 m of water, mostly exposed**:
+  LPSDYE02 median pressure 0.16 dBar (≈ air), LPSDYE03 0.24 dBar, with velocity std ~2.3 m/s
+  (in-air Doppler noise). The linear-theory pressure-to-elevation correction, the MOP shoaling
+  reference, and the whole offshore wave-climate pipeline are physically inappropriate at these
+  depths with breaking waves, and the dye/turbidity (OBS) purpose is not what this pipeline
+  produces. It needs a purpose-specific surfzone/dye analysis, not this catalog. The clock is
+  correct UTC (start 2023-01-19), so no recovery is needed if it is ever processed. The
+  `decimateTo` capability stays — it is the right tool for a future *offshore* high-rate
+  deployment.
 
 ### Other `recopied/` items still not done
 
