@@ -951,6 +951,30 @@ function [DAT_bursts, SEN_bursts, date_start, date_end, fs, coordSystem] = ...
             'Sampling rate did not decode from the User Configuration in %s', ...
             vecFiles{1});
     end
+
+    % Optional decimation to a lower rate (instr.decimateTo, Hz). A few
+    % deployments sample at 8 Hz for turbulence/dye work; the wave-climate
+    % catalog is 2 Hz, and the downstream merge and L2 segmentation assume 2 Hz.
+    % Decimating here (anti-aliased for the continuous channels, block-worst for
+    % the QC channels) brings such a record into the standard 2 Hz catalog with
+    % the full wave band intact — the >Nyquist/2 content it drops is turbulence,
+    % not waves. The raw high-rate files remain for a separate dye analysis.
+    if isfield(instr, 'decimateTo') && ~isempty(instr.decimateTo) && instr.decimateTo < fs
+        factor = fs / instr.decimateTo;
+        if abs(factor - round(factor)) > 1e-6
+            error('PUV_raw_process:badDecimate', ...
+                'decimateTo=%g does not divide the measured fs=%g evenly.', ...
+                instr.decimateTo, fs);
+        end
+        factor = round(factor);
+        for ii = 1:numel(DAT_bursts)
+            DAT_bursts{ii} = decimate_DAT(DAT_bursts{ii}, factor);
+        end
+        fprintf('  Decimated %g Hz -> %g Hz (factor %d, anti-aliased velocity/pressure)\n', ...
+            fs, instr.decimateTo, factor);
+        fs = instr.decimateTo;
+    end
+
     coordSystem = string(meta.coordSystem);
 
     % Some pre-2019 instruments recorded with the real-time clock set to a
@@ -1014,6 +1038,44 @@ function [DAT_bursts, SEN_bursts, date_start, date_end, fs, coordSystem] = ...
     fprintf('  Decoded %d velocity samples in %d burst(s), %s to %s\n', nSamp, nB, ...
         string(datetime(date_start(1,   :), 'InputFormat', 'YYYYMMDDHHmmSS')), ...
         string(datetime(date_end(end, :),   'InputFormat', 'YYYYMMDDHHmmSS')));
+end
+
+% ======================================================================
+function D = decimate_DAT(D, factor)
+% Downsample one burst's DAT matrix by an integer factor.
+%
+% The continuous channels (velocity, pressure, analogue in) are anti-alias
+% decimated with a linear-phase FIR filter so the wave band is preserved without
+% phase distortion. The per-sample quality channels are handled to keep their
+% meaning across the decimation: correlation takes the block MINIMUM (the
+% decimated sample inherits the worst correlation in its window, so a bad stretch
+% still gates QC), amplitude/SNR are subsampled. Columns are the ASCII .dat
+% layout: 3:5 vel, 6:8 amp, 9:11 snr, 12:14 corr, 15 pressure, 16:17 ain.
+    if isempty(D), return; end
+    n = size(D, 1);
+    nOut = floor(n / factor);
+    if nOut < 2, D = D(1:0, :); return; end
+    keep = 1 : nOut*factor;
+
+    out = zeros(nOut, size(D, 2));
+    % continuous channels: anti-aliased decimation
+    for c = [3 4 5 15 16 17]
+        out(:, c) = decimate(D(keep, c), factor, 'fir');
+    end
+    % correlation: block minimum (conservative QC)
+    for c = 12:14
+        blk = reshape(D(keep, c), factor, nOut);
+        out(:, c) = min(blk, [], 1)';
+    end
+    % amplitude / SNR: subsample
+    for c = [6 7 8 9 10 11]
+        out(:, c) = D(factor:factor:nOut*factor, c);
+    end
+    % bookkeeping columns
+    out(:, 1) = D(1, 1);            % burst number (constant within a burst)
+    out(:, 2) = (1:nOut)';          % ensemble index within the decimated burst
+    out(:, 18) = 0;                 % checksum flag
+    D = out;
 end
 
 % ======================================================================
