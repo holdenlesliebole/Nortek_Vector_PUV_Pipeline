@@ -122,8 +122,11 @@ function registry = deployment_registry()
     registry('TOR17C') = @() TorreyOffshore_config('TOR17C');  % 2017-18 #3
     registry('TOR17D') = @() TorreyOffshore_config('TOR17D');  % 2017-18 #4 (Mar-Apr 2018)
     registry('TOR18A') = @() TorreyOffshore_config('TOR18A');  % 2018-19 #1
+    % TOR20A (2020-21 "Los Pen offshore") is intentionally NOT registered: its
+    % event timing could not be validated (sequence-counter filenames; three
+    % alignment methods disagree). The config case is kept, documented, for a
+    % future recovery with a reliable field start date. See TorreyOffshore_config.
     registry('TOR19A') = @() TorreyOffshore_config('TOR19A');  % 2019-20 "Los Pen offshore"
-    registry('TOR20A') = @() TorreyOffshore_config('TOR20A');  % 2020-21 "Los Pen offshore"
     registry('CDF15A') = @() Cardiff_config('CDF15A');         % Cardiff MOP677 9m, Nov 2015-Jan 2016
     registry('CDF15C') = @() Cardiff_config('CDF15C');         % Cardiff MOP677 10m, Feb-Mar 2016
     registry('COR16B') = @() Coronado_config('COR16B');        % Coronado MOP158 9m, Jan-Feb 2017

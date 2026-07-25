@@ -97,4 +97,30 @@ function cfg = TorreyOffshore_config(deployment_name)
     cfg.instruments(k).filePrefix    = '';
     cfg.instruments(k).serialNum     = row{3};
     cfg.instruments(k).deployYear    = row{4};
+
+    % TOR20A (2020-21 "Los Pen offshore", S/N 1053) is HELD OUT of the catalog —
+    % its timing could not be validated. It is kept here as a documented case and
+    % to exercise the clockSource='fixed' path, but it is NOT registered in
+    % deployment_registry, so no batch run processes it into the catalog.
+    %
+    % Why it fails: its raw files are named with a sequence counter, not the
+    % wall-clock hour, so clockSource='filename' cannot recover it (the offset
+    % guard rejects it, correctly). The sample clock RATE is true — the pressure
+    % M2 tide sits at 12.411 h (real 12.421 h) — so in principle a single fixed
+    % offset should recover it. But three independent anchors disagree and the
+    % plausible one fails a cross-check:
+    %   - tide vs TOR20W's known-time tide: +44 h, r=0.846, but ALIASED (the
+    %     periodic tide did not disambiguate over the ~27 d overlap);
+    %   - Hs vs MOP D0591: ~-22 d, r=0.47;   Hs vs TOR20W Hs: ~-15 d, r=0.67;
+    %     both point to a start BEFORE the checkout's programmed date (implausible).
+    % At the tide-aligned epoch, TOR20A Hs vs the well-timed neighbour TOR20W is
+    % R^2=0.001 — its wave-event sequence does not align with reality at any
+    % offset, consistent with the unusual file structure (sequence-counter names,
+    % duplicate .VEC/.053 sets) having scrambled the assembled event timing beyond
+    % what a single offset fixes. Recovering it needs a reliable field start date
+    % and a check of the raw-file assembly, not just a clock offset.
+    if strcmp(deployment_name, 'TOR20A')
+        cfg.instruments(k).clockSource = 'fixed';
+        cfg.instruments(k).deployStart = datetime(2020,10,9,8,0,0);  % best (unvalidated) estimate
+    end
 end

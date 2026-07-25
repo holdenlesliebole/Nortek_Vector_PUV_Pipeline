@@ -974,6 +974,27 @@ function [DAT_bursts, SEN_bursts, date_start, date_end, fs, coordSystem] = ...
         SEN_bursts = shift_SEN_time(SEN_bursts, offSec);
     end
 
+    % A few instruments have a wrong clock epoch AND raw files named with a
+    % sequence counter rather than the wall-clock hour (TOR20A), so the filename
+    % recovery cannot be used. The clock still runs correctly, so a single fixed
+    % offset from a known true start time recovers the whole record. Opt in with
+    % clockSource = 'fixed' and instr.deployStart (a datetime of the first
+    % sample). Anchor it from the deployment log, then confirm/refine against the
+    % MOP reference — the absolute epoch is only as good as deployStart, while
+    % the sample spacing is exact.
+    if isfield(instr, 'clockSource') && strcmpi(instr.clockSource, 'fixed')
+        if ~isfield(instr, 'deployStart') || isempty(instr.deployStart)
+            error('PUV_raw_process:noDeployStart', ...
+                'instr.clockSource = ''fixed'' needs instr.deployStart (a datetime).');
+        end
+        S1 = SEN_bursts{1};   % chronological first burst after the sort above
+        firstRTC = datetime(S1(1,3), S1(1,1), S1(1,2), S1(1,4), S1(1,5), S1(1,6));
+        offSec = seconds(instr.deployStart - firstRTC);
+        fprintf('  Clock set from fixed start: RTC %s -> deployStart %s (offset %.2f days)\n', ...
+            string(firstRTC), string(instr.deployStart), offSec/86400);
+        SEN_bursts = shift_SEN_time(SEN_bursts, offSec);
+    end
+
     % SEN columns are [month day year hour minute second ...]; the caller wants
     % [year month day hour minute second], one row per burst.
     nB = numel(SEN_bursts);
