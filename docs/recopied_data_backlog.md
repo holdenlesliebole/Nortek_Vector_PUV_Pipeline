@@ -183,14 +183,25 @@ station.
 
 ### Two deployments in this archive are deferred — genuine new code paths, not configs
 
-- **`TOR20A`** (2020-21 "Los Pen offshore", S/N 1053). Its raw files are named with a
-  **sequence counter, not wall-clock `MMDDHHMM`** — consecutive files are one minute apart, and
-  ~12% roll over in a way that lands exactly 24 h off, so `clockSource='filename'` cannot recover
-  it and the offset guard correctly rejected it. The RTC itself runs correctly (strictly
-  monotonic from a 2000 epoch), and the 2020-2021 checkout sheet gives the programmed start
-  (**10/5/2020 ~17:00**), so it is recoverable with a *fixed-offset* clock mode
-  (`offset = deployStart − firstRTC`) — a small new `clockSource='fixed'` path — ideally with a
-  MOP cross-correlation to refine the ~1-day start-time uncertainty. Not yet built.
+- **`TOR20A`** (2020-21 "Los Pen offshore", S/N 1053) — **attempted, held out of the catalog;
+  timing could not be validated.** Its raw files are named with a **sequence counter, not
+  wall-clock `MMDDHHMM`**, so `clockSource='filename'` cannot recover it (the offset guard
+  correctly rejected it). A `clockSource='fixed'` mode was added (`offset = deployStart −
+  firstRTC`) and the sample clock *rate* is confirmed true — the pressure M2 tide sits at
+  12.411 h (real 12.421 h) — so in principle one offset should recover it. But three independent
+  timing anchors disagree, and the plausible one fails its cross-check:
+    - tide vs TOR20W's known-time tide → +44 h, r=0.846, but **aliased** (the periodic tide did
+      not disambiguate over the ~27-day overlap);
+    - Hs vs MOP D0591 → ~−22 d (r=0.47); Hs vs TOR20W Hs → ~−15 d (r=0.67) — both pointing
+      *before* the checkout's programmed start (10/5/2020), which is implausible.
+
+  At the tide-aligned epoch, TOR20A's Hs vs the well-timed neighbour TOR20W is **R²=0.001** —
+  its wave-event sequence does not line up with reality at any offset, consistent with the
+  sequence-counter / duplicate `.VEC`+`.053` file structure having scrambled the assembled event
+  timing beyond what a single offset fixes. It is **not registered** (no batch run processes it);
+  the config case, the fixed-offset code path, and this analysis are kept for a future recovery
+  given a reliable field start date and a check of the raw-file assembly. `clockSource='fixed'`
+  itself is a good general capability and stays.
 - **`2023Jan_LPL_DYE01_ADV`** (S/N 12412, `LPSDYE02`/`LPSDYE03`). This one is genuinely
   **8 Hz** (firmware 3.42, correct clock, ASCII export present) — a Los Peñasquitos surfzone
   **dye study** on a tripod, a different site and purpose from the offshore wave-climate station.
