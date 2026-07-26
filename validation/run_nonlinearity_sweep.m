@@ -76,25 +76,14 @@ for d = 1:numel(names)
             fprintf('  [L4 incomplete] %s/%s\n', cfg.name, lab); continue
         end
 
-        % L4 segment arrays are NOT guaranteed to align with L2 by index --
-        % at least one record has L4 shorter than L2 (caught by an
-        % out-of-range crash, which means a record where L4 were LONGER would
-        % have silently returned mismatched hours). Build an explicit L2->L4
-        % index map by TIME and use it everywhere below.
-        nL4 = numel(L4.ref.Hs_over_h);
-        if nL4 == numel(L2.time)
-            l4map = (1:numel(L2.time))';
-        else
-            fprintf('  [align] %s/%s: L4 has %d segments vs L2 %d -- matching by time\n', ...
-                cfg.name, lab, nL4, numel(L2.time));
-            t2 = L2.time; t4 = L4.ref.time;
-            if isempty(t2.TimeZone) && ~isempty(t4.TimeZone), t2.TimeZone = t4.TimeZone; end
-            if isempty(t4.TimeZone) && ~isempty(t2.TimeZone), t4.TimeZone = t2.TimeZone; end
-            l4map = NaN(numel(t2),1);
-            for q = 1:numel(t2)
-                [dq, iq] = min(abs(t4 - t2(q)));
-                if dq < minutes(1), l4map(q) = iq; end
-            end
+        % L4 segment arrays are NOT guaranteed to align with L2 by index, and
+        % equal counts do not prove they do -- a rerun can add a segment at the
+        % start and drop one at the end. Always match by TIME.
+        % See shared/l4_l2_index_map.m.
+        [l4map, ainfo] = l4_l2_index_map(L2, L4);
+        if ~ainfo.identity
+            fprintf('  [align] %s/%s: L4 %d segs vs L2 %d, max index offset %d, matched %d\n', ...
+                cfg.name, lab, ainfo.nL4, ainfo.nL2, ainfo.maxOffset, ainfo.nMatched);
         end
         if all(isnan(l4map)), fprintf('  [align failed] %s/%s\n', cfg.name, lab); continue; end
 

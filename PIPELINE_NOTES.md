@@ -294,6 +294,43 @@ THREDDS call to get shore-normal angle — requires internet access at runtime.
 unknown clock drift (battery depletion or missing field notes).
 See `config/CONFIG_REVIEW_NOTES.md` for full list.
 
+### L3/L4 are snapshots of L2 — index alignment is not guaranteed (2026-07-26)
+
+L3 and L4 allocate their per-segment arrays at `numel(L2.time)` and loop
+`1:nSeg`. That is correct at build time and stays correct only for as long as L2
+does not change. Because L2 is periodically re-derived (QC changes, the
+channel-decoupling rerun, trim/anchor changes), **an L4 file records the segment
+grid of whichever L2 was canonical when it was built.**
+
+The 2026-07-10/11 rerun's new trim/anchor recovered one extra segment at the
+*start* of L2 on three records (SIO25B/SIO_6m, TOR24S/MOP586_7m,
+TOR24W/MOP586_10m). Their L4 was then offset by one for every segment — the first
+one included, not just after some drop point.
+
+Two properties make this dangerous rather than merely wrong:
+
+1. **Equal counts do not prove alignment.** A grid can gain a segment at the
+   start and lose one at the end and still have the same length. The only sound
+   test is to match on `time`. (For a sanity probe, a one-hour shift on a tidal
+   record shows up as ~0.5 m in `depth`, against ~0.01 m for ordinary QC drift —
+   the two are not confusable.)
+2. **MATLAB accepts a logical mask shorter than the array it indexes.** So
+   `L2.Hs_SS(mask)` with an L4-length `mask` silently returns the first
+   `numel(mask)` entries instead of erroring. This was live in
+   `validation/fig_L4_boundwave_catalog.m`, mispairing every point of its
+   bound-fraction-vs-`Hs²` panel on the three affected records. An out-of-range
+   *numeric* index crashes and is survivable; the logical-mask form does not.
+
+**Rule:** never index an L4 array with an L2 index. Use
+`shared/l4_l2_index_map.m` (matches by `time`, returns `info.identity` for
+assertions). `validation/audit_L4_coverage.m` sweeps the catalog for both
+problems, checking every sub-product rather than the first one it finds.
+
+The same reasoning applies to L3, which is why an L1/L2 rerun must be followed by
+either a regen of the higher levels or a written justification for skipping it —
+the 07-12 rerun left 11 records with an L3 older than its L2 for two weeks
+because the regen covered one batch and not the other.
+
 ---
 
 ## Archived Scripts (do not use)
@@ -406,7 +443,7 @@ gauge, R=0.995, UTC confirmed). Output: `outputs/L3/{deployment}/{label}_L3.mat`
 The paper-specific transport-model wrapper (`run_transport_model.m`) stays in
 the Paper 1 directory — deployment-specific, not part of the universal pipeline.
 
-### L4 — modules built and validated on TBR23
+### L4 — modules validated on TBR23, built across all 65 records (2026-07-26)
 - `PUV_L4_eta` (P → η, three bands; Hs reconstruction matches L2 to 0.5%)
 - `PUV_L4_reflection` (Sheremet incident/reflected split; sign convention
   validated via `corr(η_swell, U_swell) = +0.984`)
@@ -416,12 +453,19 @@ the Paper 1 directory — deployment-specific, not part of the universal pipelin
 - `PUV_L4_moments` and `PUV_L4_velocity_pdf` (reverse-engineered Bill O'Reilly
   MOP511 6m analysis — frequency-resolved skewness/asymmetry correlations and
   pooled |u| PDFs)
-- `PUV_L4_boundwave` (bound/free IG separation; needed for clean shoreline
-  reflection coefficients — currently inflated by bound-IG contamination)
+- `PUV_L4_boundwave` (bound/free IG separation, η and u) feeding
+  `PUV_L4_reflection_free` — the shoreline reflection coefficient that `L4.ref`
+  alone overstates through bound-IG contamination. Regime limit: the
+  second-order theory over-predicts above `Hs/h` ≈ 0.10.
 - Reflection bands inform the per-band R²_swell ≫ R²_IG heading diagnostic that
   caught the L1 180° errors above.
-- See `docs/pipeline_levels.md` for the full L4 output-struct shape and the
-  remaining batch/bispectra runtime notes.
+- `bispectra` is the runtime bottleneck, which is why `PUV_L4_run_all` skips it
+  and a separate pass fills it in. That split is the direct cause of the
+  2026-07-26 gap: 23 records ingested after the one-time backfill pass never got
+  it. If `run_all` is used to add records, run the bispectra pass afterwards.
+- See `docs/pipeline_levels.md` for the full L4 output-struct shape, and the
+  L3/L4 index-alignment note under "Known Issues" above before writing any
+  consumer that joins L4 to L2.
 
 ### L5 — planned (PUV–altimeter integration)
 Not yet implemented. See `docs/pipeline_levels.md` and `project_L5_plan`.

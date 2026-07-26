@@ -24,7 +24,7 @@ deployment through the same drivers and get the same standardized output.
 | **L1** | QC'd 2 Hz time series | Burst merge, clock-drift + tilt correction, **per-channel** QC (velocity/pressure/temperature/tilt judged independently), sound-speed correction, rotation to buoy frame |
 | **L2** | Per-segment spectra | Multi-taper PSD, pressure correction → surface elevation, bulk wave params (Hs, Tp, direction), near-bed velocity, bed/Reynolds stress, velocity moments |
 | **L3** | Forcing metrics | Frequency-band energy decomposition, storm/event detection, transport proxies (Shields, Rouse), tidal + undertow current decomposition |
-| **L4** | Nonlinear / IG diagnostics | Surface-elevation bands, incident/reflected IG split, bispectra (skewness/asymmetry/bicoherence), IG cross-spectra, velocity PDFs |
+| **L4** | Nonlinear / IG diagnostics | Surface-elevation bands, incident/reflected IG split, bound/free IG separation (and the reflection split rerun on the free residual), bispectra (skewness/asymmetry/bicoherence), frequency-resolved wave moments, IG cross-spectra, velocity PDFs |
 | **L5** | *(planned)* | PUV–altimeter integration for bed-change vs forcing |
 
 Levels L1–L3 are universal; L4 adds nonlinear-wave/IG diagnostics on top of

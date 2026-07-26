@@ -33,6 +33,39 @@ all_files = [arrayfun(@(s) struct('level','L1',       'd', s), L1_files); ...
              arrayfun(@(s) struct('level','L4',       'd', s), L4_files); ...
              arrayfun(@(s) struct('level','L4_xspec', 'd', s), L4_xspec_files)];
 
+%% Guard: never push a deployment that is not in the registry.
+% outputs/ can hold exploratory runs for deployments deliberately held OUT of
+% the catalog -- TOR20A, for instance, whose timing could not be validated
+% (see docs/recopied_data_backlog.md). Those directories look exactly like
+% canonical ones to a dir() glob, so without this filter they would land on
+% the server and in manifest.csv indistinguishable from validated records.
+registeredNames = containers.Map('KeyType', 'char', 'ValueType', 'logical');
+reg = deployment_registry();
+regKeys = keys(reg);
+for k = 1:numel(regKeys)
+    try
+        fn = reg(regKeys{k}); cfg = fn();
+        registeredNames(cfg.name) = true;
+    catch
+        % a config that fails to load cannot vouch for its outputs either
+    end
+end
+
+isReg   = false(numel(all_files), 1);
+depName = cell(numel(all_files), 1);
+for k = 1:numel(all_files)
+    [~, depName{k}] = fileparts(all_files(k).d.folder);
+    isReg(k) = isKey(registeredNames, depName{k});
+end
+if any(~isReg)
+    skipped = unique(depName(~isReg));
+    fprintf('\n*** SKIPPING %d file(s) from %d UNREGISTERED deployment(s): %s\n', ...
+        sum(~isReg), numel(skipped), strjoin(skipped', ', '));
+    fprintf('    Not in deployment_registry -- held out of the catalog on purpose.\n');
+    fprintf('    Register the deployment if it should actually be published.\n\n');
+    all_files = all_files(isReg);
+end
+
 % Per-level destination subfolder name
 destSubFor = containers.Map( ...
     {'L1','L2','L3','L4','L4_xspec'}, ...

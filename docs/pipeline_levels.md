@@ -1,21 +1,43 @@
 # PUV Pipeline Processing Levels
 
-Updated: July 24, 2026
+Updated: July 26, 2026
 
-> ⚠️ **Corrected 2026-07-26 — L4 is NOT complete.** `bispectra` is missing on
-> **23 of 65 records** (the whole pre-2023 archive ingest plus Cardiff and
-> Coronado), and `L4.ref` is one segment short of L2 on **3 records**
-> (SIO25B, TOR24S/MOP586_7m, TOR24W/MOP586_10m), which silently breaks any
-> consumer that indexes L4 with an L2 segment index. Details and the affected
-> list are in the HIGH PRIORITY section at the top of `docs/todo.md`.
-> Re-audit with `validation/audit_L4_coverage.m`.
+> **2026-07-26 — L4 repaired and re-verified.** Two defects found on 07-26 are
+> fixed: `bispectra` was missing on 23 of 65 records, and 3 records
+> (SIO25B/SIO_6m, TOR24S/MOP586_7m, TOR24W/MOP586_10m) had an L4 built against a
+> superseded L2 whose segment grid had gained a leading segment. Both traced to
+> the same cause — L4 built against a different L2 snapshot — not to a bug in any
+> L4 module. `validation/audit_L4_coverage.m` now reports all 65 records complete
+> and time-aligned. Full account in `docs/todo.md`.
 
-**Catalog size:** 65 instrument-records across 46 deployments, present at every
-level L1–L3 and **partially at L4** (see the correction above); 9 deployments
-also carry `L4_xspec`. The "33/40" figures that
-appeared in earlier revisions of this file predate the pre-2023 archive
-additions (CAT21A/B, RUBY22, IB18W, IB19S, then TOR19W/TOR20W/IB19W) and have
-been updated in place below.
+**Catalog size:** 65 instrument-records across 46 deployments, present and
+verified at every level L1–L4; 9 deployments also carry `L4_xspec`. The "33/40"
+figures that appeared in earlier revisions of this file predate the pre-2023
+archive additions (CAT21A/B, RUBY22, IB18W, IB19S, then TOR19W/TOR20W/IB19W) and
+have been updated in place below.
+
+**Why 65 and not 72.** The registry configures **72** instrument-records; 7 have
+no L1/L2 because the instrument genuinely failed in the field, so the catalog is
+65. `PUV_L{1..4}_run_all` reports these as `fail` ("missing L1 or L2 file") on
+every run — that is expected, not a regression. Each is documented with its cause
+in `docs/deployment_database_overview.md`:
+
+| record | cause |
+|---|---|
+| SIO24B/SIO_6m | knocked over, 32° tilt, beam corr <10% |
+| SIO24C/SIO_6m | battery depleted, no valid pressure |
+| SIO25A/SIO_6m | started upside-down, pin corrosion |
+| SOL23/MOP651_5m | battery depleted; instrument lost 2 yr, pipe bent |
+| TOR24S/MOP586_15m | pipe issues, no valid pressure |
+| TOR24W/MOP586_5m | pipe bent by kelp, too buried to recover |
+| TOR25S/MOP586_5m | pipe bent, kelp blockage |
+
+**`outputs/` may hold more than the catalog.** `TOR20A/MOP591_9m` has L2 and L3
+on disk from an exploratory run but is deliberately **not registered** (timing
+unvalidatable — see `docs/recopied_data_backlog.md`). Anything that enumerates
+records by globbing `outputs/L*/*/` rather than by
+`deployment_registry()` will pick it up. `scripts/copy_to_server.m` carries a
+registry guard for exactly this reason.
 
 ## Design Philosophy
 
@@ -115,7 +137,7 @@ Output: `outputs/L3/{deployment}/{label}_L3.mat`.
 
 ---
 
-## L4: Nonlinear-Wave / IG Dynamics (MOSTLY BUILT)
+## L4: Nonlinear-Wave / IG Dynamics (BUILT — all 65 records, 2026-07-26)
 
 **Input:** L1 + L2 `.mat` files
 **Output:** Per-instrument nonlinear-wave and IG diagnostics
@@ -128,9 +150,17 @@ Output: `outputs/L3/{deployment}/{label}_L3.mat`.
   R²_IG ≈ 1 reflects bound-wave contamination — true shoreline R² needs
   `PUV_L4_boundwave.m` (deferred) to remove bound IG first.
 - **`PUV_L4_bispectra.m`** — bicoherence + skewness + asymmetry +
-  swell-IG difference coupling. Sub-segment averaging gives EDOF ≈ 130,
-  b95 ≈ 0.215. `bic_swell_ig_diff` is monotonic in depth at TBR23 →
+  swell-IG difference coupling. At the current 1-hour segments
+  (`segLen=7200`, `nfft=2048`, 50% overlap) each segment holds K = 6
+  sub-segments, giving `edof = K·mg·2 = 60` and `b95 = sqrt(6/60) = 0.316`,
+  uniform across the catalog. (Revisions of this file before 2026-07-26
+  quoted EDOF ≈ 130 / b95 ≈ 0.215, which came from the retired 17-min
+  segmentation.) `bic_swell_ig_diff` is monotonic in depth at TBR23 →
   consistent with Hasselmann/Herbers bound-wave forcing prediction.
+  `opts.useParallel` runs the per-segment bispectrum calls under `parfor`
+  (~4x on 10 cores) and is bit-identical to the serial path: only the
+  `bispectrum` calls are parallelised, while the derived quantities and the
+  time-mean accumulation stay serial and in index order.
 - **`PUV_L4_xspec.m`** — pairwise IG cross-spectra (cpsd on `eta_ig`)
   for multi-instrument arrays. Best-overlap segment matching across
   per-instrument L2 start-time offsets. TBR23: ⟨γ²⟩_IG = 0.35
@@ -148,12 +178,23 @@ Output: `outputs/L3/{deployment}/{label}_L3.mat`.
   velocity is hypothesized to track Shields-bedload thresholds —
   pending LPA D50 ingestion to confirm.
 
-### Deferred
-- **`PUV_L4_boundwave.m`** — bound/free IG separation. Needed for clean
-  shoreline reflection coefficients (currently inflated by bound-IG
-  contamination).
-- Batch over the full catalog (65 instrument-records). ~21 hr at nfft=1024,
-  ~80 hr at nfft=2048 (paper-quality).
+- **`PUV_L4_boundwave.m`** — bound/free IG separation (Hasselmann second-order
+  kernel), on both η and u. Feeds `PUV_L4_reflection_free.m`, which reruns the
+  Sheremet split on the bound-stripped residual and so gives the shoreline
+  reflection coefficient that `L4.ref` alone overstates. Note the regime limit:
+  the second-order theory over-predicts above `Hs/h` ≈ 0.10, so filter on
+  `Hs/h` before using `bound_frac`.
+
+### Batch notes
+- A full-catalog L4 build is dominated by `bispectra`. Measured 2026-07-26:
+  **2.3 s per valid segment serial, 0.57 s under `opts.useParallel`** on a
+  10-core machine. The 2026-07-26 repair did 3 full rebuilds plus 23 bispectra
+  backfills (25.8k valid segments) in **4.15 h**.
+- **`PUV_L4_run_all.m` deliberately skips `bispectra`** (see the comment at its
+  call site) because it is the slow module. Anything built by `run_all` alone
+  therefore lacks `bispectra` until a separate pass fills it in. This is exactly
+  how the 23 archive records ended up missing it — they were ingested after the
+  one-time `scripts/refresh_L4_bispectra.m` pass had already run.
 
 ### L4 output struct shape (per instrument)
 ```
@@ -169,6 +210,12 @@ L4
 │               skewness, asymmetry, b95, edof,
 │               bic_max_overall, bic_swell_self, bic_swell_ig_diff,
 │               B_mean, Bic_mean, Bip_mean, nValid             (~few KB)
+├── boundwave:  time, fs, segLen, segValid, depth, fIG, bandIG, bandSwell,
+│               eta_ig_bound/free, u_ig_bound/free,
+│               S_ig_bound/free/total, bound_frac, bound_frac_raw,
+│               bound_frac_f, var_ig_*, var_u_ig_*               (~400 MB)
+├── reflection_free: same shape as `ref`, but the Sheremet split run on the
+│               bound-stripped residual — use this for shoreline R²
 ├── moments:    time, f, segValid, varP_over_varU,
 │               skewness_u, asymmetry_u,
 │               r_skew_Spp, r_asym_Spp, r_skew_Suu, r_asym_Suu,
@@ -179,6 +226,22 @@ L4
 └── pdf:        edges, centers, N_on, N_off, diff, weighted, cum,
                 crossover_u, mean_absU, n_segments_used, opts  (~KB)
 ```
+
+> ⚠️ **Never index an L4 per-segment array with an L2 segment index.** Every L4
+> sub-product is built at `numel(L2.time)` *as L2 stood at build time*, and an
+> L1/L2 rerun can change the segment grid. Equal counts do not prove alignment —
+> a grid can gain a segment at the start and lose one at the end. Worse, MATLAB
+> silently accepts a logical mask shorter than the array it indexes, so
+> `L2.Hs_SS(L4mask)` returns wrong-hour data with no error (this bug was live in
+> `fig_L4_boundwave_catalog.m` until 2026-07-26). Use
+> **`shared/l4_l2_index_map.m`**, which matches by `time` and returns
+> `info.identity` so callers can assert:
+>
+> ```matlab
+> [l4map, info] = l4_l2_index_map(L2, L4);
+> j = l4map(i);                 % L2 index i -> L4 index j
+> if isnan(j), continue; end    % no L4 counterpart for this L2 segment
+> ```
 
 ---
 
