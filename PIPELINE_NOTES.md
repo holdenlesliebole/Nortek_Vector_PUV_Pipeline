@@ -371,9 +371,21 @@ See `config/CONFIG_REVIEW_NOTES.md` for full list.
 
 ### Validation — complete, confirmed across TBR23 + TOR23W/SOL23
 - PUV-MOP comparison: Hs R² = 0.83–0.86 for good instruments
-- Spectral shape analysis: MOP spectral peak broadening identified as root cause
-  of systematic positive Hs bias (R(Qp)=0.30–0.63 across 11 instruments)
-- Ruled out: nonlinear shoaling, directional narrowing, bound long waves
+- ~~Spectral shape analysis: MOP spectral peak broadening identified as root cause
+  of systematic positive Hs bias (R(Qp)=0.30–0.63 across 11 instruments)~~
+  **RETRACTED 2026-07-25 — artifact, not physics.** The metric interpolated MOP's
+  ~20 coarse bins up onto the PUV's 3601-point grid (74× mismatch). A PUV spectrum
+  compared against a degraded copy of *itself* through that path returns 68.3%
+  bandwidth narrowing and Qp ratio 1.225 — more than the whole reported effect.
+  On a matched grid it is absent and changes sign by site. The "11 instruments"
+  count was also stale (saved `.mat` has 33; catalog now has 65).
+  Replacement: `validation/compare_shape_matched.m` + `run_matched_shape_sweep.m`.
+  Tests: `validation/test_resolution_artifact.m`, `test_shape_metric_sensitivity.m`,
+  `test_shoal_bin_synthetic.m`. Write-up:
+  `PUV_paper/docs/findings_resolution_artifact_2026-07-24.md`.
+- ~~Ruled out: nonlinear shoaling, directional narrowing, bound long waves~~
+  **Needs revisiting.** Those three were eliminated in favour of broadening, which
+  no longer stands — so the elimination has no surviving winner.
 - Full hypothesis testing suite in `validation/`
 - **Ruby2D head-to-head vs the legacy pipeline (April 9, 2026)**: 2,322 matched
   60-min segments on MOP582_6m, Oct 2021 – Feb 2022. Hs RMS 5 cm (R² = 0.98),

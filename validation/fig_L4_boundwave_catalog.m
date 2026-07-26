@@ -58,17 +58,29 @@ for d = 1:nDeploy
             continue
         end
 
-        valid = L4.boundwave.segValid(:);
-        if ~any(valid), continue, end
+        % L4 and L2 segment arrays are not guaranteed to align by index --
+        % see shared/l4_l2_index_map.m. Masking L2.Hs_SS with an L4-length
+        % logical is silently wrong on the records whose L2 gained a leading
+        % segment, so pair the two by time.
+        [l4map, ainfo] = l4_l2_index_map(L2, L4);
+        if ~ainfo.identity
+            fprintf('  [align] %s/%s: L4 %d segs vs L2 %d, max index offset %d\n', ...
+                dName, instr, ainfo.nL4, ainfo.nL2, ainfo.maxOffset);
+        end
+        % keep L2 segments that have an L4 counterpart which L4 calls valid
+        i2 = find(~isnan(l4map));
+        i2 = i2(L4.boundwave.segValid(l4map(i2)));
+        if isempty(i2), continue, end
+        i4 = l4map(i2);
 
-        bf = L4.boundwave.bound_frac(valid);
-        vb = L4.boundwave.var_ig_bound(valid);
-        vt = L4.boundwave.var_ig_total(valid);
-        HsSS = L2.Hs_SS(valid);
+        bf = L4.boundwave.bound_frac(i4);
+        vb = L4.boundwave.var_ig_bound(i4);
+        vt = L4.boundwave.var_ig_total(i4);
+        HsSS = L2.Hs_SS(i2);
         depth = median(L4.boundwave.depth, 'omitnan');
 
         % per-bin bound fraction, averaged over valid segments
-        bff = mean(L4.boundwave.bound_frac_f(:, valid), 2, 'omitnan');
+        bff = mean(L4.boundwave.bound_frac_f(:, i4), 2, 'omitnan');
 
         nItem = nItem + 1;
         items(nItem).deployment    = dName;

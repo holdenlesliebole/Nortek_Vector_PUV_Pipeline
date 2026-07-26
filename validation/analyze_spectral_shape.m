@@ -1,6 +1,32 @@
 function results = analyze_spectral_shape(L2, toolboxPath)
 % ANALYZE_SPECTRAL_SHAPE  Test MOP spectral shape bias hypothesis.
 %
+%   *** DEPRECATED 2026-07-25 — ITS SHAPE METRICS ARE ARTIFACT-CONTAMINATED.
+%   *** Use compare_shape_matched.m instead.
+%
+%   Line 110 interpolates MOP's ~20 coarse frequency bins UP onto the PUV's
+%   3601-point grid (74x resolution mismatch), then measures half-power
+%   bandwidth and Goda Qp on the fine grid (lines 136-143). Linear
+%   interpolation between coarse bin centres manufactures a broad, smooth
+%   model peak and depresses int(S^2 df) -- the numerator of Qp. Both metrics
+%   are therefore biased in the direction of the hypothesis this function was
+%   written to test.
+%
+%   Quantified: a PUV spectrum compared against a degraded copy of ITSELF
+%   through this path returns 68.3% apparent bandwidth narrowing and a Qp
+%   ratio of 1.225 (TBR23/MOP586_7m, 1382 segments) -- exceeding the entire
+%   effect that was reported as a finding. See validation/test_resolution_artifact.m.
+%
+%   The fix is to bin the PUV spectrum DOWN onto the model's native bins
+%   (shared/bin_spectrum_to_grid.m) so the resolution bias applies identically
+%   to both sides and cancels in every ratio.
+%
+%   Kept for provenance and side-by-side auditing; compare_shape_matched.m
+%   reports these legacy metrics alongside the corrected ones. Do not use its
+%   Qp/bandwidth/peak-density outputs for any new claim.
+%
+%   Write-up: PUV_paper/docs/findings_resolution_artifact_2026-07-24.md
+%
 %   results = analyze_spectral_shape(L2)
 %
 %   Tests whether the PUV-MOP spectral difference is explained by the MOP

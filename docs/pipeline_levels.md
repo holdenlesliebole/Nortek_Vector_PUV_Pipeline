@@ -2,8 +2,17 @@
 
 Updated: July 24, 2026
 
+> ⚠️ **Corrected 2026-07-26 — L4 is NOT complete.** `bispectra` is missing on
+> **23 of 65 records** (the whole pre-2023 archive ingest plus Cardiff and
+> Coronado), and `L4.ref` is one segment short of L2 on **3 records**
+> (SIO25B, TOR24S/MOP586_7m, TOR24W/MOP586_10m), which silently breaks any
+> consumer that indexes L4 with an L2 segment index. Details and the affected
+> list are in the HIGH PRIORITY section at the top of `docs/todo.md`.
+> Re-audit with `validation/audit_L4_coverage.m`.
+
 **Catalog size:** 65 instrument-records across 46 deployments, present at every
-level L1–L4; 9 deployments also carry `L4_xspec`. The "33/40" figures that
+level L1–L3 and **partially at L4** (see the correction above); 9 deployments
+also carry `L4_xspec`. The "33/40" figures that
 appeared in earlier revisions of this file predate the pre-2023 archive
 additions (CAT21A/B, RUBY22, IB18W, IB19S, then TOR19W/TOR20W/IB19W) and have
 been updated in place below.

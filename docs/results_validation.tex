@@ -84,6 +84,49 @@ Furthermore, the excess energy was concentrated at the swell spectral
 peak (\SIrange{0.04}{0.08}{\hertz}), not at the expected group/bound
 wave frequencies ($\sim$\SIrange{0.01}{0.03}{\hertz}).
 
+% =====================================================================
+% RETRACTED 2026-07-25 — READ BEFORE REUSING ANYTHING IN THIS PARAGRAPH
+% OR THE "Cross-deployment confirmation" SUBSECTION THAT FOLLOWS.
+%
+% The peak-broadening result below is an ARTIFACT of the comparison
+% method, not a property of the MOP model. It was computed by
+% interpolating MOP's ~20 coarse frequency bins UP onto the PUV's
+% 3601-point grid (validation/analyze_spectral_shape.m:110) and then
+% measuring half-power bandwidth and Qp on the fine grid -- a 74x
+% resolution mismatch. Linear interpolation between coarse bin centres
+% manufactures a broad smooth peak and depresses int(S^2 df), the
+% numerator of Qp. Both metrics move in the direction of the claim.
+%
+% Measured against a known-zero truth: a PUV spectrum compared against a
+% degraded copy of ITSELF through that same path yields 68.3% apparent
+% bandwidth narrowing and a Qp ratio of 1.225 (TBR23/MOP586_7m, 1382
+% segments). That EXCEEDS the entire effect reported here. The m0 ratio
+% of 0.9954 confirms it is a shape artifact, not an energy error.
+%
+% On a resolution-matched grid (both products reduced to the model's
+% native bins first) the effect is absent and changes sign across sites:
+% Qp ratio 1.093 Torrey, 1.041 Cardiff, 0.930 Coronado, 0.999 Torrey
+% offshore. The matched metric recovers injected broadening at 95-96%
+% efficiency down to r = 1.02, so this is an informative null.
+%
+% The factor-of-3 disagreement between the 16.7% here and the 36-78% in
+% cross_deployment_shape_summary.mat is explained: the apparent effect
+% scales with the PUV estimator's resolution (Welch/17-min vs
+% multi-taper/1-hour), not with anything physical.
+%
+% Replacement code:  validation/compare_shape_matched.m
+%                    validation/run_matched_shape_sweep.m
+% Regression tests:  validation/test_resolution_artifact.m
+%                    validation/test_shape_metric_sensitivity.m
+%                    validation/test_shoal_bin_synthetic.m
+% Full write-up:     PUV_paper/docs/findings_resolution_artifact_2026-07-24.md
+%
+% Do not delete this paragraph -- the hypothesis-elimination logic that
+% depends on it (nonlinear shoaling, directional narrowing, bound long
+% waves "ruled out") also needs revisiting, since broadening was the
+% surviving mechanism those were eliminated in favour of.
+% =====================================================================
+
 \paragraph{MOP spectral peak broadening.}
 The Goda peakedness parameter $Q_p$ was systematically higher for PUV
 spectra than for shoaled MOP spectra (median $Q_p = 1.88$ vs.\ $1.75$,
@@ -107,6 +150,18 @@ and has not been previously quantified using co-located PUV observations
 in this depth range.
 
 \subsubsection{Cross-deployment confirmation}
+
+% RETRACTED 2026-07-25 along with the paragraph above -- see that banner.
+% Two separate problems with this subsection:
+%   (1) The pattern it reports is the resolution artifact, which is present
+%       in every instrument by construction. Reproducibility across
+%       deployments is exactly what an artifact produces; consistency of
+%       sign was read as evidence of robustness when it was evidence of a
+%       shared upstream computation.
+%   (2) "11 instruments" is stale even on its own terms. The saved result
+%       (outputs/validation/cross_deployment_shape_summary.mat) holds 33
+%       instrument-records, and the current catalog is 65. The 11 figure
+%       also appears in PIPELINE_NOTES.md and docs/puv_pipeline_slides.tex.
 
 The spectral peak broadening pattern was confirmed across 11 instruments
 spanning multiple deployments, sites, and seasons. The correlation between

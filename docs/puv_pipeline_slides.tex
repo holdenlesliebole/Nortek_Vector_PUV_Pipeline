@@ -1,6 +1,28 @@
 % PUV Pipeline — Beamer Slide Deck
 % Last updated: April 8, 2026
 
+% =====================================================================
+% RETRACTED 2026-07-25 -- THE SPECTRAL PEAK BROADENING RESULT IN THIS
+% DECK IS AN ARTIFACT. Do not present these frames as they stand.
+%
+% The metric interpolated MOP's ~20 coarse frequency bins UP onto the
+% PUV's 3601-point grid (74x resolution mismatch), which manufactures a
+% broad smooth model peak and depresses int(S^2 df), the numerator of Qp.
+% A PUV spectrum compared against a degraded copy of ITSELF through that
+% path yields 68.3% bandwidth narrowing and Qp ratio 1.225 -- more than
+% the entire effect these slides report. On a resolution-matched grid the
+% effect is absent and changes sign across sites.
+%
+% Affected claims below: "MOP spectral peak broadening" (~l.835, 1007,
+% 1031, 1088, 1097), "confirmed across 11 instruments" (~l.1117, 1146,
+% 1892), "robust, general" (~l.1126, 1153), and the depth-trend framing
+% (~l.1184). The "11 instruments" count is separately stale -- the saved
+% .mat has 33 records and the catalog now has 65.
+%
+% Write-up: PUV_paper/docs/findings_resolution_artifact_2026-07-24.md
+% Replacement code: validation/compare_shape_matched.m
+% =====================================================================
+
 \documentclass[10pt, aspectratio=169]{beamer}
 \usetheme{Madrid}
 \usecolortheme{default}
@@ -832,6 +854,7 @@
           focusing
     \item \textbf{Bound long waves} --- group-forced IG
           contamination
+% RETRACTED 2026-07-25 (artifact) -- see banner at top of file
     \item \textbf{MOP spectral peak broadening} --- numerical
           diffusion in the wave model
   \end{enumerate}
@@ -1114,6 +1137,7 @@
   \begin{columns}[T]
     \begin{column}{0.50\textwidth}
       \begin{itemize}
+% RETRACTED 2026-07-25 (artifact; also 11 -> 33 saved -> 65 catalog)
         \item Pattern confirmed across \textbf{11 instruments}
               from multiple deployments
         \item Correlation $R(Q_p) = 0.30$--$0.63$ across instruments
@@ -1123,6 +1147,7 @@
             \item Depths 5.5--15.5~m
             \item Multiple MOP transects
           \end{itemize}
+% RETRACTED 2026-07-25 -- reproducible artifacts are reproducible
         \item Spectral peak broadening is a \textbf{robust, general}
               feature of the MOP model --- not site- or
               season-specific
@@ -1143,6 +1168,7 @@
 
 \note{
   This isn't just one instrument at one site. We see the same pattern
+% RETRACTED 2026-07-25 (artifact; count also stale)
   across 11 instruments from TBR23, TOR23W, SOL23, TOR24, and SIO deployments.
   The correlation ranges from 0.30 to 0.63, covering summer swell
   from the southern hemisphere, winter North Pacific storms, and
