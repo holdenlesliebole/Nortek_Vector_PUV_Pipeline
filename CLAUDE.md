@@ -57,11 +57,22 @@ Likewise `outputs/_*_backup_*/` and `outputs/rerun_*/` are frozen snapshots.
   where to look and how to match. Catalina also had a **21.9 km lat/lon error**
   and unset serial/`depth_nominal`. Still carried rather than sourced:
   `TorreyOffshore` 0.63 m, real but copied back across 2014–2019.
-- **Two records have no shore-normal.** `CAT21A`/`CAT21B` are outside CDIP MOP
-  coverage and `instr.shorenormal` is unset, so velocity stays in the **buoy
-  frame** — their `L4.ref` / `L4.boundwave` are *not* cross-shore quantities
-  despite the field names. A data-derived estimate exists (see
-  `CAT21A_config.m`); it has not been applied.
+- **A config comment does not age with the value it describes.** Run
+  `validation/audit_config_provenance.m` — it classifies each `doffp`/`latlon`/
+  `shorenormal` assignment from *its own trailing comment* (sourced /
+  declared-placeholder / unannotated). **Put the source on the line, not in the
+  header.** Current state: 33 sourced, 1 declared placeholder
+  (`RUBY22` lat/lon, still "approximate" though the exact coordinates are in the
+  same workbook row its `doffp` came from), 82 unannotated.
+- **Catalina shore-normal is data-derived, not surveyed.** `CAT21A`/`CAT21B` are
+  outside CDIP MOP coverage, so there is no station to look the angle up from.
+  `shorenormal = 90` (offshore, due east) was estimated from the wave principal
+  axis (`a2`/`b2` → 92.7°), corroborated by the wave mean direction (107°) and
+  the mean-current principal axis (62.5°, anisotropy 3.12). **Uncertainty is
+  ±20°** — the four estimators span 77°, and a 20° error mixes 34 % of the
+  alongshore component into the cross-shore one. Treat CAT cross-shore
+  quantities as indicative, not quantitative. Full reasoning in
+  `CAT21A_config.m`.
 - **Pre-2023 archive: Tiers A, B, and C are all done** (2026-07-24), decoded from
   raw `.VEC` — 23 new deployments back to 2014. Tier A = `TOR19W`/`TOR20W`/`IB19W`;
   Tier B = `TOR15A/B`, `TOR16B`, `TOR17D`, `CDF15A/C`, `COR16B/D`; Tier C = the

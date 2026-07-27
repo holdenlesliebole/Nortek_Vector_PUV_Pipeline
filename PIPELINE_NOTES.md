@@ -359,6 +359,46 @@ either a regen of the higher levels or a written justification for skipping it �
 the 07-12 rerun left 11 records with an L3 older than its L2 for two weeks
 because the regen covered one batch and not the other.
 
+### Config comments do not age with the values they describe (2026-07-27)
+
+Four config headers asserted that field data was unavailable. **All four were
+wrong** — the numbers were in a `DeploymentNotes*.xls` or `SoCal_instruments*.xls`
+workbook the whole time, and L1–L4 had been built on the placeholder for months.
+
+| config | claimed | reality |
+|---|---|---|
+| Cardiff | "doffp is not recorded for these years" | recorded: 0.54 / 0.55 m |
+| Coronado | same | recorded: 0.58 / 0.72 m — and the 0.65 "program-typical" split the difference, wrong in *both* directions |
+| Catalina | "placeholder — fill from notes before running L2" | never done; also a **21.9 km** lat/lon error and an unset serial |
+| TorreyOffshore | 0.63 m "carried from the 2019-2020 notes" | true, but carried back across 2014–2019 without checking per-year values |
+
+**Where to look:** sheet **'All Data'**, column "Deployment Depth below sand (cm)"
+(which usually reads "Pressure port *N* cm above sand"). Match on **serial AND
+deployment ordinal AND season** — serials are reused across years, so a serial
+alone gives false hits. Beware `DeploymentNotes2021Torrey.xls`: its 'Torrey'
+sheet is a *different* experiment (a shallow Paros swash array); the Vector data
+is in 'All Data'.
+
+**When a config label disagrees with the notes, resolve from the data.** Catalina's
+A/B labelling did not match the notes' two deployments. Rather than guess, the
+mapping was settled on two independent lines: L1 time spans (CAT21A starts on the
+exact changeover day, both sit inside S/N 15032's window) and the `.sen` compass
+(232.7 / 230.7 deg, near 15032's surveyed 222.7, nothing like 15033's 56.2). Both
+agreed. `CATISL02`/`CATISL03` turned out to be recorder file-set names, not serials.
+
+**The structural fix:** `validation/audit_config_provenance.m`. It classifies every
+`doffp` / `latlon` / `shorenormal` assignment from *its own trailing comment* —
+sourced, declared-placeholder, or unannotated. A first version scanned the whole
+header for words like "placeholder" and failed in both directions: it flagged a
+header that merely *described* a placeholder it had already fixed, and it could
+not tell a measured 0.75 m from a default 0.75 m. **Put the source on the line:**
+
+```matlab
+cfg.instruments(k).doffp = 0.71;   % m, port 71cm above sand (S/N 15032)
+```
+
+not in a header paragraph that will not age with the value.
+
 ### A partial L4 rebuild destroys everything it does not recompute (2026-07-27)
 
 `L4` is a single struct in a single `.mat`. A script that recomputes two or

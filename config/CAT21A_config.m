@@ -40,11 +40,42 @@ function cfg = CAT21A_config()
 % explicit overrides in TorreyOffshore_config. Do not "correct" it without new
 % evidence. clockDrift stays NaN: the notes record it as unknown for 15032.
 %
-% Catalina is OUTSIDE CDIP MOP coverage, so mopStation is empty and
-% cfg.instruments(k).shorenormal is unset -- velocity stays in BUOY coordinates.
-% CONSEQUENCE: L4 reflection / boundwave for this record are computed without a
-% shore-normal rotation and should not be read as cross-shore quantities. Set a
-% manual bathymetry-derived angle (see docs/NEW_DEPLOYMENT.md) before using them.
+% SHORE-NORMAL (added 2026-07-27). Catalina is OUTSIDE CDIP MOP coverage, so
+% there is no station to look the angle up from. It was previously left unset,
+% which meant velocity stayed in the BUOY frame and L4.ref / L4.boundwave were
+% not cross-shore quantities at all despite their field names.
+%
+% Estimated from the data. `shorenormal` is the OFFSHORE-pointing compass
+% bearing (cf. Torrey 263.94 deg = west/seaward); apply_shorenormal_rotation
+% does rotation = 270 - shorenormal and negates so +x' ends up onshore.
+%
+%   method                                        offshore bearing
+%   ---------------------------------------------------------------
+%   wave principal axis, <a2>/<b2>, swell band          92.7 deg
+%   wave mean direction, <a1>/<b1>                     107   deg
+%   mean-current principal axis (anisotropy 3.12)       62.5 deg
+%   Avalon -> Pebbly Beach chord (1.9 km, least local)  30   deg
+%
+% APPLIED: 90 deg (due east). The wave principal axis is the best single
+% estimator here -- it is an AXIS, so it is immune to the from/toward
+% convention that makes the first-moment direction ambiguous, and it is
+% energy-weighted over the swell band across 1861 valid segments. It lands
+% within 3 deg of due east, which is also what the geography demands: Pebbly
+% Beach is on Catalina's east (leeward) shore facing the San Pedro Channel
+% toward the mainland.
+%
+% UNCERTAINTY IS LARGE: +/- 20 deg. The four estimates span 77 deg, and the
+% two physically independent families (waves vs currents) differ by 30 deg. A
+% 20 deg error mixes sin(20) = 34% of the alongshore component into the
+% cross-shore one. Treat CAT cross-shore quantities as indicative, NOT
+% quantitative, and do not use this record for a cross-shore transport budget.
+% Refraction is also weaker here than on an open coast (directional spread is
+% 52 deg at a sheltered leeward site), which is the main reason the wave
+% estimators may be biased away from the true normal.
+%
+% TO IMPROVE: this wants a real bathymetric normal from a chart or DEM of
+% Pebbly Beach -- the depth-gradient direction at 7.6 m. Published sources
+% consulted 2026-07-27 gave the location but no coastline bearing.
 % Author: Holden Leslie-Bole, 2026
 
     cfg.name        = 'CAT21A';
@@ -67,4 +98,5 @@ function cfg = CAT21A_config()
     cfg.instruments(k).heading        = NaN;     % auto-compute from .sen
     cfg.instruments(k).clockDrift     = NaN;
     cfg.instruments(k).doffp          = 0.71;    % m, port 71cm above sand (S/N 15032)
+    cfg.instruments(k).shorenormal    = 90;      % deg, OFFSHORE bearing; data-derived, +/-20 deg (see header)
 end

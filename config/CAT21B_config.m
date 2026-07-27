@@ -39,4 +39,5 @@ function cfg = CAT21B_config()
     cfg.instruments(k).heading        = NaN;
     cfg.instruments(k).clockDrift     = NaN;
     cfg.instruments(k).doffp          = 0.71;    % m, port 71cm above sand (S/N 15032)
+    cfg.instruments(k).shorenormal    = 90;      % deg, OFFSHORE bearing; data-derived, +/-20 deg (see header)
 end
