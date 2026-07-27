@@ -27,8 +27,21 @@ function cfg = Coronado_config(deployment_name)
 %   They are distinguished by rawSubfolder, and by serial in the binary
 %   (Coronado 1181, Torrey 0806).
 %
-%   doffp is not recorded for these years; 0.65 m is the program-typical value
-%   for this frame. See TorreyOffshore_config for the sensitivity argument.
+%   doffp IS recorded, contrary to an earlier note here that said otherwise.
+%   Source: /Volumes/group/DeploymentNotes/SoCal_instruments_{2016-2017,
+%   2017-2018}.xls, sheet 'All Data', column "Deployment Depth below sand (cm)".
+%   Matched on serial AND deployment ordinal AND season:
+%     COR16B = "PUV-Coronado, 2nd Deployment", S/N V1181, 01/05-02/09/2017
+%              "58cm sand to top of pressure port, 42 on recovery"
+%     COR17D = "PUV-Coronado (Nortek Vector ADV), 4th Deployment", S/N V1181,
+%              03/20-04/25/2018, "72cm sand to top of pressure port, 76cm on recovery"
+%   The at-deployment value is used, per DOFFP_LOOKUP_CHECKLIST.
+%
+%   NOTE the two deployments genuinely differ (0.58 vs 0.72) — the single
+%   0.65 m "program-typical" placeholder that was here split the difference and
+%   was wrong in both directions. COR16B also lost 16 cm of bed over the
+%   deployment (58 -> 42 cm), the largest bed change in this set, so its fixed
+%   doffp carries correspondingly more uncertainty.
 % Author: Holden Leslie-Bole, 2026
 
     cfg.name      = deployment_name;
@@ -51,7 +64,7 @@ function cfg = Coronado_config(deployment_name)
     cfg.instruments(k).latlon        = cor_latlon;
     cfg.instruments(k).heading       = NaN;    % XYZ; auto-compute from .sen compass
     cfg.instruments(k).clockDrift    = NaN;
-    cfg.instruments(k).doffp         = 0.65;   % m — program-typical, see header
+    cfg.instruments(k).doffp         = NaN;    % set per deployment in the switch below
     cfg.instruments(k).depth_nominal = 9;
     cfg.instruments(k).rawFormat     = 'VEC';
     cfg.instruments(k).clockSource   = 'filename';
@@ -63,12 +76,14 @@ function cfg = Coronado_config(deployment_name)
             cfg.instruments(k).filePrefix    = '';
             cfg.instruments(k).serialNum     = 1181;
             cfg.instruments(k).deployYear    = 2017;
+            cfg.instruments(k).doffp         = 0.58;   % m, at deployment (0.42 on recovery)
 
         case 'COR17D'   % 4th deployment of winter 2017-18, S/N 1181
             cfg.instruments(k).rawSubfolder  = 'Coronado4thDeployment_2018';
             cfg.instruments(k).filePrefix    = '';
             cfg.instruments(k).serialNum     = 1181;
             cfg.instruments(k).deployYear    = 2018;
+            cfg.instruments(k).doffp         = 0.72;   % m, at deployment (0.76 on recovery)
 
         otherwise
             error('Coronado_config:unknownDeployment', ...

@@ -87,7 +87,46 @@ function cfg = TorreyOffshore_config(deployment_name)
     cfg.instruments(k).mopStation    = 'D0591';
     cfg.instruments(k).mopLine       = 591;
     cfg.instruments(k).latlon        = [32.93443, -117.26544];
+    % Heading: normally NaN = auto-compute from the .sen compass. Three
+    % deployments need an explicit override -- see headingFix below.
     cfg.instruments(k).heading       = NaN;    % XYZ; auto-compute from .sen compass
+
+    % ---- HEADING OVERRIDES (added 2026-07-27) -------------------------------
+    % Three 2016-17 deployments were processed with a compass heading that does
+    % not reflect the instrument's true orientation. Divers mount these units in
+    % near-zero visibility and the housing is close to rotationally symmetric, so
+    % a misalignment of any angle is possible; the compass reading additionally
+    % failed to capture it (a physically rotated instrument with a working
+    % compass would still rotate correctly, so the compass itself was stuck,
+    % obstructed, or magnetically disturbed).
+    %
+    % TWO INDEPENDENT ESTIMATES OF EACH OFFSET, agreeing to <= 1.5 deg:
+    %   (a) the L1 compass heading relative to the clean TOR16A deployment
+    %       (88.8 deg, same site, and for TOR16C the SAME instrument S/N 824)
+    %   (b) the circular median of (PUV wave direction - MOP wave direction),
+    %       shore-relative, over the swell band
+    %
+    %   deploy   L1 sensor   (a) vs TOR16A   (b) vs MOP   applied
+    %   TOR16B     198.0        109.2          110.7      -110.7  (empirical)
+    %   TOR16C     268.4        179.6          179.2      -180.0  (exact)
+    %   TOR16D     265.2        176.4          177.4      -180.0  (exact)
+    %
+    % C and D are set to EXACTLY 180 so the correction is independent of MOP --
+    % 180 is a discrete, physically meaningful misalignment and both independent
+    % estimates land within 3.6 deg of it. B has no such round value, so its
+    % correction is the empirical offset; it is corroborated by the compass
+    % estimate (109.2) but is partly MOP-referenced. See the caveat in
+    % ../../PUV_paper/docs/findings_consequences_2026-07-25.md.
+    %
+    % Detected by validation/sweep_heading_flips.m; controls confirm the two
+    % flips fixed in May 2026 (TBR23/MOP580_5m, TOR24S/MOP586_7m) now read clean.
+    headingFix = containers.Map( ...
+        {'TOR16B','TOR16C','TOR16D'}, ...
+        {198.0 - 110.7,  268.4 - 180.0,  265.2 - 180.0});
+    if isKey(headingFix, deployment_name)
+        cfg.instruments(k).heading = mod(headingFix(deployment_name), 360);
+    end
+    % ------------------------------------------------------------------------
     cfg.instruments(k).clockDrift    = NaN;     % handled by the filename clock recovery
     cfg.instruments(k).doffp         = 0.63;    % m — station frame, see header
     cfg.instruments(k).depth_nominal = 9;

@@ -17,9 +17,30 @@ function cfg = RUBY22_config()
 % A fourth Ruby2D instrument (Cardiff_2021_MOP669_10m) has incomplete
 % file sets across bursts — excluded for now.
 %
-% lat/lon, heading, clockDrift, doffp are placeholders pending
-% deployment notes. doffp set to 0.60 m as in legacy comparison
-% (process_ruby2d_one.m), which was itself a placeholder.
+% lat/lon, heading and clockDrift are still placeholders pending deployment
+% notes.
+%
+% doffp RESOLVED 2026-07-27 from
+% /Volumes/group/DeploymentNotes/DeploymentNotes2021Torrey.xls, sheet
+% 'All Data' (NOT the 'Torrey' sheet, which is a separate shallow Paros survey
+% array and does not cover these instruments). Matched on serial number:
+%   S/N 16310  "#03 Torrey Vector MOP 578 -10m"  79 cm at deployment, 91 on recovery
+%   S/N 16737  "#06 Torrey Vector MOP 579 -6m"   69 cm at deployment, 70 on recovery
+%   S/N 12414  "#16 Torrey Vector MOP 582 -30m"  80 cm at deployment, 83 in a
+%              scour pit on recovery
+% The at-deployment value is used, per DOFFP_LOOKUP_CHECKLIST. The previous
+% 0.60 m was a placeholder carried from the legacy comparison
+% (process_ruby2d_one.m) and was 0.09-0.20 m low on every instrument.
+%
+% The same rows explain two long-standing oddities in this deployment:
+%   MOP582_30m — "Pressure signal flat lined due to being deployed deeper than
+%     it's maximum range." The dead record is an over-range sensor, not a
+%     hardware failure. Its data is unrecoverable by construction.
+%   MOP579_6m  — "Probe bent at a 90deg. angle, metal sheared open. Data shows
+%     damage on 10/26 at 13:33 UTC", good data only through 2021-10-26, which
+%     is why so few segments survive QC.
+%   MOP578_10m — battery cable found yanked out around 11/6 13:52 UTC; data
+%     through 11/11/2021 then intermittent.
 %
 % Compatible with the existing legacy comparison (compare_ruby2d.m)
 % which already validated the MOP582 6m record's bulk parameters
@@ -45,7 +66,7 @@ function cfg = RUBY22_config()
     cfg.instruments(k).latlon         = [32.927, -117.286];   % approximate, refine from notes
     cfg.instruments(k).heading        = NaN;     % auto-compute from .sen
     cfg.instruments(k).clockDrift     = NaN;
-    cfg.instruments(k).doffp          = 0.60;    % placeholder; verify from DeploymentNotes2021Torrey
+    cfg.instruments(k).doffp          = 0.80;    % m — MOP582_30m, at deployment (0.83 in scour pit on recovery)
 
     % ---- MOP 578, 10m (S/N 16310, prefix has _03_ middle) ----
     k = k + 1;
@@ -59,7 +80,7 @@ function cfg = RUBY22_config()
     cfg.instruments(k).latlon         = [32.918, -117.270];
     cfg.instruments(k).heading        = NaN;
     cfg.instruments(k).clockDrift     = NaN;
-    cfg.instruments(k).doffp          = 0.60;
+    cfg.instruments(k).doffp          = 0.79;    % m — MOP578_10m, at deployment (0.91 on recovery)
 
     % ---- MOP 579, 6m (S/N 16737) ----
     k = k + 1;
@@ -73,6 +94,6 @@ function cfg = RUBY22_config()
     cfg.instruments(k).latlon         = [32.920, -117.265];
     cfg.instruments(k).heading        = NaN;
     cfg.instruments(k).clockDrift     = NaN;
-    cfg.instruments(k).doffp          = 0.60;
+    cfg.instruments(k).doffp          = 0.69;    % m — MOP579_6m, at deployment (0.70 on recovery)
 
 end

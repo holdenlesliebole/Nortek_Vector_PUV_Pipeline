@@ -51,6 +51,49 @@ function.
 % TODO: Insert Table \ref{tab:spectral_ratio} with band-averaged ratios
 % and Kp ranges for each instrument
 
+% =====================================================================
+% ALL THREE "RULED OUT" VERDICTS BELOW ARE WRONG -- REDONE 2026-07-27.
+% Read this before the paragraphs that follow. Full account:
+% ../PUV_paper/docs/findings_hypothesis_elimination_2026-07-27.md
+%
+% The elimination INVERTED. Re-tested on 72,948 hours / 61 records with
+% validation/redo_hypothesis_elimination.m:
+%
+%   H1 nonlinear shoaling    "ruled out" -> IS THE MECHANISM
+%   H2 directional narrowing "ruled out" -> real but separate bias
+%   H3 bound long waves      "ruled out" -> real, collinear with H1
+%   H4 peak broadening       THE WINNER  -> ELIMINATED (artifact)
+%
+% WHY EACH WAS WRONGLY REJECTED -- the specific errors, not just the verdicts:
+%
+% H1. The test below correlates Ursell against the LOW-SWELL (0.04-0.08 Hz)
+%     spectral ratio and finds R^2 = 0.004. That is the wrong band. Nonlinear
+%     shoaling transfers energy INTO the second harmonic, near 2*fp ~ 0.18 Hz,
+%     not into the peak. Testing at the peak could not have detected it. On the
+%     correct band the signal is unambiguous: the PUV/model energy ratio peaks
+%     at f/fp = 2.1 (1.338 for Hs/h > 0.12 vs 1.102 below) with a trough at
+%     1.3-1.5, rho(Ursell, nu) = +0.332, nu = 1.000 in the most linear Hs/h bin,
+%     and bicoherence orders the harmonic excess within Hs/h bands
+%     (-0.008 below Hs/h = 0.06 rising to +0.285 above 0.20).
+%
+% H3. Rejected below partly because "the excess energy was concentrated at the
+%     swell spectral peak, not at the expected group/bound wave frequencies."
+%     But that apparent peak concentration WAS the resolution artifact. The
+%     premise of the rejection was itself the thing that was wrong.
+%     Bound-IG is real: rho(bound_frac_raw, Hs/h) = +0.913 per record, crossing
+%     into second-order over-prediction near Hs/h = 0.12. It adds little beyond
+%     Hs/h against nu (partial +0.149) because it shares triad physics with H1.
+%
+% H2. The OBSERVATION below is right and worth keeping -- PUV spread is wider
+%     than the model's (15 deg vs 10 deg here; sigma_1 ratio 1.156, p = 2.6e-6
+%     on the full catalog). The conclusion that it is not the mechanism also
+%     holds (p = 0.30 vs Hs ratio, 0.54 vs nu). What changes is its status: it
+%     is a real, separate, reportable model bias, not a discarded candidate.
+%
+% REWRITE these paragraphs; do not annotate them. The original analysis did not
+% merely get the answer wrong, it eliminated the correct one.
+% =====================================================================
+
 \subsubsection{Hypothesis testing}
 
 Four candidate mechanisms for the systematic positive bias were evaluated
@@ -121,10 +164,26 @@ wave frequencies ($\sim$\SIrange{0.01}{0.03}{\hertz}).
 %                    validation/test_shoal_bin_synthetic.m
 % Full write-up:     PUV_paper/docs/findings_resolution_artifact_2026-07-24.md
 %
-% Do not delete this paragraph -- the hypothesis-elimination logic that
-% depends on it (nonlinear shoaling, directional narrowing, bound long
-% waves "ruled out") also needs revisiting, since broadening was the
-% surviving mechanism those were eliminated in favour of.
+% Do not delete this paragraph. The hypothesis-elimination logic that depends
+% on it was REDONE on 2026-07-27 and INVERTED -- see
+% validation/redo_hypothesis_elimination.m and
+% ../PUV_paper/docs/findings_hypothesis_elimination_2026-07-27.md:
+%
+%   H1 nonlinear shoaling    was "ruled out" -> IS THE MECHANISM
+%       rho(Ursell,nu) = +0.332; nu = 1.000 in the most linear Hs/h bin;
+%       excess localised at f/fp = 2.1 (1.338 at high Hs/h); bicoherence
+%       orders it within Hs/h bands (+0.285 above Hs/h = 0.20)
+%   H2 directional narrowing was "ruled out" -> REAL but SEPARATE bias
+%       sigma_1 ratio 1.156, p = 2.6e-6, yet uncorrelated with the
+%       discrepancy (p = 0.30, 0.54). Report it; it is not the cause.
+%   H3 bound long waves      was "ruled out" -> REAL, collinear with H1
+%       +0.913 per record vs Hs/h, but only +0.149 against nu after
+%       controlling for Hs/h
+%   H4 peak broadening       was THE WINNER  -> ELIMINATED (artifact)
+%
+% The three sections below that assert these were "ruled out" must be
+% REWRITTEN, not annotated. The original analysis did not merely get the
+% answer wrong -- it eliminated the correct one.
 % =====================================================================
 
 \paragraph{MOP spectral peak broadening.}

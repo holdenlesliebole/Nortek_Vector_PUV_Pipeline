@@ -21,9 +21,21 @@ function cfg = Cardiff_config(deployment_name)
 %   own clock. They agree to a 33 s median offset, which is what justifies
 %   trusting the same reconstruction on the instruments whose clocks were wrong.
 %
-%   doffp is not recorded for these years; 0.65 m is the program-typical value
-%   for this upward-looking frame (documented values elsewhere run 0.57-0.95 m).
-%   See TorreyOffshore_config for why the Hs sensitivity to this is under 1%.
+%   doffp IS recorded, contrary to an earlier note here that said otherwise.
+%   Source: /Volumes/group/DeploymentNotes/SoCal_instruments_2015.xls, sheet
+%   'All Data', column "Deployment Depth below sand (cm)". Matched on serial
+%   AND deployment ordinal AND season, so the mapping is unambiguous:
+%     CDF15A = "PUV-Cardiff, 1st Deployment", S/N V1049, 11/19/2015-01/04/2016
+%              "54cm sand to top of pressure case, 59cm on recovery"
+%     CDF15C = "PUV-Cardiff, 3rd Deployment", S/N V1053, 02/24/2016-03/31/2016
+%              "55cm sand to top of pressure case, 54cm on recovery"
+%   Per DOFFP_LOOKUP_CHECKLIST the at-deployment value is used; the recovery
+%   value is kept in the comment because the difference is real bed change and
+%   is the uncertainty on a single fixed doffp.
+%
+%   CAVEAT: these Cardiff entries say "top of pressure CASE", where Coronado
+%   and Torrey say "pressure PORT". If the port sits below the case top, the
+%   true doffp is smaller by that offset. Treat 0.54/0.55 as an upper bound.
 % Author: Holden Leslie-Bole, 2026
 
     cfg.name      = deployment_name;
@@ -46,7 +58,7 @@ function cfg = Cardiff_config(deployment_name)
     cfg.instruments(k).latlon        = cdf_latlon;
     cfg.instruments(k).heading       = NaN;    % XYZ; auto-compute from .sen compass
     cfg.instruments(k).clockDrift    = NaN;
-    cfg.instruments(k).doffp         = 0.65;   % m — program-typical, see header
+    cfg.instruments(k).doffp         = NaN;    % set per deployment in the switch below
     cfg.instruments(k).depth_nominal = 9;      % station nominal; the 8.1 vs 9.4 dBar
                                                % single-hour medians differ by less than
                                                % the tidal range, not by a bed change
@@ -60,12 +72,14 @@ function cfg = Cardiff_config(deployment_name)
             cfg.instruments(k).filePrefix    = '';
             cfg.instruments(k).serialNum     = 1049;
             cfg.instruments(k).deployYear    = 2015;   % spans into Jan 2016
+            cfg.instruments(k).doffp         = 0.54;   % m, at deployment (0.59 on recovery)
 
         case 'CDF15C'   % 3rd deployment of winter 2015-16, S/N 1053
             cfg.instruments(k).rawSubfolder  = 'Cardiff1053_2016';
             cfg.instruments(k).filePrefix    = '';
             cfg.instruments(k).serialNum     = 1053;
             cfg.instruments(k).deployYear    = 2016;
+            cfg.instruments(k).doffp         = 0.55;   % m, at deployment (0.54 on recovery)
 
         otherwise
             error('Cardiff_config:unknownDeployment', ...

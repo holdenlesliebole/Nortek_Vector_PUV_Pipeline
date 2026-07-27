@@ -131,9 +131,15 @@ if ~isempty(ROWS)
     fprintf('  (crude coding from deployment names; refine before quoting)\n');
 
     nBad = sum(sr < 0);
-    fprintf('\n--- ALONGSHORE FRAME ---\n');
-    fprintf('  %d of %d records have NEGATIVE Sxy correlation (frame/quality problem)\n', ...
-        nBad, sum(isfinite(sr)));
+    fprintf('\n--- ALONGSHORE (Sxy correlation is NOT a quality flag) ---\n');
+    fprintf('  %d of %d records have negative Sxy correlation.\n', nBad, sum(isfinite(sr)));
+    fprintf('  This is a CONDITIONING ARTIFACT, not a defect: records whose alongshore\n');
+    fprintf('  flux never reverses sign (|net|/gross ~ 1) put all their variance in\n');
+    fprintf('  magnitude, and a correlation then tests fluctuation agreement in a\n');
+    fprintf('  one-signed quantity. Catalog-wide rho(|net|/gross, Sxy_R) = -0.417.\n');
+    fprintf('  Demonstrated 2026-07-27: TOR16B had a REAL heading error (R2_swell 5.53),\n');
+    fprintf('  it was corrected (R2_swell 0.005), and its Sxy_R got WORSE (-0.507).\n');
+    fprintf('  Use Sxy_slope or a skill score instead, and report |net|/gross alongside.\n');
     if nBad > 0
         bad = find(sr < 0);
         for i = bad'

@@ -66,6 +66,49 @@ if any(~isReg)
     all_files = all_files(isReg);
 end
 
+%% Guard: never push an INCOMPLETE L4 file.
+% The canonical copy is what other people and other repos read, so a partially
+% built L4 must not reach it. This fires on 2026-07-27, when a concurrent job
+% rewrote three TOR16* records without pdf / LATLON / doffp / shorenormal --
+% and LATLON and shorenormal are exactly what PUV_L4_xspec reads, so those
+% files would break any multi-instrument run downstream.
+%
+% Uses h5info to list the group members without loading the (multi-GB) data.
+L4WANT = {'eta','ref','bispectra','boundwave','moments','reflection_free','pdf', ...
+          'label','deploymentName','LATLON','doffp','shorenormal'};
+keepFile = true(numel(all_files), 1);
+incomplete = {};
+for k = 1:numel(all_files)
+    if ~strcmp(all_files(k).level, 'L4'), continue, end
+    p = fullfile(all_files(k).d.folder, all_files(k).d.name);
+    try
+        info = h5info(p, '/L4');
+        present = [{info.Groups.Name}, {info.Datasets.Name}];
+        present = erase(present, '/L4/');
+        miss = setdiff(L4WANT, present);
+    catch
+        % Not an HDF5 (-v7.3) file, or unreadable structure: fall back to a load.
+        try
+            S = load(p, 'L4');
+            miss = setdiff(L4WANT, fieldnames(S.L4));
+        catch ME
+            miss = {sprintf('<unreadable: %s>', ME.message)};
+        end
+    end
+    if ~isempty(miss)
+        keepFile(k) = false;
+        incomplete{end+1} = sprintf('%s  (missing: %s)', ...
+            erase(p, [src_root filesep]), strjoin(miss, ', ')); %#ok<SAGROW>
+    end
+end
+if any(~keepFile)
+    fprintf(2, '\n*** SKIPPING %d INCOMPLETE L4 file(s) -- not pushed:\n', sum(~keepFile));
+    for i = 1:numel(incomplete), fprintf(2, '    %s\n', incomplete{i}); end
+    fprintf(2, ['    Rebuild them (PUV_L4_driver) or restore a complete copy before pushing.\n' ...
+                '    Check with validation/audit_L4_coverage.\n\n']);
+    all_files = all_files(keepFile);
+end
+
 % Per-level destination subfolder name
 destSubFor = containers.Map( ...
     {'L1','L2','L3','L4','L4_xspec'}, ...

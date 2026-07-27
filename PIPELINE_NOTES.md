@@ -449,8 +449,25 @@ because the regen covered one batch and not the other.
   `test_shoal_bin_synthetic.m`. Write-up:
   `PUV_paper/docs/findings_resolution_artifact_2026-07-24.md`.
 - ~~Ruled out: nonlinear shoaling, directional narrowing, bound long waves~~
-  **Needs revisiting.** Those three were eliminated in favour of broadening, which
-  no longer stands — so the elimination has no surviving winner.
+  **ELIMINATION REDONE 2026-07-27 — it inverted.** The three were rejected in
+  favour of peak broadening, which does not exist, so none had been rejected on
+  its own merits. Re-tested on 72,948 hours / 61 records
+  (`validation/redo_hypothesis_elimination.m`):
+  - **Nonlinear shoaling SURVIVES and is the mechanism.** rho(Ursell, nu) =
+    +0.332; partial Hs/h|depth = +0.183 vs depth|Hs/h = -0.114; nu = **1.000**
+    in the most linear Hs/h bin rising monotonically to 1.100; the model-obs
+    energy excess is localised at f/fp = 2.1 (1.338 at Hs/h > 0.12 vs 1.102
+    below) with a trough at 1.3-1.5; bicoherence orders the harmonic excess
+    within Hs/h bands (-0.008 below 0.06 -> +0.285 above 0.20).
+  - **Directional narrowing is a REAL but SEPARATE bias.** sigma_1 ratio
+    (PUV/model) = 1.156, p = 2.6e-6 -- the model's spread is genuinely too
+    narrow -- but it does NOT correlate with the discrepancy (p = 0.30 vs Hs
+    ratio, 0.54 vs nu). Worth reporting in its own right; it is not the cause.
+  - **Bound long waves: real, collinear with nonlinear shoaling.**
+    rho(bound_frac_raw, Hs/h) = +0.913 per record, but the partial against nu
+    controlling for Hs/h is only +0.149. Same triad physics as the
+    super-harmonic generation, so treat them as one story rather than rivals.
+  Write-up: `../PUV_paper/docs/findings_hypothesis_elimination_2026-07-27.md`.
 - Full hypothesis testing suite in `validation/`
 - **Ruby2D head-to-head vs the legacy pipeline (April 9, 2026)**: 2,322 matched
   60-min segments on MOP582_6m, Oct 2021 – Feb 2022. Hs RMS 5 cm (R² = 0.98),
