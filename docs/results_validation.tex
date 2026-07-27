@@ -51,81 +51,71 @@ function.
 % TODO: Insert Table \ref{tab:spectral_ratio} with band-averaged ratios
 % and Kp ranges for each instrument
 
-% =====================================================================
-% ALL THREE "RULED OUT" VERDICTS BELOW ARE WRONG -- REDONE 2026-07-27.
-% Read this before the paragraphs that follow. Full account:
+% Rewritten 2026-07-27. The earlier version of this section eliminated three
+% mechanisms in favour of a fourth (MOP peak broadening) that was subsequently
+% shown to be an artifact of comparing spectra on mismatched frequency grids.
+% Re-tested on 72,948 hours / 61 records with
+% validation/redo_hypothesis_elimination.m, the elimination inverted: nonlinear
+% shoaling is the mechanism, bound long waves are its difference-frequency
+% counterpart, directional narrowing is a real but separate bias, and peak
+% broadening is eliminated. Full account:
 % ../PUV_paper/docs/findings_hypothesis_elimination_2026-07-27.md
-%
-% The elimination INVERTED. Re-tested on 72,948 hours / 61 records with
-% validation/redo_hypothesis_elimination.m:
-%
-%   H1 nonlinear shoaling    "ruled out" -> IS THE MECHANISM
-%   H2 directional narrowing "ruled out" -> real but separate bias
-%   H3 bound long waves      "ruled out" -> real, collinear with H1
-%   H4 peak broadening       THE WINNER  -> ELIMINATED (artifact)
-%
-% WHY EACH WAS WRONGLY REJECTED -- the specific errors, not just the verdicts:
-%
-% H1. The test below correlates Ursell against the LOW-SWELL (0.04-0.08 Hz)
-%     spectral ratio and finds R^2 = 0.004. That is the wrong band. Nonlinear
-%     shoaling transfers energy INTO the second harmonic, near 2*fp ~ 0.18 Hz,
-%     not into the peak. Testing at the peak could not have detected it. On the
-%     correct band the signal is unambiguous: the PUV/model energy ratio peaks
-%     at f/fp = 2.1 (1.338 for Hs/h > 0.12 vs 1.102 below) with a trough at
-%     1.3-1.5, rho(Ursell, nu) = +0.332, nu = 1.000 in the most linear Hs/h bin,
-%     and bicoherence orders the harmonic excess within Hs/h bands
-%     (-0.008 below Hs/h = 0.06 rising to +0.285 above 0.20).
-%
-% H3. Rejected below partly because "the excess energy was concentrated at the
-%     swell spectral peak, not at the expected group/bound wave frequencies."
-%     But that apparent peak concentration WAS the resolution artifact. The
-%     premise of the rejection was itself the thing that was wrong.
-%     Bound-IG is real: rho(bound_frac_raw, Hs/h) = +0.913 per record, crossing
-%     into second-order over-prediction near Hs/h = 0.12. It adds little beyond
-%     Hs/h against nu (partial +0.149) because it shares triad physics with H1.
-%
-% H2. The OBSERVATION below is right and worth keeping -- PUV spread is wider
-%     than the model's (15 deg vs 10 deg here; sigma_1 ratio 1.156, p = 2.6e-6
-%     on the full catalog). The conclusion that it is not the mechanism also
-%     holds (p = 0.30 vs Hs ratio, 0.54 vs nu). What changes is its status: it
-%     is a real, separate, reportable model bias, not a discarded candidate.
-%
-% REWRITE these paragraphs; do not annotate them. The original analysis did not
-% merely get the answer wrong, it eliminated the correct one.
-% =====================================================================
-
 \subsubsection{Hypothesis testing}
 
 Four candidate mechanisms for the systematic positive bias were evaluated
 (Table~\ref{tab:hypotheses}).
 
 \paragraph{Nonlinear shoaling.}
-The Ursell number $\mathit{Ur} = H_s L_p^2 / h^3$, which characterizes
-wave nonlinearity and governs the strength of triad interactions during
-shoaling, showed no correlation with the low-swell spectral ratio
-($R^2 = 0.004$, $N = 5228$ segment-hours across all instruments). The
-median Ursell number ranged from 12 at \SI{8.3}{\meter} depth to 30 at
-\SI{5.5}{\meter}, spanning conditions from weakly to moderately
-nonlinear.
+Triad interactions during shoaling transfer energy from the spectral peak to its
+super-harmonic near $2f_p$. The PUV/model energy ratio, formed on the model's
+own frequency bins and binned by $f/f_p$, shows that transfer directly: a trough
+of $0.94$--$0.95$ at $f/f_p = 1.3$--$1.5$ and a maximum of $1.34$ at
+$f/f_p = 2.1$ for hours with $H_s/h > 0.12$, against $1.10$ for hours below it.
+The discrepancy is organised by the Ursell number
+($\rho = +0.332$, $N = \num{72948}$ hours across 61 records) rather than by
+depth, which drops to $\rho = -0.114$ once $H_s/h$ is held fixed. Binned by
+$H_s/h$, the spectral-width ratio $\nu^\text{PUV}/\nu^\text{MOP}$ rises
+monotonically from $1.000$ below $H_s/h = 0.04$ to $1.100$ above $0.20$: the
+model and the observations agree to three decimal places when the waves are
+linear, and diverge as they cease to be. Bicoherence at the swell
+self-interaction orders the harmonic excess \emph{within} fixed $H_s/h$ bands,
+from $\rho = -0.008$ below $H_s/h = 0.06$ to $\rho = +0.285$ above $0.20$ ---
+flat where triad coupling cannot operate, strengthening where it can.
+
+An earlier version of this analysis correlated the Ursell number against the
+\emph{low-swell} band ratio (\SIrange{0.04}{0.08}{\hertz}) and found
+$R^2 = 0.004$. That test cannot detect the mechanism: nonlinear shoaling deposits
+energy near $2f_p \approx \SI{0.18}{\hertz}$, not at the peak.
 
 \paragraph{Directional narrowing.}
-The first-harmonic directional spread $\sigma_1$, computed from the PUV
-cross-spectral $a_1$ and $b_1$ coefficients, was systematically
-\emph{wider} than the MOP model spread at swell frequencies
-(\SI{15}{\degree} vs.\ \SI{10}{\degree} at the peak). This is opposite
-to the narrowing expected from refraction-driven focusing. No correlation
-was found between the spread ratio and $H_s$ amplification
-($R^2 < 0.001$). The wider PUV spread may reflect scattered wave energy
-at shallow depths not represented in the forward-propagating MOP model.
+The first-harmonic directional spread $\sigma_1$, from the PUV cross-spectral
+$a_1$ and $b_1$, is \emph{wider} than the MOP spread at swell frequencies, by a
+median factor of $1.156$ across 61 records ($p = \num{2.6e-6}$). The sign is
+opposite to the narrowing expected from refraction-driven focusing, and the
+wider PUV spread is consistent with scattered energy at shallow depths that the
+forward-propagating model does not carry. The spread ratio does not covary with
+the discrepancy it was proposed to explain ($p = 0.30$ against the $H_s$ ratio,
+$p = 0.54$ against $\nu$), so it is a separate bias in the model's directional
+distribution rather than the mechanism behind the energy difference. Because
+$\sigma_1$ depends on $r_1 = \sqrt{a_1^2 + b_1^2}$, it is invariant to
+instrument rotation and unaffected by the heading corrections applied in 2026-07.
 
 \paragraph{Bound long waves.}
-Bound wave energy forced by wave group modulation scales as $H_s^2$
-\citep{longuethiggins1962}. The low-swell excess energy showed no
-positive correlation with $H_s^2$ ($R = -0.14$), and the amplification
-ratio weakly \emph{decreased} with increasing wave height ($R = -0.19$).
-Furthermore, the excess energy was concentrated at the swell spectral
-peak (\SIrange{0.04}{0.08}{\hertz}), not at the expected group/bound
-wave frequencies ($\sim$\SIrange{0.01}{0.03}{\hertz}).
+Second-order difference-frequency forcing predicts bound infragravity variance
+from the swell band via the Hasselmann (1962) / Sch\"affer--Madsen (1995) kernel.
+The ratio of predicted-bound to observed-total IG variance rises with $H_s/h$
+($\rho = +0.913$ across 61 record medians; $+0.758$ per hour) and crosses unity
+near $H_s/h = 0.12$, above which second-order theory over-predicts the bound
+component. Against the spectral-width discrepancy the same ratio gives
+$\rho = +0.288$, falling to $+0.149$ once $H_s/h$ is controlled. Bound-wave
+forcing and super-harmonic generation both arise from triad interactions among
+the same swell components, so this collinearity is expected; the two are aspects
+of one nonlinear response rather than competing explanations, and the data here
+do not separate them.
+
+An earlier version rejected this hypothesis partly on the grounds that the excess
+energy sat at the swell peak rather than at group frequencies. That apparent
+concentration at the peak was itself the grid artifact described below.
 
 % =====================================================================
 % RETRACTED 2026-07-25 — READ BEFORE REUSING ANYTHING IN THIS PARAGRAPH
@@ -135,8 +125,12 @@ wave frequencies ($\sim$\SIrange{0.01}{0.03}{\hertz}).
 % method, not a property of the MOP model. It was computed by
 % interpolating MOP's ~20 coarse frequency bins UP onto the PUV's
 % 3601-point grid (validation/analyze_spectral_shape.m:110) and then
-% measuring half-power bandwidth and Qp on the fine grid -- a 74x
-% resolution mismatch. Linear interpolation between coarse bin centres
+% measuring half-power bandwidth and Qp on the fine grid. MOP bandwidths of
+% 0.005-0.10 Hz against a multi-taper resolution bandwidth of 2*NW/T =
+% 2.2e-3 Hz is a ~2-45x mismatch. (Stated as "74x" before 2026-07-27, which
+% compared against the BIN SPACING of 2.78e-4 Hz; an NW = 4 estimate is
+% oversampled 8x relative to what it resolves. The empirical 68.3% artifact
+% is unaffected -- it was measured, not derived from the ratio.) Linear interpolation between coarse bin centres
 % manufactures a broad smooth peak and depresses int(S^2 df), the
 % numerator of Qp. Both metrics move in the direction of the claim.
 %
@@ -164,8 +158,10 @@ wave frequencies ($\sim$\SIrange{0.01}{0.03}{\hertz}).
 %                    validation/test_shoal_bin_synthetic.m
 % Full write-up:     PUV_paper/docs/findings_resolution_artifact_2026-07-24.md
 %
-% Do not delete this paragraph. The hypothesis-elimination logic that depends
-% on it was REDONE on 2026-07-27 and INVERTED -- see
+% The hypothesis-elimination prose above was REWRITTEN on 2026-07-27 to reflect
+% the redone analysis. This banner is retained because the paragraph it guards
+% (the peak-broadening result) is still present as the record of what was
+% originally claimed. See
 % validation/redo_hypothesis_elimination.m and
 % ../PUV_paper/docs/findings_hypothesis_elimination_2026-07-27.md:
 %
@@ -222,14 +218,17 @@ in this depth range.
 %       instrument-records, and the current catalog is 65. The 11 figure
 %       also appears in PIPELINE_NOTES.md and docs/puv_pipeline_slides.tex.
 
-The spectral peak broadening pattern was confirmed across 11 instruments
-spanning multiple deployments, sites, and seasons. The correlation between
-$\Delta Q_p$ and $H_s$ amplification ranged from $R = 0.30$ to $R = 0.63$
-across individual instruments, with all showing the same sign. These
-instruments spanned depths from \SI{5.5}{\meter} to \SI{15.5}{\meter} and
-included both summer and winter wave climates, indicating that the MOP
-model spectral broadening is a robust and general feature rather than a
-site-specific or seasonally dependent artifact.
+On a resolution-matched grid the peak-shape difference is absent across the
+catalog: the median $Q_p$ ratio is $1.008$ over 62 instrument-records
+($p = 0.44$), with an interquartile range of $0.980$--$1.039$ that spans unity.
+The legacy interpolated-grid calculation returns $1.203$ on the same records,
+within round-off of the $1.225$ obtained by comparing a PUV spectrum against a
+degraded copy of itself.
+
+Consistency of the original pattern across instruments was read as evidence that
+it was physical. It is not: the artifact is a property of the comparison, so it
+appears in every record by construction, and agreement across deployments at
+matched depths is what a shared upstream error produces.
 
 % TODO: Insert Table \ref{tab:hypotheses} summarizing hypothesis,
 % test metric, result, and verdict for each of the four mechanisms

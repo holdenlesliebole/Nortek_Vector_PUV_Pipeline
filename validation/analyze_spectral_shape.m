@@ -5,7 +5,7 @@ function results = analyze_spectral_shape(L2, toolboxPath)
 %   *** Use compare_shape_matched.m instead.
 %
 %   Line 110 interpolates MOP's ~20 coarse frequency bins UP onto the PUV's
-%   3601-point grid (74x resolution mismatch), then measures half-power
+%   3601-point grid (resolution mismatch of ~2-45x), then measures half-power
 %   bandwidth and Goda Qp on the fine grid (lines 136-143). Linear
 %   interpolation between coarse bin centres manufactures a broad, smooth
 %   model peak and depresses int(S^2 df) -- the numerator of Qp. Both metrics

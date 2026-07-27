@@ -911,18 +911,17 @@
   the wave field is. If this were the explanation, we'd see a positive
   correlation between Ursell number and the amplification ratio.
   The scatter plot shows absolutely nothing --- $R^2$ of 0.004. The
-% =====================================================================
-% HYPOTHESIS-ELIMINATION FRAMES: THE VERDICTS BELOW ARE WRONG (2026-07-27).
-% The elimination inverted. "Three ruled out, one supported" is backwards:
-%   nonlinear shoaling  "ruled out" -> IS THE MECHANISM (tested in the wrong
-%                        band here -- the signal is at 2*fp, not at the peak)
-%   directional narrow. "ruled out" -> real separate bias (sigma_1 1.156)
-%   bound long waves    "ruled out" -> real, collinear with nonlinear shoaling
-%   peak broadening      SUPPORTED  -> ELIMINATED, it was a grid artifact
-% Do not present these frames. See
-% ../PUV_paper/docs/findings_hypothesis_elimination_2026-07-27.md
-% =====================================================================
   bias is just as large when Ursell is 5 as when it's 50. Ruled out.
+  %
+  % SUPERSEDED 2026-07-27. This test looked in the wrong frequency band and so
+  % could not have found the effect. Nonlinear shoaling moves energy to the
+  % super-harmonic near 2*fp (~0.18 Hz), while the ratio plotted here is the
+  % low-swell band (0.04-0.08 Hz) at the peak itself. Resolved on f/fp, the
+  % PUV/model ratio troughs at 0.94-0.95 for f/fp = 1.3-1.5 and peaks at 1.34
+  % at f/fp = 2.1 for Hs/h > 0.12. Ursell then gives rho = +0.332 over 72,948
+  % hours, and nonlinear shoaling is the mechanism, not a rejected candidate.
+  % Replace this slide before presenting.
+  % ../PUV_paper/docs/findings_hypothesis_elimination_2026-07-27.md
 }
 
 % ------------------------------------------------------------------
@@ -1101,34 +1100,42 @@
 }
 
 % ------------------------------------------------------------------
-\begin{frame}{Hypothesis Summary}
+\begin{frame}{Mechanism attribution}
   \begin{table}
     \centering
     \small
-    \begin{tabular}{@{}llll@{}}
+    \begin{tabular}{@{}lll@{}}
       \toprule
-      \textbf{Hypothesis} & \textbf{Test metric} &
-        \textbf{Result} & \textbf{Verdict} \\
+      \textbf{Mechanism} & \textbf{Evidence} & \textbf{Status} \\
       \midrule
-      1. Nonlinear shoaling &
-        $R^2(\mathit{Ur},\, \text{ratio})$ &
-        $R^2 = 0.004$ & Ruled out \\
-      2. Directional narrowing &
-        PUV vs.\ MOP spread &
-        PUV wider & Ruled out \\
-      3. Bound long waves &
-        $R(H_s^2,\, \text{excess})$ &
-        $R = -0.14$ & Ruled out \\
-      4. Peak broadening &
-        $R(\Delta Q_p,\, \text{bias})$ &
-        $R = 0.46$ & \textbf{Supported} \\
+      Nonlinear shoaling &
+        $\rho(\mathit{Ur},\nu) = +0.332$; ratio peaks &
+        \textbf{the mechanism} \\
+       &
+        $1.34$ at $f/f_p = 2.1$ ($H_s/h > 0.12$) & \\
+      \addlinespace
+      Bound long waves &
+        $\rho = +0.913$ vs.\ $H_s/h$ per record; &
+        same triads \\
+       &
+        partial $+0.149$ after $H_s/h$ & \\
+      \addlinespace
+      Directional spread &
+        $\sigma_1$ ratio $1.156$ ($p = \num{2.6e-6}$), &
+        separate bias \\
+       &
+        uncorrelated with the discrepancy & \\
+      \addlinespace
+      Peak broadening &
+        matched-grid $Q_p$ ratio $1.008$ &
+        eliminated \\
       \bottomrule
     \end{tabular}
   \end{table}
   \vspace{0.5em}
-  The bias is a \textbf{model artifact}, not a measurement artifact.
-  PUV data do not need correction; the MOP model introduces numerical
-  broadening of the spectral peak.
+  \num{72948} hours, 61 records. The spectral-width ratio is $1.000$ below
+  $H_s/h = 0.04$ and $1.100$ above $0.20$: the model tracks the observations
+  while the waves are linear.
 \end{frame}
 
 \note{

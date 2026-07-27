@@ -478,7 +478,7 @@ now refuses to push an incomplete L4 at all.
 - ~~Spectral shape analysis: MOP spectral peak broadening identified as root cause
   of systematic positive Hs bias (R(Qp)=0.30–0.63 across 11 instruments)~~
   **RETRACTED 2026-07-25 — artifact, not physics.** The metric interpolated MOP's
-  ~20 coarse bins up onto the PUV's 3601-point grid (74× mismatch). A PUV spectrum
+  ~20 coarse bins up onto the PUV's 3601-point grid (~2-45x mismatch). A PUV spectrum
   compared against a degraded copy of *itself* through that path returns 68.3%
   bandwidth narrowing and Qp ratio 1.225 — more than the whole reported effect.
   On a matched grid it is absent and changes sign by site. The "11 instruments"
@@ -487,26 +487,34 @@ now refuses to push an incomplete L4 at all.
   Tests: `validation/test_resolution_artifact.m`, `test_shape_metric_sensitivity.m`,
   `test_shoal_bin_synthetic.m`. Write-up:
   `PUV_paper/docs/findings_resolution_artifact_2026-07-24.md`.
-- ~~Ruled out: nonlinear shoaling, directional narrowing, bound long waves~~
-  **ELIMINATION REDONE 2026-07-27 — it inverted.** The three were rejected in
-  favour of peak broadening, which does not exist, so none had been rejected on
-  its own merits. Re-tested on 72,948 hours / 61 records
-  (`validation/redo_hypothesis_elimination.m`):
-  - **Nonlinear shoaling SURVIVES and is the mechanism.** rho(Ursell, nu) =
-    +0.332; partial Hs/h|depth = +0.183 vs depth|Hs/h = -0.114; nu = **1.000**
-    in the most linear Hs/h bin rising monotonically to 1.100; the model-obs
-    energy excess is localised at f/fp = 2.1 (1.338 at Hs/h > 0.12 vs 1.102
-    below) with a trough at 1.3-1.5; bicoherence orders the harmonic excess
-    within Hs/h bands (-0.008 below 0.06 -> +0.285 above 0.20).
-  - **Directional narrowing is a REAL but SEPARATE bias.** sigma_1 ratio
-    (PUV/model) = 1.156, p = 2.6e-6 -- the model's spread is genuinely too
-    narrow -- but it does NOT correlate with the discrepancy (p = 0.30 vs Hs
-    ratio, 0.54 vs nu). Worth reporting in its own right; it is not the cause.
-  - **Bound long waves: real, collinear with nonlinear shoaling.**
-    rho(bound_frac_raw, Hs/h) = +0.913 per record, but the partial against nu
-    controlling for Hs/h is only +0.149. Same triad physics as the
-    super-harmonic generation, so treat them as one story rather than rivals.
-  Write-up: `../PUV_paper/docs/findings_hypothesis_elimination_2026-07-27.md`.
+- **Mechanism attribution (redone 2026-07-27, 72,948 hours / 61 records).**
+  An earlier version eliminated three mechanisms in favour of MOP peak
+  broadening, which was afterwards shown to be a grid artifact. The redone
+  analysis inverts that:
+  - **Nonlinear shoaling is the mechanism.** Energy transfers from the peak to
+    its super-harmonic: the PUV/model ratio troughs at 0.94-0.95 for
+    f/fp = 1.3-1.5 and peaks at 1.34 at f/fp = 2.1 when Hs/h > 0.12, against
+    1.10 below. Organised by Ursell (rho = +0.332), not depth (-0.114 with Hs/h
+    held fixed). The spectral-width ratio runs from 1.000 below Hs/h = 0.04 to
+    1.100 above 0.20. Bicoherence orders the harmonic excess within Hs/h bands
+    (-0.008 below 0.06, +0.285 above 0.20).
+    *The earlier test correlated Ursell against the low-swell band and found
+    R^2 = 0.004 -- the transfer is at 2*fp, so that test looked in the wrong place.*
+  - **Bound long waves are the difference-frequency counterpart.** Predicted /
+    observed bound-IG rises with Hs/h (rho = +0.913 per record) and crosses unity
+    near Hs/h = 0.12. Against the width discrepancy the partial controlling for
+    Hs/h is only +0.149 -- collinear with the above because both arise from the
+    same triads, not a separate explanation.
+    *The earlier rejection cited excess energy "concentrated at the peak"; that
+    concentration was itself the artifact.*
+  - **Directional spread is a real, separate bias.** PUV sigma_1 exceeds the
+    model's by a median factor 1.156 (p = 2.6e-6), but does not covary with the
+    discrepancy (p = 0.30, 0.54). Rotation-invariant, so unaffected by the
+    2026-07-27 heading corrections.
+  - **Peak broadening: eliminated.** Matched-grid Qp ratio 1.008 (p = 0.70 on
+    the shape factor).
+  Code: `validation/redo_hypothesis_elimination.m`. Write-up:
+  `../PUV_paper/docs/findings_hypothesis_elimination_2026-07-27.md`.
 - Full hypothesis testing suite in `validation/`
 - **Ruby2D head-to-head vs the legacy pipeline (April 9, 2026)**: 2,322 matched
   60-min segments on MOP582_6m, Oct 2021 – Feb 2022. Hs RMS 5 cm (R² = 0.98),
