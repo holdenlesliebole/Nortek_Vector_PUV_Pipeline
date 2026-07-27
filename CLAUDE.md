@@ -100,6 +100,19 @@ wrong-hour data with no error rather than crashing. Always match on `time` via
 `shared/l4_l2_index_map.m`, which returns `info.identity` so callers can assert.
 `validation/audit_L4_coverage.m` checks the whole catalog for this.
 
+**A stored diagnostic that nothing reads will not save you.** Z (pressure vs
+velocity-predicted pressure) was computed per segment from 2026-06 and consumed
+by nothing, so `RUBY22/MOP582_30m` sat in the catalog for months with a dead
+pressure transducer — 6 mm median `Hs` at a 30.6 m open-coast site — invisible to
+every other L2 QC test, while its median Z was 8.9e-05 against 0.85–1.04
+everywhere else. Since 2026-07-27 it is a record-level flag
+(`shared/ztest_record_flag.m`, stored at `L2.qc_record`, swept by
+`validation/audit_ztest_records.m` with no rebuild needed). It is a **flag, not a
+gate**: it marks the record and never drops segments. When using
+`r(Z, depth)` as the regression guard on the 2026-06-05 formula fix, **exclude
+flagged records** — that one dead record drags r from −0.015 to −0.78 by itself
+and reads exactly like the bug returning.
+
 **After any L1/L2 rerun, rebuild L3/L4 or record why not.** The 2026-07-12
 decision to leave L4 as-is was defensible and was re-verified on 2026-07-26
 (velocity fields unchanged to ≤7e-3 m/s; `Hs` moved >10 cm on 16 of 50,289 valid

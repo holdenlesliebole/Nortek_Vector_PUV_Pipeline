@@ -95,7 +95,15 @@ deployments. Records that were dropped are documented hardware failures
 - Velocity moments (skewness, asymmetry via Hilbert transform, |u|³,
   u·|u|², a², a³, a_spike) via `shared/compute_velocity_moments.m`
 - Mean currents per segment (uMean, vMean)
-- QC diagnostics: nanMaxFrac=0.10 rejection, Z-test stored per segment
+- QC diagnostics: nanMaxFrac=0.10 rejection; per-segment Z (pressure vs
+  velocity-predicted pressure) and Q (P–U coherence)
+- **Record-level Z flag** (2026-07-27): `L2.qc_record.ztest_SS/_IG` via
+  `shared/ztest_record_flag.m`, warning on failure. A flag, not a gate — it
+  never drops segments. Sweep the catalog with
+  `validation/audit_ztest_records.m`, which works on existing L2 files and
+  needs no rebuild. Currently 1 flagged (`RUBY22/MOP582_30m`, dead pressure
+  transducer, median Z = 8.9e-05), 2 too thin to judge, 62 passing at median
+  Z = 0.9738.
 
 **Status:** Complete, verified 8/8 product checks, 65 instrument-records
 processed at 1-hour cadence. Output: `outputs/L2/{deployment}/{label}_L2.mat`.
