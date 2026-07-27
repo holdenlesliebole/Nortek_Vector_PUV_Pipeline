@@ -694,6 +694,24 @@ if any(L2.vel_c_corrected)
         sum(L2.vel_c_corrected), median(L2.vel_c_factor(L2.vel_c_corrected)), nUse);
 end
 
+%% ============ RECORD-LEVEL QC: pressure/velocity consistency ============
+% Z has been stored per segment since 2026-06 but never consumed, so a record
+% could fail it silently -- see RUBY22/MOP582_30m (dead pressure transducer,
+% median Z ~1e-4, invisible to every other L2 QC test). This flags the record
+% and warns; it never drops segments. See shared/ztest_record_flag.m.
+L2.qc_record.ztest_SS = ztest_record_flag(L2.ztest_SS, L2.segValid);
+L2.qc_record.ztest_IG = ztest_record_flag(L2.ztest_IG, L2.segValid);
+
+if L2.qc_record.ztest_SS.flag
+    warning('PUV_L2_spectral:ztestRecordFlag', ...
+        ['RECORD-LEVEL Z FAILURE for %s: %s\n' ...
+         '    Measured pressure and velocity-predicted pressure disagree across the\n' ...
+         '    whole record. Check the pressure sensor and doffp before using this data.'], ...
+        PUV.label, L2.qc_record.ztest_SS.reason);
+else
+    fprintf('  Record Z (sea-swell): %s\n', L2.qc_record.ztest_SS.reason);
+end
+
 %% ======================== METADATA ========================
 L2.label          = PUV.label;
 L2.deploymentName = PUV.deploymentName;

@@ -270,6 +270,34 @@ Raubenheimer & Guza 2005, MST 16), not z². The L2 field name
 text, figure captions, and equations should write Z. Retention
 window 0.5 < Z < 2.
 
+**Z became a record-level QC flag on 2026-07-27.** Until then Z was computed and
+stored per segment but never consumed by anything, so a record could fail it
+silently — which is exactly what `RUBY22/MOP582_30m` did for months. Its
+pressure transducer is dead, and no other L2 QC test catches it, but its median
+Z is 8.9e-05 against 0.85–1.04 for every other record: four orders of magnitude
+clear, and the only record flagged in the catalog.
+
+- `shared/ztest_record_flag.m` — reduces per-segment Z to one verdict
+  (`ok` / `FLAG` / `insufficient`). Used by both the pipeline and the audit, so
+  the threshold cannot drift between them.
+- `PUV_L2_spectral.m` stores it at `L2.qc_record.ztest_SS` / `.ztest_IG` and
+  warns on failure. Records built before this date lack the field.
+- `validation/audit_ztest_records.m` sweeps the catalog and computes the verdict
+  for older records too, so **no L2 rebuild is needed** to use it.
+
+It is a **flag, not a gate**: it marks the record and warns, and never drops
+segments. A per-segment hard gate on Z would silently discard data on a
+diagnostic that is itself sensitive to velocity noise. `insufficient` (fewer
+than 20 valid segments) is deliberately not a failure — thin data is not
+evidence of a bad sensor.
+
+Two things to know when reading the output. The catalog median is ~0.97 rather
+than 1.0 because velocity noise inflates `Suu+Svv`, inflating the predicted
+pressure; it is flat in depth, so it is not a formula artifact. And when
+checking `r(Z, depth)` as a regression guard against the formula bug, **exclude
+flagged records** — the single dead record at 30.6 m drags r from −0.015 to
+−0.78 by itself and reads exactly like a depth trend.
+
 ### bed_velocity_ifft.m — potential conjugate symmetry bug
 In the loop over FFT bins, the negative-frequency bin is set to the conjugate
 of the *already-scaled* positive bin. For k > N/2 the positive-frequency
