@@ -1,6 +1,6 @@
 # PUV Pipeline Processing Levels
 
-Updated: July 26, 2026
+Updated: July 27, 2026
 
 > **2026-07-26 — L4 repaired and re-verified.** Two defects found on 07-26 are
 > fixed: `bispectra` was missing on 23 of 65 records, and 3 records
@@ -156,7 +156,7 @@ Output: `outputs/L3/{deployment}/{label}_L3.mat`.
 - **`PUV_L4_reflection.m`** — Sheremet incident/reflected split, R²(f),
   IG flux. Sign convention validated via `corr(η_swell, U_swell) = +0.984`.
   R²_IG ≈ 1 reflects bound-wave contamination — true shoreline R² needs
-  `PUV_L4_boundwave.m` (deferred) to remove bound IG first.
+  `PUV_L4_boundwave.m` to remove bound IG first (built; see below).
 - **`PUV_L4_bispectra.m`** — bicoherence + skewness + asymmetry +
   swell-IG difference coupling. At the current 1-hour segments
   (`segLen=7200`, `nfft=2048`, 50% overlap) each segment holds K = 6

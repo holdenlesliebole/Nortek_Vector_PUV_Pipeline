@@ -416,7 +416,7 @@ now refuses to push an incomplete L4 at all.
 
 ---
 
-## Current Status (as of May 11, 2026)
+## Status snapshot — May 11, 2026 (HISTORICAL; see docs/pipeline_levels.md for current)
 
 > Live per-level status (counts, what's verified, what's deferred) is tracked
 > in `docs/pipeline_levels.md` — treat that as authoritative if it disagrees

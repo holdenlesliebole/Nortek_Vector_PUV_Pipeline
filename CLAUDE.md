@@ -29,7 +29,7 @@ Likewise `outputs/_*_backup_*/` and `outputs/rerun_*/` are frozen snapshots.
 
 ---
 
-## Current state (2026-07-26)
+## Current state (2026-07-27)
 
 - **Catalog:** 65 instrument-records across 46 deployments, at every level
   L1–L4; 9 deployments also have `L4_xspec` (the multi-instrument ones).
@@ -50,6 +50,18 @@ Likewise `outputs/_*_backup_*/` and `outputs/rerun_*/` are frozen snapshots.
 - **Local `outputs/` is a superset of the catalog.** `TOR20A/MOP591_9m` has L2
   and L3 on disk but is deliberately unregistered. Enumerate records via
   `deployment_registry()`, not by globbing `outputs/L*/*/`.
+- **Site geometry, 2026-07-27.** `doffp` placeholders were resolved from the
+  field logs on 9 records (RUBY22 ×3, Cardiff ×2, Coronado ×2, Catalina ×2) and
+  propagated through L2→L4. **Three config headers claimed the data was not
+  recorded; all three were wrong** — see `config/DOFFP_LOOKUP_CHECKLIST.md` for
+  where to look and how to match. Catalina also had a **21.9 km lat/lon error**
+  and unset serial/`depth_nominal`. Still carried rather than sourced:
+  `TorreyOffshore` 0.63 m, real but copied back across 2014–2019.
+- **Two records have no shore-normal.** `CAT21A`/`CAT21B` are outside CDIP MOP
+  coverage and `instr.shorenormal` is unset, so velocity stays in the **buoy
+  frame** — their `L4.ref` / `L4.boundwave` are *not* cross-shore quantities
+  despite the field names. A data-derived estimate exists (see
+  `CAT21A_config.m`); it has not been applied.
 - **Pre-2023 archive: Tiers A, B, and C are all done** (2026-07-24), decoded from
   raw `.VEC` — 23 new deployments back to 2014. Tier A = `TOR19W`/`TOR20W`/`IB19W`;
   Tier B = `TOR15A/B`, `TOR16B`, `TOR17D`, `CDF15A/C`, `COR16B/D`; Tier C = the

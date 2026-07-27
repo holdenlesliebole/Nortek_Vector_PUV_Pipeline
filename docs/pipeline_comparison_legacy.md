@@ -85,6 +85,9 @@ We reprocessed Ruby2D MOP582_6m (Oct 2021 -- Feb 2022, ~3100 hours of record) wi
 
 **Setup notes:**
 - The legacy L1 file (`Torrey_Ruby2D_582_6m_processed.mat`) has the same field structure as the new format (`PUV.time`, `PUV.P`, `PUV.BuoyCoord`, `PUV.fs`), so the new L2 ran directly on it via `scripts/process_ruby2d_one.m` after a thin adapter that adds `label`, `deploymentName`, and `doffp`. `doffp = 0.60 m` is a placeholder pending lookup in `DeploymentNotes2021Torrey.xls`.
+  *(2026-07-27: resolved — the real values are 0.79 / 0.69 / 0.80 m for MOP578_10m /
+  MOP579_6m / MOP582_30m, from that workbook's 'All Data' sheet. This line records
+  the state at the time of the legacy comparison and is left as written.)*
 - Legacy spectra are at `df = 0.000278 Hz` (60 min × 2 Hz = 7200 samples), about 3.5x finer than the new pipeline's `df = 0.000976 Hz` (2048 nfft).
 
 ### Bulk parameter agreement
