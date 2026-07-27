@@ -8,6 +8,16 @@
 %   alignment, and a record whose L2 gained a leading segment is misaligned
 %   from its very first segment. See shared/l4_l2_index_map.m.
 %
+%   METADATA IS CHECKED TOO (added 2026-07-27). Until then this audit looked
+%   only at the seven sub-products, which is how TBR23/MOP580_5m sat on the
+%   server for two months with `label`, `LATLON`, `doffp` and `shorenormal`
+%   stripped, and reported clean the whole time. The cause is a narrow rebuild
+%   script that recomputes a few products and re-saves the struct, destroying
+%   everything it did not recompute (see the "partial L4 rebuild" note in
+%   PIPELINE_NOTES.md). The loss is not cosmetic: PUV_L4_xspec reads
+%   L4.LATLON and L4.shorenormal, and `shorenormal` is the record of which
+%   rotation was applied.
+%
 %   Run from PUV_Pipeline/:
 %     >> run validation/audit_L4_coverage
 
@@ -15,13 +25,16 @@ startup_puv;
 root = fullfile(fileparts(fileparts(mfilename('fullpath'))), 'outputs');
 reg  = deployment_registry(); names = sort(keys(reg));
 want = {'eta','ref','bispectra','boundwave','moments','reflection_free','pdf'};
+meta = {'label','deploymentName','LATLON','doffp','shorenormal'};
 
 fprintf('\n%-9s %-13s %6s', 'deploy', 'label', 'nL2');
 fprintf(' %-8s', want{:});
+fprintf(' %-8s', 'meta');
 fprintf('  %s\n', 'alignment');
 
 seen      = containers.Map('KeyType','char','ValueType','logical');
 missList  = {};
+metaList  = {};
 alignList = {};
 nRec      = 0;
 
@@ -53,6 +66,12 @@ for d = 1:numel(names)
             if ~has
                 missList{end+1} = [rec ' (' want{j} ')']; %#ok<SAGROW>
             end
+        end
+        % metadata: one column, since it is all-or-nothing in practice
+        missMeta = meta(~isfield(L4, meta));
+        fprintf(' %-8s', tern(isempty(missMeta), 'meta', 'META!'));
+        if ~isempty(missMeta)
+            metaList{end+1} = sprintf('%s -- missing %s', rec, strjoin(missMeta, ', ')); %#ok<SAGROW>
         end
 
         % --- alignment, checked on every per-segment sub-product ---
@@ -88,6 +107,10 @@ end
 fprintf('\n%d records inspected\n', nRec);
 fprintf('\nmissing sub-products (%d):\n', numel(missList));
 for i = 1:numel(missList), fprintf('  %s\n', missList{i}); end
+fprintf('\nrecords with stripped METADATA (%d):\n', numel(metaList));
+for i = 1:numel(metaList), fprintf('  %s\n', metaList{i}); end
+if isempty(metaList), fprintf('  none\n'); end
+
 fprintf('\nalignment problems (%d):\n', numel(alignList));
 for i = 1:numel(alignList), fprintf('  %s\n', alignList{i}); end
 

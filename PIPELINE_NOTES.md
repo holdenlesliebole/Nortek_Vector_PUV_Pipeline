@@ -359,6 +359,45 @@ either a regen of the higher levels or a written justification for skipping it �
 the 07-12 rerun left 11 records with an L3 older than its L2 for two weeks
 because the regen covered one batch and not the other.
 
+### A partial L4 rebuild destroys everything it does not recompute (2026-07-27)
+
+`L4` is a single struct in a single `.mat`. A script that recomputes two or
+three products and then does
+
+```matlab
+L4.eta = ...;  L4.bispectra = ...;  L4.ref = ...;
+save(l4Path, 'L4', '-v7.3');     % <-- overwrites the WHOLE file
+```
+
+silently deletes every other field. This is not hypothetical:
+`scripts/reprocess_heading_fix.m` did exactly this twice, both times during a
+heading fix — **TBR23/MOP580_5m** in May 2026 (lost `label`,
+`deploymentName`, `LATLON`, `doffp`, `shorenormal`, `mopStation`, `builtAt`) and
+**TOR16B/C/D** on 2026-07-27 (lost `LATLON`, `doffp`, `shorenormal`, `pdf`).
+The May damage reached the server and sat in the canonical copy for two months.
+
+Three things made it invisible for that long:
+
+1. **`audit_L4_coverage` checked only the seven sub-products, not the
+   metadata**, so the damaged record reported clean. Fixed 2026-07-27 — the
+   audit now has a `meta` column and lists stripped records separately.
+2. Nothing in a single-instrument workflow reads the lost fields, so the
+   record looks fine right up until something does.
+3. The loss is not cosmetic where it bites. **`PUV_L4_xspec` reads
+   `L4.LATLON` and `L4.shorenormal`**, so a stripped record hard-errors on any
+   multi-instrument deployment — and `shorenormal` is the record of *which
+   rotation was applied*, which is precisely the provenance you want after
+   correcting a heading.
+
+**Rules.** Any script that re-saves an L4 file must write the complete struct,
+matching the metadata block at the end of `PUV_L4_driver`. `clear L4` before
+building, or the struct leaks across loop iterations and one instrument
+inherits another's fields. To fill gaps in an existing file without touching
+computed products, use `scripts/repair_L4_metadata_2026_07_27.m` — it is
+additive, refuses to patch a record whose L4 grid does not match L2, and was
+verified to leave `bispectra` and `ref` bit-identical. `scripts/copy_to_server.m`
+now refuses to push an incomplete L4 at all.
+
 ---
 
 ## Archived Scripts (do not use)

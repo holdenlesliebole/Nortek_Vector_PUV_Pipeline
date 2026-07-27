@@ -101,12 +101,18 @@ for k = 1:numel(all_files)
             erase(p, [src_root filesep]), strjoin(miss, ', ')); %#ok<SAGROW>
     end
 end
-if any(~keepFile)
-    fprintf(2, '\n*** SKIPPING %d INCOMPLETE L4 file(s) -- not pushed:\n', sum(~keepFile));
+skipIncomplete = ~keepFile;
+if any(skipIncomplete)
+    fprintf(2, '\n*** SKIPPING %d INCOMPLETE L4 file(s) -- not pushed:\n', sum(skipIncomplete));
     for i = 1:numel(incomplete), fprintf(2, '    %s\n', incomplete{i}); end
-    fprintf(2, ['    Rebuild them (PUV_L4_driver) or restore a complete copy before pushing.\n' ...
-                '    Check with validation/audit_L4_coverage.\n\n']);
-    all_files = all_files(keepFile);
+    fprintf(2, ['    Rebuild them (scripts/repair_L4_metadata_*.m or PUV_L4_driver)\n' ...
+                '    before pushing. Check with validation/audit_L4_coverage.\n' ...
+                '    NOTE: any copy already on the server is LEFT IN PLACE and still\n' ...
+                '    inventoried in manifest.csv from the server-side file, so the\n' ...
+                '    manifest keeps describing what is actually there.\n\n']);
+    % Deliberately NOT removed from all_files: dropping them here would also
+    % drop them from the manifest, leaving files present on the server but
+    % absent from its own inventory (which is what happened on 2026-07-27).
 end
 
 % Per-level destination subfolder name
@@ -124,6 +130,19 @@ for k = 1:numel(all_files)
     dest_dir = fullfile(dest_root, deployment, destSubFor(level));
     if ~exist(dest_dir, 'dir'); mkdir(dest_dir); end
     dest_path = fullfile(dest_dir, d.name);
+
+    % An incomplete local file is never pushed. If a (good) copy is already on
+    % the server, inventory THAT one so the manifest still describes the server;
+    % if there is nothing there, there is nothing to inventory.
+    if skipIncomplete(k)
+        if isfile(dest_path)
+            dd = dir(dest_path);
+            src_path = dest_path;   % read metadata from the server-side copy
+            d.bytes  = dd.bytes;
+        else
+            continue
+        end
+    end
 
     % Read metadata from local copy (fast)
     if strcmp(level, 'L4_xspec')
@@ -182,13 +201,19 @@ for k = 1:numel(all_files)
     % whenever the local file has been re-saved more recently than the
     % server copy. (Fixed 2026-05-20 after the asymmetry sign-flip re-save.)
     skipCopy = false;
-    if isfile(dest_path)
+    if skipIncomplete(k)
+        % src_path was repointed at dest_path above; copying would be a no-op
+        % onto itself. Inventory only.
+        skipCopy = true;
+    elseif isfile(dest_path)
         destInfo = dir(dest_path);
         if destInfo.bytes == d.bytes && destInfo.datenum >= d.datenum
             skipCopy = true;
         end
     end
-    if skipCopy
+    if skipCopy && skipIncomplete(k)
+        fprintf('SKIPPED as incomplete; inventoried server copy (%.1f MB)\n', d.bytes/1e6);
+    elseif skipCopy
         fprintf('skip (%.1f MB, already synced)\n', d.bytes/1e6);
     else
         t0 = tic;

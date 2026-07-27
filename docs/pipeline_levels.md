@@ -235,6 +235,19 @@ L4
                 crossover_u, mean_absU, n_segments_used, opts  (~KB)
 ```
 
+> ⚠️ **A partial rebuild destroys the rest of the file.** `L4` is one struct in
+> one `.mat`, so a script that recomputes a few products and re-saves wipes
+> every field it did not set — including the metadata block. This happened
+> twice via `scripts/reprocess_heading_fix.m` (TBR23/MOP580_5m in May 2026,
+> TOR16B/C/D on 2026-07-27) and went unnoticed because the audit checked only
+> sub-products. Any script that re-saves L4 must write the complete struct
+> (copy the metadata block from `PUV_L4_driver`) and `clear L4` between
+> iterations. `validation/audit_L4_coverage` now checks metadata as well, and
+> `scripts/copy_to_server.m` refuses to push an incomplete L4. To fill gaps
+> without touching computed products, use
+> `scripts/repair_L4_metadata_2026_07_27.m` (additive; verified to leave
+> `bispectra`/`ref` bit-identical). Full account in `PIPELINE_NOTES.md`.
+
 > ⚠️ **Never index an L4 per-segment array with an L2 segment index.** Every L4
 > sub-product is built at `numel(L2.time)` *as L2 stood at build time*, and an
 > L1/L2 rerun can change the segment grid. Equal counts do not prove alignment —
