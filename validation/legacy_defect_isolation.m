@@ -48,16 +48,23 @@ outDir   = fullfile(pipeRoot,'outputs','validation');
 % Records spanning the conditions of interest. The first two are the same
 % station, depth and era as the published Ruby2D-line analysis (MOP582, 10 m,
 % 2019-2021), so the deltas there are directly relevant to it.
-cases = { 'TOR19W','MOP582_10m'
-          'TOR20W','MOP582_10m'
+cases = { 'TOR19W','MOP582_10m'    % matches the published station/depth/era
+          'TOR20W','MOP582_10m'    % same, and Hs to 4.34 m
           'TBR23', 'MOP586_5m'
           'IB18W', 'MOP045_7m'
-          'SIO25E','SIO_6m'      };
+          'SIO25E','SIO_6m'
+          % --- edge cases added 2026-07-27, to exercise the two regimes the
+          % first pass could not reach ---
+          'TOR15B','MOP591_9m'     % LARGE Hs: max 4.67 m, p99 4.22 m
+          'COR16B','MOP158_9m'     % large Hs 4.19 m + 24% velocity NaN
+          'TOR14B','MOP591_9m'     % PRESSURE gaps: 11.0% NaN
+          'TOR23W','MOP586_10m'    % pressure gaps: 35.3% NaN
+          'RUBY22','MOP579_6m' };  % pressure gaps: 84.7% NaN (extreme)
 
 MAXSEG = 400;   % per record; the deltas are per-segment so this is ample
 
 A = struct('rec',{{}},'h',[],'Hs',[],'Tp',[],'spread',[],'gap',[], ...
-           'dDp',[],'dSpread',[],'da1',[],'db2',[], ...
+           'dDp',[],'dSpread',[],'dSpreadBand',[],'da1',[],'db2',[],'pgap',[], ...
            'dHs_nan',[],'dHs_kp',[],'dHs_band',[],'dTp_def',[]);
 
 fprintf('\n=============== LEGACY DEFECT ISOLATION ===============\n');
@@ -105,8 +112,8 @@ for c = 1:size(cases,1)
         [f_n, Spp_n, Suu_n, Svv_n, Spu_n, Spv_n, Suv_n] = est_mtm(p,u,w,fs,segN);
         [f_l, Spp_l, Suu_l, Svv_l, Spu_l, Spv_l, Suv_l] = est_legacy(p,u,w,fs);
 
-        [Dp_n, Sp_n, a1_n, b2_n] = dirstats(f_n,Spp_n,Suu_n,Svv_n,Spu_n,Spv_n,Suv_n);
-        [Dp_l, Sp_l, a1_l, b2_l] = dirstats(f_l,Spp_l,Suu_l,Svv_l,Spu_l,Spv_l,Suv_l);
+        [Dp_n, Sp_n, a1_n, b2_n, Sb_n] = dirstats(f_n,Spp_n,Suu_n,Svv_n,Spu_n,Spv_n,Suv_n);
+        [Dp_l, Sp_l, a1_l, b2_l, Sb_l] = dirstats(f_l,Spp_l,Suu_l,Svv_l,Spu_l,Spv_l,Suv_l);
 
         % ---------- D3: NaN -> zero vs interpolate ----------
         pf = fillmissing(p,'linear','EndValues','nearest');
@@ -127,6 +134,8 @@ for c = 1:size(cases,1)
         A.Hs(k,1)=Hs_fill; A.Tp(k,1)=Tp_max; A.spread(k,1)=Sp_n; A.gap(k,1)=gap;
         A.dDp(k,1)     = wrapTo180(Dp_l - Dp_n);
         A.dSpread(k,1) = Sp_l - Sp_n;
+        A.dSpreadBand(k,1) = Sb_l - Sb_n;
+        A.pgap(k,1) = mean(~isfinite(p));
         A.da1(k,1)     = a1_l - a1_n;
         A.db2(k,1)     = b2_l - b2_n;
         A.dHs_nan(k,1) = (Hs_zero - Hs_fill)/max(Hs_fill,eps);
@@ -146,22 +155,36 @@ fprintf('\n--- D1  estimator mismatch (auto Hanning/50%% overlap vs cross Hammin
 pr = @(nm,x,u) fprintf('  %-28s median %+8.3f %s | IQR %+.3f to %+.3f | p95|.| %.3f\n', ...
     nm, median(x,'omitnan'), u, prctile(x,25), prctile(x,75), prctile(abs(x),95));
 pr('mean direction Dp', A.dDp, 'deg');
-pr('directional spread', A.dSpread, 'deg');
+pr('spread, peak bin', A.dSpread, 'deg');
+pr('spread, band-averaged', A.dSpreadBand, 'deg');
 pr('a1 at peak', A.da1, '');
 pr('b2 at peak (-> Sxy)', A.db2, '');
 
 fprintf('\n  where does it get worse? (median |dDp|, deg)\n');
 binreport(A.spread, A.dDp, [0 15 20 25 90], 'spread (deg)');
-binreport(A.Hs,     A.dDp, [0 0.5 1 1.5 2 10], 'Hs (m)');
+binreport(A.Hs,     A.dDp, [0 0.5 1 1.5 2 3 10], 'Hs (m)');
+fprintf('\n  band-averaged spread error vs Hs (deg):\n');
+binreport(A.Hs, A.dSpreadBand, [0 0.5 1 1.5 2 3 10], 'Hs (m)');
+fprintf('\n  b2 error vs Hs:\n');
+binreport(A.Hs, A.db2, [0 0.5 1 1.5 2 3 10], 'Hs (m)');
 
 fprintf('\n--- D3  NaN -> zero before FFT ---\n');
 pr('fractional Hs change', A.dHs_nan, '');
-g = A.gap > 0.001;
+g = A.pgap > 0.001;   % PRESSURE gaps specifically -- Hs is pressure-derived
 if any(g)
-    [r,p] = corr(A.gap(g), A.dHs_nan(g), 'type','Spearman');
+    [r,p] = corr(A.pgap(g), A.dHs_nan(g), 'type','Spearman');
     fprintf('  rho(gap fraction, dHs) = %+.3f (p = %.2g, n = %d)\n', r, p, sum(g));
     fprintf('  predicted: dHs/Hs ~ -gap/2 (variance removed in proportion to gap)\n');
-    binreport(A.gap(g), A.dHs_nan(g), [0 0.01 0.02 0.05 0.10 1], 'gap fraction');
+    binreport(A.pgap(g), A.dHs_nan(g), [0 0.01 0.02 0.05 0.10 0.25 1], 'P gap fraction');
+    fprintf('  signed medians (a deficit should be NEGATIVE):\n');
+    for e = [0 0.01 0.02 0.05 0.10 0.25 1]
+    end
+    for b = 1:6
+        ed = [0 0.01 0.02 0.05 0.10 0.25 1];
+        m = A.pgap>=ed(b) & A.pgap<ed(b+1);
+        if sum(m)<10, continue; end
+        fprintf('    P gap %.2f-%.2f : median dHs/Hs = %+.4f (n=%d)\n', ed(b), ed(b+1), median(A.dHs_nan(m)), sum(m));
+    end
 else
     fprintf('  no segments with gaps in this subset -- inconclusive here\n');
 end
@@ -223,7 +246,7 @@ function x = detrend_nan(x)
     x = x - polyval(pfit, t);
 end
 
-function [Dp,spread,a1pk,b2pk] = dirstats(f,Spp,Suu,Svv,Spu,Spv,Suv)
+function [Dp,spread,a1pk,b2pk,spreadBand] = dirstats(f,Spp,Suu,Svv,Spu,Spv,Suv)
     i = f>=0.04 & f<=0.25;
     f=f(i); Spp=Spp(i); Suu=Suu(i); Svv=Svv(i);
     Spu=Spu(i); Spv=Spv(i); Suv=Suv(i);
@@ -233,8 +256,16 @@ function [Dp,spread,a1pk,b2pk] = dirstats(f,Spp,Suu,Svv,Spu,Spv,Suv)
     [~,ip] = max(Spp);
     Dp = atan2d(b1(ip), a1(ip));
     r1 = min(sqrt(a1(ip)^2 + b1(ip)^2),1);
-    spread = rad2deg(sqrt(2*(1-r1)));
+    spread = rad2deg(sqrt(2*(1-r1)));       % peak-bin (noisy -- see write-up)
     a1pk = a1(ip); b2pk = b2(ip);
+
+    % Energy-weighted band average (Kuik et al. 1988 form). Averaging the
+    % complex first moment over the band before taking |.| suppresses the
+    % degrees-of-freedom noise that dominates a single-bin estimate, so this
+    % isolates the window mismatch rather than the DOF difference.
+    W = Spp(:); z = sum(W.*(a1(:) + 1i*b1(:))) / max(sum(W),eps);
+    r1b = min(abs(z),1);
+    spreadBand = rad2deg(sqrt(2*(1-r1b)));
 end
 
 function Hs = hs_from(p,fs,nfft,h,doffp,band,kpMode)

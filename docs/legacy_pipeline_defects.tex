@@ -1,0 +1,290 @@
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage[margin=1in]{geometry}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue}
+
+\title{Quantifying the defects in the legacy PUV processing code}
+\author{Holden Leslie-Bole\\Scripps Institution of Oceanography, UC San Diego}
+\date{27 July 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+The legacy PUV processing code (\texttt{beachpeeps/PUV\_Processing}) contains
+five identified faults. This note measures what each one does to the derived wave
+parameters, so that results produced with that code can be judged individually
+rather than dismissed or trusted wholesale. Each legacy choice was implemented as
+an isolated switch applied to identical input, making every difference
+attributable to one fault. Across 3{,}713 hourly segments from ten instrument
+records spanning 5.5--11.7\,m depth, five sites, and $H_s$ to 4.7\,m: significant
+wave height and mean wave direction are usable, with stateable offsets; peak
+period differs by definition rather than by error and is the largest single
+discrepancy between the pipelines; and the directional second moments, from which
+radiation stress and alongshore forcing are built, are the products that should
+not be relied on. Two results contradicted the expectations formed from reading
+the code, and one diagnostic in an earlier version of this comparison overstated
+a fault by a factor of three.
+\end{abstract}
+
+\section{Why isolate rather than compare pipelines}
+
+Running both pipelines end to end and differencing the outputs confounds all five
+faults together with several deliberate design differences. The resulting scatter
+shows \emph{that} the pipelines disagree but cannot attribute the disagreement,
+and the attribution is the practical question: a result built on $H_s$ may be
+sound while one built on radiation stress is not.
+
+Each legacy behaviour was therefore reimplemented from the legacy source as a
+switch applied to the same input segments, with everything else held at the
+current pipeline's settings. The faults follow the numbering in
+\texttt{docs/pipeline\_comparison\_legacy.md}.
+
+\paragraph{D1: auto- and cross-spectra estimated differently.}
+Legacy auto-spectra (\texttt{calculate\_fft2}) use a Hanning window with
+50\,\% overlap ($\texttt{num} = \lfloor 2n/\texttt{nfft}\rfloor - 1$ ensembles).
+Legacy cross-spectra (\texttt{cospec}) use a Hamming window with \emph{zero}
+overlap and a hardcoded $\texttt{nfft} = 2400$ carrying the source comment
+\emph{``changed from 7200. Why?''}. The two therefore differ in spectral window
+\emph{and} in degrees of freedom, while
+\begin{equation}
+    a_1 = \frac{\mathrm{Re}\,S_{pu}}{\sqrt{S_{pp}\,(S_{uu}+S_{vv})}}
+\end{equation}
+divides one by the other. Every directional quantity inherits this.
+
+\paragraph{D3: NaN replaced by zero before the FFT.}
+\texttt{calculate\_fft2.m:11} and \texttt{cospec.m:22}. The expectation recorded
+previously was an $H_s$ deficit proportional to gap fraction.
+
+\paragraph{D4: pressure correction.}
+Legacy caps $K_p^2$ at 10; the current pipeline zeros frequencies where
+$K_p < 0.1$.
+
+\paragraph{Design differences.} The swell band runs to 0.20\,Hz rather than
+0.25\,Hz, and peak period is an energy-weighted centroid rather than the argmax
+of $S_\eta$. Neither is a fault.
+
+\paragraph{Not quantified.} D2 (frequency-grid mismatch between \texttt{fm} and
+\texttt{f\_co}) and D5 (\texttt{Suv} indexed at line 49, computed at line 107)
+are structural faults with no correct magnitude to measure. D5 either errors or
+silently reuses a stale workspace variable, so its effect depends on execution
+history rather than on the data.
+
+\section{Data}
+
+Ten instrument-records, 3{,}713 hourly segments. Two records (TOR19W and TOR20W,
+MOP582, 10--11\,m, 2019--2021) match the station, depth and period of published
+work using this code, so the deltas there transfer directly. Five records were
+added specifically to reach conditions the first pass could not: $H_s$ to 4.7\,m
+(TOR15B), and pressure-gap fractions of 11\,\%, 35\,\% and 85\,\% (TOR14B,
+TOR23W/MOP586\_10m, RUBY22/MOP579\_6m).
+
+\section{D1: the estimator mismatch}
+
+\begin{table}[htbp]
+  \centering
+  \caption{Legacy minus current, directional quantities. $a_1$ and $b_2$ are
+  evaluated at the spectral peak and are bounded on $[-1,1]$.}
+  \begin{tabular}{@{}lrrr@{}}
+    \toprule
+    Quantity & Median & IQR & 95th pct.\ of $|\Delta|$ \\
+    \midrule
+    Mean direction $D_p$ (deg)      & $-0.07$ & $-1.40$ to $+1.40$ & 6.6 \\
+    Spread, peak bin (deg)          & $-4.32$ & $-7.78$ to $+29.03$ & 50.3 \\
+    Spread, band-averaged (deg)     & $+0.26$ & $-9.45$ to $+6.24$ & \textbf{17.1} \\
+    $a_1$ at peak                   & $-0.001$ & $-0.043$ to $+0.040$ & 0.177 \\
+    $b_2$ at peak                   & $+0.002$ & $-0.080$ to $+0.085$ & \textbf{0.326} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Mean direction is essentially unbiased in the median because the fault injects
+variance rather than a systematic offset, though individual hours reach
+6.6$^\circ$. The second moment does not fare as well: $b_2$ has a
+95th-percentile error of 0.326 on a quantity that spans only $[-1,1]$. Radiation
+stress
+\begin{equation}
+    S_{xy} = \rho g \int S(f)\, \frac{c_g}{c}\, \frac{b_2(f)}{2}\, df
+\end{equation}
+is built directly from $b_2$ and inherits that error in full, which makes legacy
+alongshore forcing the least reliable product of that pipeline.
+
+\subsection*{A correction to the earlier version of this comparison}
+
+The peak-bin spread figure above (95th percentile 50.3$^\circ$) overstates the
+fault by roughly a factor of three, and an earlier draft of this comparison
+reported it without qualification. Spread computed at a single bin from
+\begin{equation}
+    \sigma_1 = \sqrt{2\left(1 - r_1\right)}, \qquad r_1 = \sqrt{a_1^2 + b_1^2}
+\end{equation}
+is dominated by the degrees-of-freedom difference between the two estimators
+rather than by the window mismatch: with zero-overlap cross-spectra the peak-bin
+$r_1$ is noisy and occasionally exceeds unity, where it must be clamped.
+Averaging the complex first moment over the swell band before taking its
+modulus,
+\begin{equation}
+    \bar r_1 = \left| \frac{\sum_f S(f)\,[a_1(f) + i\,b_1(f)]}{\sum_f S(f)} \right|,
+\end{equation}
+suppresses that noise and isolates the window mismatch. The band-averaged
+statistic is the defensible one and is closer to the form in general use
+following Kuik et al.\ (1988). The fault is real, and 17$^\circ$ at the 95th
+percentile is still large, but it is not 50$^\circ$.
+
+\subsection*{Dependence on conditions}
+
+\begin{table}[htbp]
+  \centering
+  \caption{Median $|\Delta|$ by significant wave height.}
+  \begin{tabular}{@{}lrrrr@{}}
+    \toprule
+    $H_s$ (m) & $n$ & $|\Delta D_p|$ (deg) & $|\Delta\sigma_1|$ (deg) & $|\Delta b_2|$ \\
+    \midrule
+    $<0.5$    &  374 & 1.71 & 6.22 & 0.129 \\
+    0.5--1.0  & 1816 & 1.48 & 7.07 & 0.095 \\
+    1.0--1.5  &  889 & 1.34 & 8.14 & 0.066 \\
+    1.5--2.0  &  359 & 1.33 & 8.63 & 0.059 \\
+    2.0--3.0  &  247 & 1.11 & 7.79 & 0.065 \\
+    $>3.0$    &   28 & 0.83 & 6.62 & 0.099 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The direction error falls monotonically with wave height, from 1.71$^\circ$ below
+$H_s = 0.5$\,m to 0.83$^\circ$ above 3\,m, and $|\Delta b_2|$ falls by half over
+the same range. This is the signature expected of a variance-driven fault: at
+higher signal-to-noise the two estimators converge. \textbf{Large waves are the
+regime in which the legacy directional output is most trustworthy, not least.}
+The apparent uptick in $|\Delta b_2|$ in the highest bin rests on 28 segments and
+should not be read as a reversal.
+
+The error grows with directional spread instead, from a median
+$|\Delta D_p|$ of 1.35$^\circ$ below 15$^\circ$ spread to 2.79$^\circ$ at
+20--25$^\circ$: broader seas have lower coherence per frequency, so the
+estimator difference matters more.
+
+\section{D3: the NaN handling, and why it does not bite}
+
+This fault could not be made to act as documented, and the reason is more useful
+than the number would have been.
+
+Records were selected specifically for pressure gaps --- 11\,\%, 35\,\% and
+85\,\% NaN in the raw pressure. After the standard validity gate, essentially
+every surviving segment has a pressure-gap fraction below 1\,\%. The segments in
+which zeroing would matter do not reach the spectral estimator, because the
+existing quality control rejects them first.
+
+Where small gaps do survive, the fractional change in $H_s$ is erratic rather
+than a deficit: the median is zero, the interquartile range reaches $+0.19$, and
+gap fraction does not predict the change ($\rho = -0.06$, $n = 1152$). The
+predicted mechanism --- variance removed in proportion to the gap --- competes
+with a second effect in the opposite direction, since zeroing a segment of an
+oscillating record introduces step discontinuities that inject broadband energy.
+
+The gaps in these records are overwhelmingly in \emph{velocity}, not pressure:
+8.8\,\% NaN in $U$ and $V$ on TOR19W against $2\times10^{-5}$ in pressure, and
+24\,\% on COR16B. So the fault does not act on $H_s$ at all. It zeros roughly one
+velocity sample in eleven before the FFT, which removes velocity variance and
+therefore acts on the directional coefficients and on $U_b$ --- compounding D1 on
+exactly the quantities D1 already damages. The original write-up attributed this
+fault to the wrong variable.
+
+\textbf{The protection here is the validity gate, not the NaN handling.} Any
+reprocessing that relaxes that gate would expose this fault.
+
+\section{D4: the pressure-correction rule}
+
+\begin{table}[htbp]
+  \centering
+  \caption{Median $|\Delta H_s|/H_s$ from capping $K_p^2$ at 10 rather than
+  zeroing frequencies below $K_p = 0.1$.}
+  \begin{tabular}{@{}lrr@{}}
+    \toprule
+    Depth (m) & $n$ & Median $|\Delta H_s|/H_s$ \\
+    \midrule
+    $<6$    &  339 & 0.000 \\
+    6--8    &  867 & 0.000 \\
+    8--10   & 1387 & 0.005 \\
+    $>10$   & 1120 & \textbf{0.015} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+This runs opposite to the expectation recorded from the code reading, which
+argued from noise amplification being permitted in shallow water. Measured on
+$H_s$, the two rules diverge in \emph{deeper} water: there $K_p$ falls below the
+cutoff across a wider portion of the sea-swell band, so the capped and zeroed
+treatments disagree over more frequencies. The effect is 1.5\,\% above 10\,m and
+negligible below 8\,m.
+
+The shallow-water concern in the original reading is not thereby dismissed. It
+was about noise admitted at high frequency, which affects the spectral tail and
+any quantity weighted toward it; $H_s$ is an integral dominated by the peak and
+is a poor detector of it.
+
+\section{Design differences, which are larger than most of the faults}
+
+\paragraph{Swell-band upper limit.} Truncating at 0.20\,Hz rather than 0.25\,Hz
+makes legacy $H_s^{SS}$ 2.9\,\% low in the median, rising to 7.8\,\% for
+$T_p < 8$\,s and falling to 2.5\,\% for $T_p > 16$\,s. A wind-sea effect,
+negligible in swell.
+
+\paragraph{Peak period.} The energy-weighted centroid sits 2.73\,s below the
+argmax definition in the median, with an interquartile range of $-4.29$ to
+$-1.47$\,s and a 95th percentile of 7.11\,s. \textbf{This is the largest single
+difference between the pipelines and it is not an error in either.} The two
+quantities are different statistics of the same spectrum. A legacy $T_p$
+compared against a model $T_p$, or against a value from another study, is a
+comparison of definitions unless the centroid is stated explicitly.
+
+\section{Summary}
+
+\begin{longtable}{@{}p{0.24\textwidth}p{0.30\textwidth}p{0.38\textwidth}@{}}
+  \toprule
+  Quantity & Status & Qualification \\
+  \midrule
+  \endhead
+  $H_s$ & Usable & 2.9\,\% low from the band limit; a further 1.5\,\% above
+  10\,m depth from the $K_p$ rule. Both are offsets, not errors. \\
+  \addlinespace
+  Mean direction $D_p$ & Usable & Median bias below 0.1$^\circ$; individual hours
+  reach 6.6$^\circ$. Best at large $H_s$, worst in broad seas. \\
+  \addlinespace
+  $T_p$ & Different, not wrong & 2.73\,s below an argmax $T_p$. State the
+  definition before comparing with anything. \\
+  \addlinespace
+  Directional spread & Distrust & 17$^\circ$ at the 95th percentile,
+  band-averaged. \\
+  \addlinespace
+  $b_2$, $S_{xy}$, alongshore forcing & Do not use & 95th-percentile $b_2$ error
+  of 0.33 on a range of 2, with D3 compounding it through the velocity channel. \\
+  \bottomrule
+\end{longtable}
+
+\section{Limits of this comparison}
+
+Each fault was emulated from the legacy source rather than by executing that
+pipeline end to end, so interactions between faults would not appear here. Ten
+records at five sites is a narrow span: only 28 segments exceed $H_s = 3$\,m, and
+no valid segment carries a pressure-gap fraction above 1\,\%, so the two regimes
+this note set out to probe are covered thinly at one end and not at all at the
+other. D2 and D5 remain unquantified.
+
+The band-averaged spread reported here should be preferred over the peak-bin
+figure, including over the peak-bin figure that appeared in the earlier version
+of this comparison.
+
+\vspace{1em}
+\noindent\rule{\textwidth}{0.4pt}\\
+\small
+Reproduce with \texttt{validation/legacy\_defect\_isolation.m}; results in
+\texttt{outputs/validation/legacy\_defect\_isolation.mat}. Legacy source:
+\texttt{Beach\_Change\_Observation/Vector/PUVs/PUV\_Processing-main/Level2\_QC/}.
+Prepared as internal documentation of why the legacy codes are deprecated.
+
+\end{document}
