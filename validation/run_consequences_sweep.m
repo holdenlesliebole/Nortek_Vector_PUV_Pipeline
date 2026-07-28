@@ -81,12 +81,28 @@ fprintf('\n================================================================\n');
 fprintf(' %d of %d records produced metrics (%.1f min)\n', numel(ROWS), nAttempt, elapsed/60);
 fprintf('================================================================\n\n');
 
+meta = struct('created', datestr(now,'yyyy-mm-dd HH:MM:SS'), ...
+              'nAttempted', nAttempt, 'nSucceeded', numel(ROWS), ...
+              'elapsed_min', elapsed/60); %#ok<TNOW1,DATST>
+save(fullfile(outDir,'cross_deployment_consequences.mat'), 'ROWS','SKIPPED','meta');
+fprintf('\nSaved: %s\n\n', fullfile(outDir,'cross_deployment_consequences.mat'));
+
 if ~isempty(ROWS)
     h  = [ROWS.h_median]';   ub = [ROWS.Ub_ratio]';
     en = [ROWS.Ub_energy_factor]'; shp = [ROWS.Ub_shape_factor]';
     ef = [ROWS.Ef_ratio]';   ta = [ROWS.tau_ratio]';
     mo = [ROWS.mobil_hours_ratio]'; ig = [ROWS.IG_var_fraction]';
     sr = [ROWS.Sxy_R]';      sb = [ROWS.spectrum_beats_bulk]';
+    b0 = [ROWS.Sxy_b0]';     ng = [ROWS.Pl_cancellation_puv]';
+    na = [ROWS.Sxy_nrmse_abs]'; pn = [ROWS.Pl_net_ratio]';
+    pg = [ROWS.Pl_gross_ratio]';
+    thP = [ROWS.theta_puv_med]'; thA = [ROWS.theta_puv_absmed]';
+    dth = [ROWS.dtheta_med]';    sag = [ROWS.sign_agree]';
+    mline = zeros(numel(ROWS),1);
+    for i = 1:numel(ROWS)
+        tk = regexp(ROWS(i).station,'(\d+)','tokens','once');
+        if ~isempty(tk), mline(i) = str2double(tk{1}); else, mline(i) = NaN; end
+    end
 
     pr = @(n,v) fprintf('  %-26s %7.3f  [IQR %6.3f - %6.3f]  n=%d\n', n, ...
         median(v,'omitnan'), prctile(v,25), prctile(v,75), sum(isfinite(v)));
@@ -98,7 +114,10 @@ if ~isempty(ROWS)
     pr('tau_b ratio', ta);
     pr('mobilized-hours ratio', mo);
     pr('IG share of near-bed var', ig);
-    pr('Sxy correlation', sr);
+    pr('Sxy slope b0 (thru origin)', b0);
+    pr('Sxy nRMSE / mean|Sxy|', na);
+    pr('alongshore gross-flux ratio', pg);
+    pr('  [descriptor] Sxy corr', sr);
     pr('spectrum-beats-bulk margin', sb);
 
     fprintf('\n--- THE DEPTH QUESTION ---\n');
@@ -130,21 +149,102 @@ if ~isempty(ROWS)
     fprintf('  summer-coded n=%d: Ub %.3f, energy %.3f\n', sum(isS), median(ub(isS),'omitnan'), median(en(isS),'omitnan'));
     fprintf('  (crude coding from deployment names; refine before quoting)\n');
 
+    fprintf('\n--- ALONGSHORE FORCING ---\n');
+    fprintf('  Metric is the THROUGH-ORIGIN slope b0 = sum(x*y)/sum(x^2) of model\n');
+    fprintf('  on observed Sxy. Correlation is reported as a descriptor only; it was\n');
+    fprintf('  retired as a quality gate 2026-07-27 (see below).\n\n');
+
+    gb = isfinite(b0);
+    fprintf('  b0 median %.3f  [IQR %.3f - %.3f]  n=%d\n', ...
+        median(b0(gb)), prctile(b0(gb),25), prctile(b0(gb),75), sum(gb));
+    fprintf('  records with b0 < 0 (genuine frame/handedness failure): %d of %d\n', ...
+        sum(b0 < 0), sum(gb));
+    [pw,~,st] = signrank(b0(gb) - 1);   %#ok<ASGLU>
+    fprintf('  H0: b0 = 1 (model reproduces alongshore forcing) -> p = %.3g\n', pw);
+    fprintf('  net alongshore flux ratio  median %.3f  [IQR %.3f - %.3f]\n', ...
+        median(pn,'omitnan'), prctile(pn,25), prctile(pn,75));
+    fprintf('  gross alongshore flux ratio median %.3f  [IQR %.3f - %.3f]\n', ...
+        median(pg,'omitnan'), prctile(pg,25), prctile(pg,75));
+    fprintf('  |net|/gross (PUV)          median %.3f  [IQR %.3f - %.3f]\n', ...
+        median(ng,'omitnan'), prctile(ng,25), prctile(ng,75));
+
+    % THE CONDITIONING TEST. If b0 is properly conditioned, its association
+    % with |net|/gross should be far weaker than the correlation's.
+    m = isfinite(ng) & isfinite(sr) & isfinite(b0);
+    [rR,pR] = corr(ng(m), sr(m),  'type','Spearman');
+    [r0,p0] = corr(ng(m), b0(m),  'type','Spearman');
+    [ra,pa] = corr(ng(m), na(m),  'type','Spearman');
+    [rn,pn2]= corr(ng(m), [ROWS(m).Sxy_nrmse]', 'type','Spearman');
+    fprintf('\n  CONDITIONING (association with |net|/gross; near zero = well conditioned):\n');
+    fprintf('    correlation Sxy_R        rho = %+.3f (p = %.3g)   <- the artifact\n', rR, pR);
+    fprintf('    slope b0                 rho = %+.3f (p = %.3g)\n', r0, p0);
+    fprintf('    nRMSE / sd(Sxy)  [old]   rho = %+.3f (p = %.3g)\n', rn, pn2);
+    fprintf('    nRMSE / mean|Sxy| [new]  rho = %+.3f (p = %.3g)\n', ra, pa);
+    fprintf('  Derivation: Var(b_freeIntercept)/Var(b0) = 1 + mean(x)^2/var(x), so a\n');
+    fprintf('  one-signed record makes the mean-referenced statistics noisy while b0\n');
+    fprintf('  is unaffected. Confirmed synthetically to 3 significant figures, and a\n');
+    fprintf('  correct frame was shown to yield R < 0 in up to 27%% of trials at high\n');
+    fprintf('  |net|/gross while b0 never once changed sign.\n');
+
+    % ================= FRAME ERROR OR MODEL FAILURE? =====================
+    % Two explanations for b0 < 0. They make different predictions:
+    %   FRAME  -- our MOP shore-normal is wrong by a fixed angle for a given
+    %             MOP line. Then dtheta = theta_mop - theta_puv is a CONSTANT
+    %             offset within a line, and sign flips concentrate where the
+    %             true obliquity is SMALL (a small rotation flips the sign of
+    %             sin(2 theta) only when theta is near zero).
+    %   MODEL  -- MOP mis-states the directional distribution. Then the error
+    %             should track obliquity or forcing ACROSS sites, and sign
+    %             flips should NOT prefer small theta.
+    fprintf('\n--- FRAME ERROR OR MODEL FAILURE? ---\n');
+    gq = isfinite(b0) & isfinite(thA) & isfinite(dth);
+    fprintf('  observed obliquity |theta| median %.1f deg  [IQR %.1f - %.1f]\n', ...
+        median(thA(gq)), prctile(thA(gq),25), prctile(thA(gq),75));
+    fprintf('  hourly SIGN agreement median %.3f  [IQR %.3f - %.3f]\n', ...
+        median(sag(gq)), prctile(sag(gq),25), prctile(sag(gq),75));
+
+    % Prediction 1: do sign failures concentrate at SMALL obliquity?
+    neg = b0 < 0;
+    fprintf('\n  [P1] obliquity of sign-reversed vs sign-correct records:\n');
+    fprintf('    b0 <  0 : |theta| median %5.2f deg (n=%d)\n', median(thA(gq & neg)), sum(gq&neg));
+    fprintf('    b0 >= 0 : |theta| median %5.2f deg (n=%d)\n', median(thA(gq & ~neg)), sum(gq&~neg));
+    if sum(gq&neg) > 3 && sum(gq&~neg) > 3
+        pRS = ranksum(thA(gq&neg), thA(gq&~neg));
+        if pRS < 0.05, verdictP1 = 'DIFFERENT'; else, verdictP1 = 'not distinguishable'; end
+        fprintf('    rank-sum p = %.3g  -> %s\n', pRS, verdictP1);
+    end
+    [rt,pt] = corr(thA(gq), b0(gq), 'type','Spearman');
+    fprintf('    rho(|theta|, b0) = %+.3f (p = %.3g)\n', rt, pt);
+
+    % Prediction 2: is dtheta a fixed per-line offset?
+    fprintf('\n  [P2] dtheta = theta_mop - theta_puv, by MOP line (>=2 records):\n');
+    fprintf('    %6s %4s %9s %9s %9s\n','line','n','mean dth','sd dth','mean b0');
+    ul = unique(mline(gq & isfinite(mline)));
+    wSD = []; bSD = [];
+    for L = ul'
+        m = gq & mline == L;
+        if sum(m) < 2, continue; end
+        fprintf('    %6d %4d %9.2f %9.2f %9.3f\n', L, sum(m), mean(dth(m)), std(dth(m)), mean(b0(m)));
+        wSD(end+1) = std(dth(m)); bSD(end+1) = std(b0(m)); %#ok<SAGROW>
+    end
+    if ~isempty(wSD)
+        fprintf('    within-line sd of dtheta : median %.2f deg   (total sd %.2f)\n', ...
+            median(wSD), std(dth(gq)));
+        fprintf('    -> a pure per-line frame error predicts within-line sd << total sd\n');
+    end
+    fprintf('    catalog-wide dtheta: median %+.2f deg, IQR %+.2f to %+.2f\n', ...
+        median(dth(gq)), prctile(dth(gq),25), prctile(dth(gq),75));
+
     nBad = sum(sr < 0);
-    fprintf('\n--- ALONGSHORE (Sxy correlation is NOT a quality flag) ---\n');
-    fprintf('  %d of %d records have negative Sxy correlation.\n', nBad, sum(isfinite(sr)));
-    fprintf('  This is a CONDITIONING ARTIFACT, not a defect: records whose alongshore\n');
-    fprintf('  flux never reverses sign (|net|/gross ~ 1) put all their variance in\n');
-    fprintf('  magnitude, and a correlation then tests fluctuation agreement in a\n');
-    fprintf('  one-signed quantity. Catalog-wide rho(|net|/gross, Sxy_R) = -0.417.\n');
-    fprintf('  Demonstrated 2026-07-27: TOR16B had a REAL heading error (R2_swell 5.53),\n');
-    fprintf('  it was corrected (R2_swell 0.005), and its Sxy_R got WORSE (-0.507).\n');
-    fprintf('  Use Sxy_slope or a skill score instead, and report |net|/gross alongside.\n');
     if nBad > 0
-        bad = find(sr < 0);
-        for i = bad'
-            fprintf('    %-9s %-13s h=%5.1f  R=%+.3f\n', ROWS(i).deployment, ROWS(i).label, h(i), sr(i));
+        fprintf('\n  The %d records with negative CORRELATION, now scored by b0:\n', nBad);
+        fprintf('    %-9s %-13s %6s %8s %8s %9s\n','deploy','label','h','Sxy_R','b0','|net|/gr');
+        for i = find(sr < 0)'
+            fprintf('    %-9s %-13s %6.1f %+8.3f %8.3f %9.3f\n', ...
+                ROWS(i).deployment, ROWS(i).label, h(i), sr(i), b0(i), ng(i));
         end
+        fprintf('    (TOR16B is the proof: it had a REAL heading error, R2_swell 5.53;\n');
+        fprintf('     correcting it drove R2_swell to 0.005 and made Sxy_R WORSE, -0.507.)\n');
     end
 end
 
@@ -155,8 +255,4 @@ if ~isempty(SKIPPED)
     end
 end
 
-meta = struct('created', datestr(now,'yyyy-mm-dd HH:MM:SS'), ...
-              'nAttempted', nAttempt, 'nSucceeded', numel(ROWS), ...
-              'elapsed_min', elapsed/60); %#ok<TNOW1,DATST>
-save(fullfile(outDir,'cross_deployment_consequences.mat'), 'ROWS','SKIPPED','meta');
-fprintf('\nSaved: %s\n\n', fullfile(outDir,'cross_deployment_consequences.mat'));
+

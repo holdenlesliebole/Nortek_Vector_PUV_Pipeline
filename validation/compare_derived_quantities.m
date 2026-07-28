@@ -203,6 +203,7 @@ seg = struct('Ub_puv_fine',z,'Ub_puv_bin',z,'Ub_mop',z, ...
              'Ub_par',z,'Tp_puv',z,'Tp_mop',z, ...
              'tau_puv',z,'tau_mop',z,'sh_puv',z,'sh_mop',z, ...
              'Sxy_puv',z,'Sxy_mop',z,'Pl_puv',z,'Pl_mop',z, ...
+             'th_puv',z,'th_mop',z, ...
              'Ab_puv',z,'Ab_mop',z,'Tb_puv',z,'Tb_mop',z, ...
              'Tm01_puv',z,'Tm01_mop',z,'Tpk_puv',z, ...
              'tau_puv_Tm01',z,'tau_mop_Tm01',z,'tau_puv_Tpk',z);
@@ -372,6 +373,15 @@ for i = 1:nK
             b2p(~isfinite(b2p)) = 0;
             seg.Sxy_puv(i) = rho*g*sum(sb .* n_i .* (b2p/2) .* w);
             seg.Pl_puv(i)  = rho*g*sum(sb .* n_i .* (b2p/2) .* c_i .* w);
+            % Effective obliquity. For a narrow directional distribution the
+            % shore-frame second sine moment is b2 = sin(2*theta), so
+            % theta = asin(b2)/2 is the energy-weighted angle of the wave
+            % field from shore-normal, in degrees, positive in the same sense
+            % as Sxy. This is the axis that separates the two explanations for
+            % a negative slope: a frame error is a fixed rotation per MOP
+            % line, a model failure should track obliquity across sites.
+            b2b = sum(sb .* b2p .* w) / max(sum(sb .* w), eps);
+            seg.th_puv(i) = 0.5*asind(max(min(b2b,1),-1));
         end
 
         % Model: rotate geographic second moments into the shore-normal frame
@@ -392,6 +402,8 @@ for i = 1:nK
             b2r = b2r(iB);
             seg.Sxy_mop(i) = rho*g*sum(sm .* n_i .* (b2r/2) .* w);
             seg.Pl_mop(i)  = rho*g*sum(sm .* n_i .* (b2r/2) .* c_i .* w);
+            b2bm = sum(sm .* b2r .* w) / max(sum(sm .* w), eps);
+            seg.th_mop(i) = 0.5*asind(max(min(b2bm,1),-1));
         end
     end
 end
@@ -522,23 +534,45 @@ end
 %% ---- Alongshore forcing and transport ---------------------------------
 ga = gd & isfinite(seg.Sxy_puv) & isfinite(seg.Sxy_mop);
 if sum(ga) > 20
-    % Handedness check BEFORE any ratio. Both sides should now be in the same
-    % shore-normal frame, so they must correlate POSITIVELY. A negative R
-    % means the two frames have opposite handedness and every transport
-    % number below would carry a silent sign error.
-    cc = corrcoef(seg.Sxy_puv(ga), seg.Sxy_mop(ga));
-    R.Sxy_R = cc(1,2);
-    R.Sxy_frame_ok = R.Sxy_R > 0;
+    x = seg.Sxy_puv(ga);   y = seg.Sxy_mop(ga);
 
-    R.Sxy_puv_med = median(seg.Sxy_puv(ga));
-    R.Sxy_mop_med = median(seg.Sxy_mop(ga));
-    % Signed quantity that changes sign through the record, so a median of
-    % per-hour ratios is meaningless. Report a regression slope and the
-    % bias in the alongshore flux instead.
-    p = polyfit(seg.Sxy_puv(ga), seg.Sxy_mop(ga), 1);
+    % --- THROUGH-ORIGIN SLOPE: the conditioned magnitude/handedness metric ---
+    % (replaces correlation as the frame gate, 2026-07-27)
+    %
+    % Correlation and a free-intercept slope both reduce about the MEAN:
+    %   b = sum((x-xbar)(y-ybar)) / sum((x-xbar)^2),  Var(b) = sn^2/(n*var(x))
+    % Sxy on a given beach is usually one-signed for long stretches, so var(x)
+    % is small relative to xbar^2 and both statistics are dominated by noise.
+    % Through the origin -- which is also the physically correct constraint,
+    % since Sxy = 0 must map to Sxy = 0 -- the second moment is taken about
+    % zero instead:
+    %   b0 = sum(x*y) / sum(x^2),        Var(b0) = sn^2/(n*(var(x)+xbar^2))
+    %   Var(b)/Var(b0) = 1 + xbar^2/var(x)
+    % At xbar/sd = 3 (a typical unidirectional record) the free-intercept
+    % slope is 10x noisier. This is the same conditioning defect that made
+    % Sxy_R look like a quality flag when it is not: |net|/gross is a proxy
+    % for xbar/sd, hence the catalog-wide rho(|net|/gross, Sxy_R) = -0.417.
+    R.Sxy_b0 = sum(x.*y) / max(sum(x.^2), eps);
+    R.Sxy_frame_ok = R.Sxy_b0 > 0;
+
+    % Kept as a DESCRIPTOR only -- never a gate. See above for why.
+    cc = corrcoef(x, y);
+    R.Sxy_R = cc(1,2);
+
+    R.Sxy_puv_med = median(x);
+    R.Sxy_mop_med = median(y);
+
+    % Retained for continuity with the pre-2026-07-27 numbers; superseded by
+    % Sxy_b0 and not to be quoted on its own.
+    p = polyfit(x, y, 1);
     R.Sxy_slope = p(1);
-    R.Sxy_rmse  = sqrt(mean((seg.Sxy_mop(ga)-seg.Sxy_puv(ga)).^2));
-    R.Sxy_nrmse = R.Sxy_rmse / max(std(seg.Sxy_puv(ga)), eps);
+
+    R.Sxy_rmse  = sqrt(mean((y-x).^2));
+    R.Sxy_nrmse = R.Sxy_rmse / max(std(x), eps);           % legacy, mean-referenced
+    % Normalise by the mean ABSOLUTE Sxy rather than the standard deviation,
+    % for the same reason: sd(x) collapses on unidirectional records and
+    % inflates nRMSE there even when the model is doing well.
+    R.Sxy_nrmse_abs = R.Sxy_rmse / max(mean(abs(x)), eps);
 
     % Net alongshore transport is the TIME-INTEGRAL of P_l, so a net-drift
     % error matters more than the scatter: partial cancellation means a
@@ -556,9 +590,29 @@ if sum(ga) > 20
     % How much cancellation: |net|/gross. Low values mean the net is a small
     % residual of large opposing fluxes and is correspondingly fragile.
     R.Pl_cancellation_puv = abs(R.Pl_net_puv)/max(R.Pl_gross_puv, eps);
+    % --- OBLIQUITY, for the frame-vs-model discrimination -----------------
+    gt = ga & isfinite(seg.th_puv) & isfinite(seg.th_mop);
+    if sum(gt) > 20
+        R.theta_puv_med = median(seg.th_puv(gt));
+        R.theta_mop_med = median(seg.th_mop(gt));
+        R.theta_puv_absmed = median(abs(seg.th_puv(gt)));
+        dth = seg.th_mop(gt) - seg.th_puv(gt);
+        R.dtheta_med = median(dth);
+        R.dtheta_iqr = prctile(dth,75) - prctile(dth,25);
+        % Fraction of hours on which the two disagree about which way the
+        % alongshore forcing points. Sign-only, so it is immune to the
+        % magnitude conditioning that broke the correlation.
+        R.sign_agree = mean(sign(seg.Sxy_puv(ga)) == sign(seg.Sxy_mop(ga)));
+    else
+        R.theta_puv_med = NaN; R.theta_mop_med = NaN; R.theta_puv_absmed = NaN;
+        R.dtheta_med = NaN; R.dtheta_iqr = NaN; R.sign_agree = NaN;
+    end
     R.nSxy = sum(ga);
 else
     R.Sxy_R = NaN; R.Sxy_frame_ok = false; R.Sxy_slope = NaN;
+    R.Sxy_b0 = NaN; R.Sxy_nrmse_abs = NaN;
+    R.theta_puv_med = NaN; R.theta_mop_med = NaN; R.theta_puv_absmed = NaN;
+    R.dtheta_med = NaN; R.dtheta_iqr = NaN; R.sign_agree = NaN;
     R.Pl_net_ratio = NaN; R.Pl_gross_ratio = NaN; R.Pl_cancellation_puv = NaN;
     R.nSxy = sum(ga);
 end
