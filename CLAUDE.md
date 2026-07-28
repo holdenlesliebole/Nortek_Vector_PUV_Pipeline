@@ -64,15 +64,16 @@ Likewise `outputs/_*_backup_*/` and `outputs/rerun_*/` are frozen snapshots.
   header.** Current state: 33 sourced, 1 declared placeholder
   (`RUBY22` lat/lon, still "approximate" though the exact coordinates are in the
   same workbook row its `doffp` came from), 82 unannotated.
-- **Catalina shore-normal is data-derived, not surveyed.** `CAT21A`/`CAT21B` are
-  outside CDIP MOP coverage, so there is no station to look the angle up from.
-  `shorenormal = 90` (offshore, due east) was estimated from the wave principal
-  axis (`a2`/`b2` → 92.7°), corroborated by the wave mean direction (107°) and
-  the mean-current principal axis (62.5°, anisotropy 3.12). **Uncertainty is
-  ±20°** — the four estimators span 77°, and a 20° error mixes 34 % of the
-  alongshore component into the cross-shore one. Treat CAT cross-shore
-  quantities as indicative, not quantitative. Full reasoning in
-  `CAT21A_config.m`.
+- **Catalina shore-normal: `63°`, and prefer CURRENTS over waves when refraction
+  is weak.** `CAT21A`/`CAT21B` are outside CDIP MOP coverage. Four independent
+  estimators agree within 6°: imagery of the beach in front of the PUV (63°), the
+  mean-current principal axis (62.5°, anisotropy 3.12), and a GPS survey taken
+  *during* the deployment (`LiDAR/Mele/Catalina_GPS/20210525_CATALINA_RBR.txt`,
+  57.7–61.5°). **The wave principal axis (92.7°) is the outlier and an earlier
+  revision wrongly trusted it, applying 90°.** Refraction does not align waves
+  with the normal at a sheltered leeward embayment fed by long-period swell
+  (median Tp 16.4 s, 52° spread). The coast is embayed — the surveyed trend
+  swings 151.5°→137.1° over 460 m — so one angle is a compromise; ±8°.
 - **Pre-2023 archive: Tiers A, B, and C are all done** (2026-07-24), decoded from
   raw `.VEC` — 23 new deployments back to 2014. Tier A = `TOR19W`/`TOR20W`/`IB19W`;
   Tier B = `TOR15A/B`, `TOR16B`, `TOR17D`, `CDF15A/C`, `COR16B/D`; Tier C = the

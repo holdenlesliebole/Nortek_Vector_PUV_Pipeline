@@ -133,6 +133,12 @@ Per-deployment processing parameters (lat/lon, heading, clock drift, sensor
 offset) come from `/Volumes/group/DeploymentNotes/DeploymentNotes{year}.xls`.
 The annual checkout spreadsheets (`VectorPUV_{year}Checkout.xlsx`) have serial
 numbers and qualitative checklist items but NOT the numerical processing params.
+They are still worth reading as a **deployment inventory**: they list every
+instrument prepared for a season with its site and its Vector config `.dep`
+filename, so they establish that a deployment happened even when its data cannot
+be found. `VectorPUV_Winter2020-2021Checkout.xlsx` is what confirmed the missing
+Catalina S/N 15033 deployment ("Catalina Island, ~8meter depth",
+`CatalinaIsland_September2020.dep`) — see the Catalina block in `docs/todo.md`.
 `TBR23_Notes.xlsx` (local) was the only machine-readable source before
 DeploymentNotes was discovered — its format is the template for new deployments.
 
@@ -358,6 +364,80 @@ The same reasoning applies to L3, which is why an L1/L2 rerun must be followed b
 either a regen of the higher levels or a written justification for skipping it —
 the 07-12 rerun left 11 records with an L3 older than its L2 for two weeks
 because the regen covered one batch and not the other.
+
+### Difference depth against an independent reference before reading a trend (2026-07-27)
+
+A pressure sensor that settles into the bed makes the *computed* depth drift
+upward, because the pipeline adds a FIXED `doffp` to a pressure that is rising:
+
+    P/(rho g)  = H(t) - d(t)                      (water above the sensor)
+    H_computed = P/(rho g) + doffp_fixed = H(t) - d(t) + doffp_fixed
+
+So a shrinking true sensor height `d(t)` looks exactly like rising water. That
+makes "depth drifts up" a tempting but **unreliable** test for instrument motion.
+
+Worked example, CAT21A (117 days). Fitting tide + linear trend to the computed
+depth gives **+1.34 cm/month upward** — the right sign and a plausible magnitude
+for settling. Differencing instead against the NOAA-referenced prediction the
+pipeline already stores (`L3.tidal.depth_pred`, with
+`L3.tidal.depth_source = 'NOAA'`) gives **+0.11 cm/month with a flat monthly
+residual**. The apparent drift was **seasonal mean sea level**, which in SoCal
+rises several cm from winter into summer — the same direction and scale as the
+settling being looked for.
+
+**Rule: never read an instrument-motion trend off raw computed depth.** Difference
+against `L3.tidal.depth_pred` first. A bare harmonic fit removes the tides but
+leaves the seasonal and non-tidal residual water level, which is exactly the part
+that mimics settling.
+
+Companion diagnostics, both cheap:
+- **Tilt** — a tilting probe leaks horizontal orbital velocity into the vertical
+  channel, so `std(W)/std(U)` rises. On CAT21A it *falls* (0.161→0.131), simply
+  tracking the waves growing, so there was no tilt.
+- **Which subsystem failed** — pressure and velocity fail independently. On
+  CAT21A `segValid_p` stayed 100 % while velocity validity collapsed 97 %→47 %
+  and Z fell 1.07→0.57 (velocity variance *inflated*). That combination isolates
+  the fault to the transducer arm, not the housing, the mount, or the pressure
+  port. Beware a confound: biofouling grows as water warms (15.7→21.2 °C across
+  this record), so a *progressive* correlation loss need not mean progressive
+  mechanical damage.
+
+### Deriving a shore-normal where there is no MOP station (2026-07-27)
+
+Sites outside CDIP MOP coverage have no station to look the angle up from.
+`CAT21A`/`CAT21B` (Pebbly Beach, Catalina) sat with `instr.shorenormal` unset for
+years, which silently left velocity in the BUOY frame — so `L4.ref` and
+`L4.boundwave` were not cross-shore quantities at all despite their field names.
+
+Four independent estimators, and which to trust:
+
+| estimator | Catalina | reliability |
+|---|---|---|
+| coastline from imagery, at the instrument | 63° | direct, local |
+| **mean-current principal axis** | 62.5° | strong where anisotropy is high (3.12 here) |
+| surveyed shoreline marks (GPS, during deployment) | 57.7–61.5° | direct, but 0.5–1 km away |
+| wave principal axis `<a2>/<b2>` | 92.7° | **only where refraction is strong** |
+| wave mean direction `<a1>/<b1>` | 107° | weakest — spread-sensitive, from/toward ambiguous |
+
+**The wave estimators were wrong here by ~30°, and an earlier revision trusted
+them.** The reasoning — refraction turns waves toward shore-normal in shallow
+water — is sound on an open coast and fails at a sheltered leeward embayment fed
+by long-period swell (median Tp 16.4 s, 52° directional spread) that wraps around
+the island and arrives obliquely. The waves never refract into alignment.
+
+**Rule: prefer the mean-current principal axis.** Alongshore flow is constrained
+by the coastline itself rather than by a refraction assumption, so it degrades
+gracefully at exactly the sites where the wave estimators fail. Check its
+anisotropy — a value near 1 means the currents are not polarised and the axis is
+meaningless. Resolve the 180° ambiguity from wave propagation (energy must go
+onshore), not from the current axis, which is an axis and not a direction.
+
+**Corroborate against geometry.** GPS surveys of nearby marks are gold: they give
+an independent trend and they reveal embayment. At Catalina the surveyed trend
+swings 151.5° → 137.1° over 460 m, so the normal moves 61.5° → 47.1° along the
+beach and any single angle is a compromise. Survey files live under
+`/Volumes/group/LiDAR/` and are easy to miss — the Catalina one
+(`Mele/Catalina_GPS/20210525_CATALINA_RBR.txt`) was taken *during* the deployment.
 
 ### Config comments do not age with the values they describe (2026-07-27)
 

@@ -49,33 +49,43 @@ function cfg = CAT21A_config()
 % bearing (cf. Torrey 263.94 deg = west/seaward); apply_shorenormal_rotation
 % does rotation = 270 - shorenormal and negates so +x' ends up onshore.
 %
-%   method                                        offshore bearing
-%   ---------------------------------------------------------------
-%   wave principal axis, <a2>/<b2>, swell band          92.7 deg
-%   wave mean direction, <a1>/<b1>                     107   deg
-%   mean-current principal axis (anisotropy 3.12)       62.5 deg
-%   Avalon -> Pebbly Beach chord (1.9 km, least local)  30   deg
+%   method                                              offshore bearing
+%   -----------------------------------------------------------------
+%   beach directly in front of the PUV, measured on imagery   63 deg
+%   mean-current principal axis (anisotropy 3.12)             62.5 deg
+%   surveyed shoreline, RBR142->RBR144 (461 m, 2021-05-25)    57.7 deg
+%   surveyed RBR142->RBR143 (340 m, the nearer segment)       61.5 deg
+%   wave principal axis, <a2>/<b2>, swell band                92.7 deg
+%   wave mean direction, <a1>/<b1>                           107   deg
 %
-% APPLIED: 90 deg (due east). The wave principal axis is the best single
-% estimator here -- it is an AXIS, so it is immune to the from/toward
-% convention that makes the first-moment direction ambiguous, and it is
-% energy-weighted over the swell band across 1861 valid segments. It lands
-% within 3 deg of due east, which is also what the geography demands: Pebbly
-% Beach is on Catalina's east (leeward) shore facing the San Pedro Channel
-% toward the mainland.
+% APPLIED: 63 deg.
 %
-% UNCERTAINTY IS LARGE: +/- 20 deg. The four estimates span 77 deg, and the
-% two physically independent families (waves vs currents) differ by 30 deg. A
-% 20 deg error mixes sin(20) = 34% of the alongshore component into the
-% cross-shore one. Treat CAT cross-shore quantities as indicative, NOT
-% quantitative, and do not use this record for a cross-shore transport budget.
-% Refraction is also weaker here than on an open coast (directional spread is
-% 52 deg at a sheltered leeward site), which is the main reason the wave
-% estimators may be biased away from the true normal.
+% The GPS survey is /Volumes/group/LiDAR/Mele/Catalina_GPS/
+% 20210525_CATALINA_RBR.txt -- three RBR marks surveyed 2021-05-25, DURING this
+% deployment, that lie along the coast 0.5-1 km NW of the PUV. Their trend gives
+% an independent shore-normal that lands within 1-5 deg of both the imagery
+% measurement and the current axis.
 %
-% TO IMPROVE: this wants a real bathymetric normal from a chart or DEM of
-% Pebbly Beach -- the depth-gradient direction at 7.6 m. Published sources
-% consulted 2026-07-27 gave the location but no coastline bearing.
+% The survey also confirms the beach is EMBAYED: the trend swings 151.5 deg
+% (RBR142->143) to 137.1 deg (RBR143->144), i.e. the local normal moves 61.5 ->
+% 47.1 deg over 460 m. So a single angle is a compromise, and 63 deg is chosen
+% because it describes the beach directly in front of the instrument.
+%
+% A PREVIOUS REVISION APPLIED 90 deg AND WAS WRONG BY ~27 deg. It preferred the
+% wave principal axis on the reasoning that refraction aligns waves with the
+% shore-normal in shallow water. That assumption fails here: this is a sheltered
+% leeward embayment receiving long-period swell (median Tp 16.4 s) that wraps
+% around the island and arrives obliquely, with 52 deg of directional spread.
+% Waves never refract into alignment, so the wave axis is NOT the shore-normal.
+% The current axis -- constrained by the coastline rather than by refraction --
+% was the reliable estimator, and it agrees with the survey and the imagery.
+% LESSON: prefer the current principal axis over wave direction wherever
+% refraction is weak (sheltered, embayed, or long-period sites).
+%
+% Uncertainty is now roughly +/-8 deg (the three independent local estimators
+% span 57.7-63), down from the +/-20 deg quoted when only the wave estimators
+% were trusted. Still not a survey of the normal itself; a bathymetric gradient
+% from a DEM would settle it.
 % Author: Holden Leslie-Bole, 2026
 
     cfg.name        = 'CAT21A';
@@ -98,5 +108,5 @@ function cfg = CAT21A_config()
     cfg.instruments(k).heading        = NaN;     % auto-compute from .sen
     cfg.instruments(k).clockDrift     = NaN;
     cfg.instruments(k).doffp          = 0.71;    % m, port 71cm above sand (S/N 15032)
-    cfg.instruments(k).shorenormal    = 90;      % deg, OFFSHORE bearing; data-derived, +/-20 deg (see header)
+    cfg.instruments(k).shorenormal    = 63;      % deg, OFFSHORE bearing; survey + imagery + currents (see header)
 end
