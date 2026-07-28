@@ -1,5 +1,6 @@
 % PUV Pipeline — Beamer Slide Deck
-% Last updated: April 8, 2026
+% Last updated: July 27, 2026 (source); built PDFs are date-stamped, see
+% puv_pipeline_slides_YYYY-MM-DD.pdf alongside this file.
 
 % =====================================================================
 % RETRACTED 2026-07-25 -- THE SPECTRAL PEAK BROADENING RESULT IN THIS
@@ -31,6 +32,9 @@
 
 \usepackage{booktabs}
 \usepackage{amsmath}
+\usepackage{siunitx}   % \num{} — added 2026-07-28; used at l.1125/1137 since the
+                       % 2026-07-27 edit but never loaded, so the deck had not
+                       % compiled since. That is why the built PDF sat 3 months stale.
 \usepackage{graphicx}
 \usepackage{xcolor}
 \usepackage{tikz}
@@ -1764,7 +1768,11 @@
 % ------------------------------------------------------------------
 \begin{frame}{Wave Forcing and Bed Response}
   \begin{center}
-    \includegraphics[width=0.95\textwidth]{/Users/holden/Documents/Scripps/Research/Paper_1/paper/figures/fig_forcing_response_v2.png}
+    % Paper_1 moved this into paper/figures/archive/ during its own housekeeping;
+    % same file, new location (repointed 2026-07-28, was rendering as a draft box).
+    % NOTE: Paper_1's current figures dir has fig_ssd_forcing_latest.png, which may
+    % or may not be the intended successor -- different name, unverified content.
+    \includegraphics[width=0.95\textwidth]{/Users/holden/Documents/Scripps/Research/Paper_1/paper/figures/archive/fig_forcing_response_v2.png}
   \end{center}
 
   \vspace{0.3em}
