@@ -127,3 +127,123 @@ This is the same gap we flagged in the multi-taper writeup -- worth a focused lo
 3. **The peak-period picker bug is real but rare.** A handful of Ruby2D hours have legacy-reported Tp at the IG/DC bin. Anyone reprocessing Ruby2D Tp should band-limit the peak picker.
 4. **The Z-test discrepancy is the most interesting open thread.** Same systematic offset as TBR23 (~0.76 vs ~1.0) suggests something about the new pipeline's P-UV consistency calculation, not the data.
 5. **The new pipeline is smoother.** The multi-taper variance reduction is visible at the spectral level, even when bulk parameters are essentially identical. This will matter for spectral excess analysis (PUV vs MOP), spectral shape diagnostics, and any analysis that depends on resolving narrow features in S(f).
+
+---
+
+# Quantified: which defect matters, where, and by how much (2026-07-27)
+
+The five issues above were catalogued from code reading. This section measures
+them. Each legacy choice was implemented as an isolated switch applied to
+identical input, so every difference is attributable to one defect rather than to
+the pipelines as wholes. Code: `validation/legacy_defect_isolation.m`.
+
+1,999 hourly segments across five records spanning 5.5–11.7 m depth and four
+sites. Two of the records (TOR19W and TOR20W, MOP582, 10–11 m, 2019–2021) are the
+same station, depth and era as the published analysis in this line, so the
+numbers there transfer directly.
+
+## D1 — auto/cross estimator mismatch
+
+Worse than the code reading suggested. The legacy auto-spectra
+(`calculate_fft2`) use a Hanning window with **50% overlap**
+(`num = floor(2n/nfft)-1` ensembles); the cross-spectra (`cospec`) use a Hamming
+window with **zero** overlap. The two differ in window *and* in degrees of
+freedom, so `a1 = Re(Spu)/√(Spp·(Suu+Svv))` mixes estimators with different
+variance as well as different spectral windows.
+
+| quantity | median | IQR | 95th pct of \|Δ\| |
+|---|---|---|---|
+| mean direction $D_p$ | −0.06° | −1.56 to +1.45° | **7.2°** |
+| $a_1$ at peak | −0.001 | −0.045 to +0.041 | 0.173 |
+| $b_2$ at peak | +0.001 | −0.083 to +0.088 | **0.327** |
+
+**Mean direction largely survives; $b_2$ does not.** $b_2$ is bounded on
+$[-1,1]$, so a 95th-percentile error of 0.33 is a third of the available range.
+Radiation stress $S_{xy}$ is built directly from $b_2$ and inherits this in full,
+which makes legacy alongshore forcing the least trustworthy product of that
+pipeline. $D_p$ is unbiased in the median because the error is random rather than
+systematic, but individual hours reach 7°.
+
+The error grows with directional spread (median \|Δ$D_p$\| of 1.43° below 15°
+spread, 2.77° at 20–25°) and is largest at low $H_s$ — consistent with a
+variance-driven mechanism rather than a bias.
+
+*Caveat on the spread statistic.* Directional spread computed at the single peak
+bin returned an interquartile range of 36°, which overstates the defect. With
+zero-overlap cross-spectra the peak-bin $r_1 = \sqrt{a_1^2+b_1^2}$ is noisy and
+occasionally exceeds 1, where it must be clamped, so a single-bin spread
+amplifies the degrees-of-freedom difference rather than isolating the window
+mismatch. The $a_1$ and $b_2$ figures above are the defensible ones. A
+band-averaged spread would be the fair comparison and has not been run.
+
+## D3 — NaN replaced by zero: latent for $H_s$, active for velocity
+
+Could not be exercised as documented. The prediction was an $H_s$ deficit
+proportional to gap fraction, but **pressure is essentially gapless** in these
+records (NaN fraction 2×10⁻⁵), so the measured $H_s$ difference is identically
+zero and the correlation with gap fraction is null ($\rho = +0.06$, $p = 0.08$).
+
+The gaps are in **velocity**: 8.8% NaN in $U$ and $V$ on TOR19W. So the defect
+does not bias $H_s$ — it zeros roughly one sample in eleven of the velocity
+record before the FFT, which removes velocity variance and therefore acts on the
+directional coefficients and on $U_b$, compounding D1 on exactly the quantities
+D1 already damages. The original write-up put this defect on the wrong quantity.
+
+Testing the $H_s$ path properly needs a record with genuine pressure dropouts.
+
+## D4 — Kp cap: matters at depth, not in shallow water
+
+| depth (m) | n | median \|Δ$H_s$\|/$H_s$ |
+|---|---|---|
+| < 6 | 339 | 0.000 |
+| 6–8 | 739 | 0.000 |
+| 8–10 | 121 | 0.002 |
+| 10–40 | 800 | **0.018** |
+
+Opposite to the expectation recorded above, which reasoned from noise
+amplification being permitted in shallow water. Measured on $H_s$, the two rules
+diverge in **deeper** water, where $K_p$ falls below the cutoff across more of the
+band and the capped and zeroed treatments disagree over a wider frequency range.
+The effect is 1.8% at 10 m and above, negligible below 8 m.
+
+## Design differences, not defects
+
+**Swell-band upper limit (0.20 vs 0.25 Hz).** Legacy $H_s^{SS}$ runs
+**3.0% low** in the median, rising to 8.3% for $T_p < 8$ s and falling to 2.4%
+for $T_p > 16$ s. As expected, this is a wind-sea effect and negligible in
+swell-dominated conditions.
+
+**Peak period definition.** The legacy energy-weighted centroid is **2.8 s lower**
+than the argmax definition in the median (IQR −4.4 to −1.4 s, 95th percentile
+7.2 s). This is the largest single difference between the pipelines and it is not
+an error in either — the two quantities simply are not the same. Anyone
+comparing a legacy $T_p$ against a $T_p$ from another study, or against a model
+$T_p$, is comparing different definitions unless the centroid is stated.
+
+## What this means for results produced with the legacy code
+
+- **$H_s$ is safe to within a few percent**, with the caveat that the swell-band
+  choice makes it 3% low relative to a 0.25 Hz cutoff and the $K_p$ rule adds
+  ~2% at depths above 10 m. Neither is a defect; both are stateable offsets.
+- **Mean wave direction is usable**, biased by less than 0.1° in the median,
+  though individual hours reach 7°.
+- **$T_p$ differs by definition, not by error** — the largest single discrepancy,
+  and the one most likely to be misread as agreement or disagreement with other
+  work.
+- **Directional spread, $b_2$, radiation stress and alongshore forcing are the
+  products to distrust.** D1 damages them directly and D3 compounds it by zeroing
+  ~9% of the velocity record.
+- **D2** (frequency-grid mismatch between `fm` and `f_co`) and **D5**
+  (`Suv` indexed at line 49, computed at line 107) remain unquantified. They are
+  structural faults with no correct magnitude to measure; D5 in particular either
+  errors or silently reuses a stale workspace variable, and its effect depends on
+  execution history rather than on the data.
+
+## Limits of this comparison
+
+Each defect was emulated from the legacy source rather than by running the legacy
+pipeline end to end, so this measures the documented differences and would miss
+any additional behaviour arising from their interaction. Five records at four
+sites is a narrow condition span; in particular no record here has meaningful
+pressure gaps, and none exceeds $H_s$ = 4 m. The single-bin spread caveat under
+D1 applies.
