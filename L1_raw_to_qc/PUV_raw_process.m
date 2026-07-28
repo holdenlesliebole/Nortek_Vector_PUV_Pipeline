@@ -995,6 +995,44 @@ function [DAT_bursts, SEN_bursts, date_start, date_end, fs, coordSystem] = ...
             offSec/86400, cdiag.maxDevSec, cdiag.driftSec, cdiag.nFiles);
         fprintf('  Recovered span: %s to %s\n', ...
             string(cdiag.firstTime), string(cdiag.lastTime));
+
+        % The filename clock is whatever the recorder was SET to, which for this
+        % archive was Pacific local time, not UTC. vec_clock_from_filenames says
+        % so in its header and asks for the L3 tidal check; that check was run
+        % 2026-07-27 and every clockSource='filename' record came back 7-8 h out
+        % of phase against the NOAA-referenced prediction (R ~ -0.55 at lag 0,
+        % 0.93-0.99 at the right lag). instr.clockOffsetHours is ADDED to bring
+        % the record to UTC.
+        %
+        % It is a fixed number per deployment, NOT a timezone conversion: the
+        % instruments were set to PST and left there, so four records sitting
+        % entirely in daylight time (TOR15D, TOR16D, TOR17D, COR17D) still
+        % measure a lag of 8 h, not 7. A tz-aware conversion would over-correct
+        % every spring deployment by an hour. The 2014-15 season is the
+        % exception at 7 h, stable across thirds of each record.
+        %
+        % SIGN: the measured lag is NEGATIVE (-8) and the applied offset is
+        % POSITIVE (+8). For data D(t)=W(t+d) against a correct prediction
+        % P(t)=W(t), rolling P by L matches at L=-d, so a lag of -8 means the
+        % timestamps are slow and 8 h must be ADDED. Applying -8 instead makes
+        % the record twice as wrong AND still produces a confident peak in a lag
+        % scan, so the scan alone cannot tell you which way to go. Derive it.
+        if isfield(instr, 'clockOffsetHours') && ~isempty(instr.clockOffsetHours) ...
+                && isfinite(instr.clockOffsetHours) && instr.clockOffsetHours ~= 0
+            tzSec  = instr.clockOffsetHours * 3600;
+            offSec = offSec + tzSec;
+            fprintf(['  Clock offset applied: %+g h (local -> UTC); ' ...
+                     'span becomes %s to %s\n'], ...
+                instr.clockOffsetHours, ...
+                string(cdiag.firstTime + hours(instr.clockOffsetHours)), ...
+                string(cdiag.lastTime  + hours(instr.clockOffsetHours)));
+        else
+            warning('PUV_raw_process:noClockOffset', ...
+                ['clockSource=''filename'' with no instr.clockOffsetHours. The ' ...
+                 'filename clock records LOCAL time for this archive; without an ' ...
+                 'offset the record will be 7-8 h fast. Verify with the L3 tidal ' ...
+                 'lag check before trusting absolute timing.']);
+        end
         SEN_bursts = shift_SEN_time(SEN_bursts, offSec);
     end
 

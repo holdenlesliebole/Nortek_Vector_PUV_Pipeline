@@ -149,6 +149,44 @@ function cfg = TorreyOffshore_config(deployment_name)
     end
     % ------------------------------------------------------------------------
     cfg.instruments(k).clockDrift    = NaN;     % handled by the filename clock recovery
+
+    % clockOffsetHours: ADDED to the filename-derived clock to reach UTC. The
+    % recorders were set to Pacific LOCAL time; measured 2026-07-27 by
+    % cross-correlating L2 depth against the NOAA-referenced L3 tidal
+    % prediction. At lag 0 these records sit at R ~ -0.55.
+    %
+    % SIGN. Pacific local time is BEHIND UTC, so the labels are SLOW and the
+    % correction is POSITIVE. Derivation from the lag test: with D(t)=W(t+delta)
+    % and P(t)=W(t), cross-correlation rolls P so roll(P,L)(i)=W(t_i-L), and
+    % matching gives L = -delta. The measured L = -8 therefore means delta = +8
+    % (samples taken 8 h AFTER their label), so +8 is added to reach UTC.
+    % An earlier revision applied -8/-7 and made these records twice as wrong;
+    % the in-run lag validation caught it on the second record.
+    %
+    % NOT a timezone conversion -- TOR15D, TOR16D and TOR17D sit entirely in
+    % daylight time and still measure 8 h, so the recorders were set to PST and
+    % left there.
+    %   2014-15 season  +7  (TOR14B and TOR14C measured, stable across thirds
+    %                        of each record; TOR14A INFERRED from its
+    %                        season-mates -- only 1.9 days of valid data, its
+    %                        own best lags -6/-7 are within 0.015 of each other)
+    %   2015-16 onward  +8  (measured on all 11)
+    %   2018-19 onward   0  (recorder set to UTC; measured on TOR18A and TOR19A)
+    %
+    % Every deployment MUST appear here. An omission is not a benign default:
+    % the Map throws, and every registry-driven loop swallows it with
+    % `catch, continue`, so the record silently disappears from the batch
+    % drivers, the audits and copy_to_server while its outputs sit on disk
+    % looking complete. TOR18A was missing here from 2026-07-27 to 07-28 and
+    % vanished from all of them.
+    clockOffsetMap = containers.Map( ...
+        {'TOR14A','TOR14B','TOR14C', ...
+         'TOR15A','TOR15B','TOR15D','TOR16A','TOR16B','TOR16C','TOR16D', ...
+         'TOR17A','TOR17B','TOR17C','TOR17D','TOR18A','TOR19A','TOR20A'}, ...
+        {  +7,      +7,      +7, ...
+           +8,      +8,      +8,     +8,      +8,      +8,      +8, ...
+           +8,      +8,      +8,     +8,       0,       0,       0});
+    cfg.instruments(k).clockOffsetHours = clockOffsetMap(deployment_name);
     % doffp: PER-DEPLOYMENT from the field logs (resolved 2026-07-27, see header).
     % At-deployment value; the recovery value follows in the comment because the
     % difference is real bed change at this station and is large here.

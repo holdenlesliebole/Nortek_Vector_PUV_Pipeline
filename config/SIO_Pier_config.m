@@ -22,9 +22,12 @@ function cfg = SIO_Pier_config(deployment_name)
     cfg.fs        = 2;  % Hz
     cfg.outputDir = fullfile(fileparts(mfilename('fullpath')), '..', 'outputs');
 
-    % Approximate lat/lon for South SIO Pier at 6m depth
-    % (precise enough for magnetic declination; refine from DeploymentNotes)
-    sio_latlon = [32.8665, -117.2570];
+    % Surveyed position of the SIO Pier 6 m station (MOP511). Every deployment
+    % since 2023 reuses the same pipe, so one value covers them all:
+    % DeploymentNotes{2023-2024,2024-2025,2025-2026}.xls 'All Data', rows
+    % "SIO 6m MOP511 PUV Vector". The earlier [32.8665 -117.2570] was an
+    % eyeballed placeholder 164 m to the NE.
+    sio_latlon = [32.865404, -117.258171];
 
     k = 0;
 

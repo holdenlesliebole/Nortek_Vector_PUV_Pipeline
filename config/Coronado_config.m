@@ -68,6 +68,12 @@ function cfg = Coronado_config(deployment_name)
     cfg.instruments(k).depth_nominal = 9;
     cfg.instruments(k).rawFormat     = 'VEC';
     cfg.instruments(k).clockSource   = 'filename';
+    % Filename clock is Pacific LOCAL time; add this to reach UTC. Measured
+    % 2026-07-27 against the NOAA-referenced L3 tidal prediction (COR16B R=0.985, COR17D R=0.937 at -8);
+    % at lag 0 both sit at R ~ -0.55. Sign is POSITIVE: local is BEHIND UTC,
+    % so the labels are slow and 8 h must be ADDED. See TorreyOffshore_config. Fixed offset, not a tz conversion --
+    % COR17D is entirely in daylight time and still measures 8 h.
+    cfg.instruments(k).clockOffsetHours = +8;
 
     switch deployment_name
 

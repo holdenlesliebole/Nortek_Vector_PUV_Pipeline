@@ -20,8 +20,13 @@ function cfg = LPL_config(deployment_name)
     cfg.fs        = 2;  % Hz
     cfg.outputDir = fullfile(fileparts(mfilename('fullpath')), '..', 'outputs');
 
-    % Approximate lat/lon for LPL site at 8m depth
-    lpl_latlon = [32.933, -117.270];
+    % Surveyed position of the Los Penasquitos offshore station. Stable across
+    % 2019-2026 in the field logs (same jetted pipe reused each season):
+    % DeploymentNotes{2019-2020,2020-2021,2023-2024,2024-2025,2025-2026}.xls
+    % 'All Data', rows "Los Pen ... Vector". The earlier [32.933 -117.270] was
+    % an eyeballed placeholder 453 m to the SW. Note this is the SAME station
+    % as TorreyOffshore_config, which already carried it correctly.
+    lpl_latlon = [32.934436, -117.26546];
 
     k = 0;
 

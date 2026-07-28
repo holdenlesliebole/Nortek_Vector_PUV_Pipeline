@@ -64,6 +64,13 @@ function cfg = Cardiff_config(deployment_name)
                                                % the tidal range, not by a bed change
     cfg.instruments(k).rawFormat     = 'VEC';
     cfg.instruments(k).clockSource   = 'filename';
+    % Filename clock is Pacific LOCAL time; add this to reach UTC. Measured
+    % 2026-07-27 against the NOAA-referenced L3 tidal prediction: CDF15A
+    % R=0.974 and CDF15C R=0.988 at -8, against R ~ -0.55 at lag 0. A FIXED
+    % offset, not a timezone conversion -- CDF15C spans the 2016-03-13 DST
+    % change and still measures 8 h throughout, because the recorder was set to
+    % PST and left there. See TorreyOffshore_config for the full evidence.
+    cfg.instruments(k).clockOffsetHours = +8;
 
     switch deployment_name
 

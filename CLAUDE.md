@@ -29,7 +29,7 @@ Likewise `outputs/_*_backup_*/` and `outputs/rerun_*/` are frozen snapshots.
 
 ---
 
-## Current state (2026-07-27)
+## Current state (2026-07-28)
 
 - **Catalog:** 65 instrument-records across 46 deployments, at every level
   L1–L4; 9 deployments also have `L4_xspec` (the multi-instrument ones).
@@ -61,9 +61,35 @@ Likewise `outputs/_*_backup_*/` and `outputs/rerun_*/` are frozen snapshots.
   `validation/audit_config_provenance.m` — it classifies each `doffp`/`latlon`/
   `shorenormal` assignment from *its own trailing comment* (sourced /
   declared-placeholder / unannotated). **Put the source on the line, not in the
-  header.** Current state: 33 sourced, 1 declared placeholder
-  (`RUBY22` lat/lon, still "approximate" though the exact coordinates are in the
-  same workbook row its `doffp` came from), 82 unannotated.
+  header.** Current state (2026-07-28): 47 sourced, 0 declared placeholders,
+  69 unannotated — up from 33/1/82 after the coordinate sweep below.
+- **Coordinates were the next thing the placeholders hid, 2026-07-28.** A sweep
+  of every `latlon` by *decimal precision* found 17 records at 3 dp (~111 m) and
+  one at 2 dp. Checked against `/Volumes/group/DeploymentNotes/*.xls` sheet
+  `'All Data'` (which carries GPS-surveyed NAD83 fixes, `doffp`, heading and
+  clock drift), **23 records were wrong**: `RUBY22` ×3 by up to **925 m**, `LPL`
+  ×4 by 453 m, `SIO_Pier` ×5 by 164 m, and the `TOR24S`/`TOR24W`/`TOR25S`
+  MOP586 ladder by 47–98 m. All corrected from the survey; `TorreyOffshore` and
+  `LPL` turn out to be the **same station** (32.934436, −117.26546) and only
+  TorreyOffshore had it right.
+  **This is not cosmetic: `PUV_L4_xspec.m:205` derives pair separations from
+  `LATLON`.** MOP586 7m–10m was 93 m against a surveyed 143 m (**−35%**), and
+  RUBY22 pairs were 42–50% too long. `L4_xspec` was rebuilt for the four
+  affected deployments. The per-pair coherences did **not** move — the
+  measurement was always right, only the distance attached to it was wrong, so
+  any coherence- or phase-versus-separation result needs redoing and nothing
+  else does. Verified three ways: serial numbers matching the log exactly
+  (`12414`/`16310`/`16737` for RUBY22), the same fixes appearing in two
+  independent seasons, and a Dean-profile consistency test scored against
+  `TOR23W` as a known-good control (surveyed 1.13 vs rounded 1.82).
+  Beware the obvious test that fails: scoring coordinates by how *constant* the
+  implied slope is picks the WRONG set, because hand-drawn placeholders are
+  evenly spaced and a real profile is concave. Use `separation / Δh^1.5`.
+- **Verified clean by the same sweep**, digit for digit against the logs, so
+  they need no further checking: `TBR23` ×4, `TOR23W` ×6, `SOL23` ×3,
+  `TOR19W`, `TOR20W`, `IB19W`, `CAT21A/B`. Still open: `IB18W`/`IB19S` carry
+  `doffp` 0.66/0.62 where the 2018-19 log says 70/73 cm, and neither config
+  value appears anywhere in the notes — source unknown, do not guess.
 - **Catalina shore-normal: `63°`, and prefer CURRENTS over waves when refraction
   is weak.** `CAT21A`/`CAT21B` are outside CDIP MOP coverage. Four independent
   estimators agree within 6°: imagery of the beach in front of the PUV (63°), the
@@ -109,6 +135,39 @@ or `clockSource='fixed'` + `deployStart` when the filenames aren't wall-clock.
 `instr.decimateTo` decimates a genuine high-rate (8 Hz) record to 2 Hz. Set
 `cfg.qcOpts.cutoffGapSec=60` for these (benign per-file hiccups). The "8 Hz +
 dead RTC" framing in older notes was wrong on both counts.
+
+**The recovered filename clock is Pacific LOCAL time — add `clockOffsetHours`
+to reach UTC (2026-07-28).** `vec_clock_from_filenames.m` recovers what the
+recorder was *set* to and says in its own header that it cannot tell whether
+that was UTC or local; that check was never run until now. Cross-correlating
+L2 depth against the NOAA-referenced `L3.tidal.depth_pred` put **every**
+`clockSource='filename'` record at R ≈ −0.55 at lag 0 and 0.92–0.999 at −8 h.
+It is a **fixed offset, not a timezone conversion**: `TOR15D`, `TOR16D`,
+`TOR17D` and `COR17D` sit entirely in daylight time and still want 8 h, and
+`CDF15C` spans the 2016-03-13 DST change without a break — the recorders were
+set to PST and left there. 2014-15 is the exception at 7 h. All 18 records were
+rebuilt L1→L4 (the offset is baked in at L1) and re-audited to lag 0 with
+`scripts/audit_clock_lag.m`. `TOR14A` has 45 valid segments and cannot be
+validated; it takes +7 from its season-mates — flag it if it ever matters.
+**Get the sign by derivation, not by trial.** With data `D(t)=W(t+δ)` and
+prediction `P(t)=W(t)`, rolling P by L matches when `L=−δ`, so a measured lag
+of −8 means the labels are slow and 8 h must be **added**. Applying −8 makes a
+record twice as wrong and still "validates" against a lag scan.
+
+**A config that throws is invisible, not loud.** Every batch driver and audit
+walks `deployment_registry()` inside `try ... catch, continue`, so one broken
+deployment cannot abort a multi-hour run — but a config that *errors* is then
+indistinguishable from one that does not exist. `TOR18A` was omitted from
+`TorreyOffshore_config`'s `clockOffsetMap` on 2026-07-27; the `containers.Map`
+threw, and it vanished from the clock-fix rerun, from `audit_L4_coverage` (64
+records against 65 L4 files on disk) and from the revision-risk sweep for a day,
+while its outputs sat on disk looking complete. Its data was fine — measured
+lag 0, R=0.997, so offset 0 was right — but nothing would have told us.
+**Run `validation/audit_registry_loads.m` after touching any config**; it is the
+one audit that does not swallow errors, and it also lists outputs on disk that
+no registry entry claims. When adding a per-deployment `containers.Map`, every
+deployment must appear in it — there is no benign default.
+**A count that disagrees with the file system is a symptom, not a rounding.**
 
 **The pipeline is standalone through L4.** L1–L4 must run without any altimeter
 data. Coupling to the altimeter pipeline happens only at L5.
@@ -160,6 +219,29 @@ L2 uses a single fixed value per deployment, so records where the bed moved a lo
 carry extra uncertainty (see IB19W). Also set `cfg.qcOpts.Tvalid` to the site's
 water-temperature range; the `[-2 40]` default is a wide safety bound, not a
 good site value.
+
+**A PUV cannot measure its own `doffp`, and no residual trick recovers it.** The
+pressure case is rigid on a jetted pipe, so `P/ρg = η_surface − z_sensor`; the
+bed elevation never enters. When the bed scours, `doffp` changes because `z_bed`
+moved while `z_sensor` did not, and the pressure record is *unchanged*.
+Differencing measured depth against a tide gauge therefore returns a constant,
+not the bed history — and it will look like a clean null result rather than a
+failure. `RUBY22/MOP578_10m` came back flat (+1.7 ± 2.4 cm) against a logged
+12 cm change; that flatness is the physics, not evidence about the bed. Nothing
+on the instrument points down (co-deployed altimeters do, but that is L5).
+What the residual *does* measure is whether the **mount** moved, which is a real
+QC check — it is what tested the Catalina slumping hypothesis.
+**The good news is that it mostly does not matter.** Measured on the
+TorreyOffshore records where `doffp` was corrected by up to 25 cm: depth moves
+one-for-one (≈3%), but `U_b` moves 0.10%, and `τ_b`/`shields` 0.27%, because the
+bed-transfer term is `cosh(k·doffp)` and `k·doffp ≈ 0.04` at 9 m under swell, so
+the correction is second-order. Worst realistic case (5 m, 6 s) is ≈0.9%. Treat
+`doffp` uncertainty as serious for **depth-normalised** quantities (`Hs/h`,
+Ursell) and negligible for bed stress and mobilisation.
+Where a record needs time resolution, use the **measured** knots: the 2024-25
+and 2025-26 logs record mid-deployment *inspection* values, not just endpoints
+(Torrey 5m MOP586: 77 → 33 → 63 cm). Interpolating between measurements is
+defensible; fitting a line between two endpoints is not.
 
 **`TBR23` vs `TOR23S`.** `TBR23` breaks the `SITE+year+season` convention but is
 kept because Paper_1 depends on the name. `TOR23S` is a registry alias to the

@@ -60,6 +60,9 @@ selected by `instr.rawFormat` or auto-detected. See `L1_raw_to_qc/read_VEC.m`.
 **Output:** Continuous 2 Hz time series with QC flags applied
 
 - Burst merging, clock drift correction
+- `instr.clockOffsetHours` — Pacific local → UTC on filename-clocked records
+  (see PIPELINE_NOTES; the offset is baked in here, so changing it needs an
+  L1 rebuild)
 - Variability-based tilt QC + tilt correction rotation
 - Pitch/roll/pressure/correlation QC
 - Coordinate rotation to buoy frame (+x West, +y North, +z Up)
@@ -174,6 +177,13 @@ Output: `outputs/L3/{deployment}/{label}_L3.mat`.
   per-instrument L2 start-time offsets. TBR23: ⟨γ²⟩_IG = 0.35
   cross-shore (~100 m sep) vs 0.13 alongshore (~600 m sep), 2.4× drop
   quantifies IG directional spread.
+  **This is the only module that reads `LATLON`** — pair separations
+  (`sep_crossshore`, `sep_alongshore`, `sep_total`) are derived from it at
+  `PUV_L4_xspec.m:205`. A wrong coordinate therefore corrupts no measurement
+  but mislabels every separation, so it is the one product that must be
+  rebuilt after a coordinate fix. Rebuilt 2026-07-28 for `RUBY22`, `TOR24S`,
+  `TOR24W`, `TOR25S` (separations moved −50% to +53%; coherences unchanged
+  to four decimals, as expected).
 - **`PUV_L4_moments.m`** (May 11) — reverse-engineered Bill O'Reilly
   MOP511 6m analysis. Frequency-resolved correlation r(f) between
   hourly u-skewness/asymmetry and √Spp(f), raw + 120-hr smoothed,

@@ -142,6 +142,32 @@ Catalina S/N 15033 deployment ("Catalina Island, ~8meter depth",
 `TBR23_Notes.xlsx` (local) was the only machine-readable source before
 DeploymentNotes was discovered — its format is the template for new deployments.
 
+Read the sheets with pandas + xlrd; the columns that matter are
+`Deployment Latitude/Longitude(NAD83)`, `Deployment Depth below sand (cm)`
+(this is `doffp`), `Heading (Magnetic)`, `Clock Drift (seconds)` and
+`Position Notes`. Two traps when searching them: mid-deployment rows are often
+labelled only **"Redeploy"** with no site name, so filtering `Sensor Assignment`
+on the site or on "vector" silently drops them; and a `doffp` may be quoted to
+the **altimeter face** rather than the PUV pressure port, which is a different
+reference surface (2023-24 altimeter faces run 105–116 cm against 63–79 cm for
+pressure ports, so a mislabelled value is usually obvious from magnitude).
+
+### Coordinate precision is a provenance signal (2026-07-28)
+Sort every configured `latlon` by its number of decimal places. A surveyed GPS
+fix is recorded to 5–7 dp (≈1 m); anything at 3 dp is ≈111 m and is a
+hand-placed approximation, not a rounded survey. That one sort found 17 wrong
+records that no other check had flagged, including a 925 m error on `RUBY22`.
+Confirm a suspect set against the log by **serial number**, which is
+unambiguous, rather than by site and depth.
+
+Do **not** score candidate coordinates by how constant the implied beach slope
+is. Hand-drawn placeholders are laid out at even spacing and so produce a
+perfectly uniform slope, while a real profile is concave — the test reliably
+picks the wrong set. Use the origin-independent Dean form
+`separation / (h_j^1.5 − h_i^1.5)`, which should be constant along a transect,
+and score it against a deployment whose coordinates are already verified
+(`scripts/check_latlon_vs_bathy.m` uses `TOR23W`).
+
 ### Raw file reading: use textscan, not load()
 MATLAB's `load()` on large ASCII files is extremely slow (30+ min for 316 MB).
 Use `textscan(fid, repmat('%f',1,N), 'CollectOutput', true)` instead.
@@ -190,6 +216,33 @@ span matches the logged deployment date; Cardiff1049 (whose clock *was* set righ
 is the control and agrees to 33 s. Related L1 robustness added at the same time:
 `cfg.qcOpts.cutoffGapSec` (raise above the benign ~3 s per-file hiccups),
 power-on-glitch trimming, and end-of-life clock-jump truncation.
+
+### The recovered filename clock is LOCAL time: instr.clockOffsetHours (added 2026-07-28)
+Recovering the clock the recorder was *set* to is only half the problem — the
+function's own header notes it cannot tell whether that setting was UTC or Pacific
+local, and asks for a check against the tidal comparison. That check had never been
+run. It fails for every `clockSource='filename'` record: cross-correlating L2 depth
+against the NOAA-referenced `L3.tidal.depth_pred` gives R ≈ −0.55 at lag 0 and
+0.92–0.999 at a lag of −8 h (−7 h for 2014-15). `instr.clockOffsetHours` is added
+to the L1 time base to convert; `PUV_raw_process` warns when it is absent on a
+filename-clocked record.
+
+It is a **fixed** offset, not a timezone conversion. `TOR15D`, `TOR16D`, `TOR17D`
+and `COR17D` lie entirely within daylight time and still measure 8 h, and `CDF15C`
+spans the 2016-03-13 DST transition with no step — the recorders were set to PST
+once and never changed. Applying a DST-aware conversion would put half the archive
+an hour out.
+
+Derive the sign rather than trying both. For data `D(t) = W(t+δ)` against a correct
+prediction `P(t) = W(t)`, rolling the prediction by L gives a match at `L = −δ`. A
+measured lag of −8 h therefore means the timestamps are *slow* and 8 h must be
+**added**. Subtracting instead doubles the error while still producing a confident
+peak in the lag scan, so a lag search alone cannot tell you which way to go.
+
+Validate with `scripts/audit_clock_lag.m`: every filename-clocked record must come
+back at lag 0. Note it needs a **current L3** — the audit compares against
+`L3.tidal.depth_pred`, so an L3 that predates the L1 rebuild will report the old
+lag and look like a failure.
 
 ### Coordinate conventions
 - After L1 rotation: +x WEST, +y NORTH, +z UP (left-handed, MOP convention)
