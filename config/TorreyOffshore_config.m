@@ -35,7 +35,28 @@ function cfg = TorreyOffshore_config(deployment_name)
 %        MMDDHHMM filenames via clockSource='filename' + deployYear. Recovered
 %        spans match the logged deployment dates.
 %
-%   doffp is not recorded for the older years; 0.63 m is carried from the
+%   doffp IS recorded for every year, contrary to the note this replaces
+%   (resolved 2026-07-27). Every deployment was matched on serial AND ordinal
+%   AND season; the 2014-15 folder dates confirm the ordinal mapping exactly
+%   (141209/150127/150306 vs logged 12/09, 01/27, 03/16). Sources:
+%     2014-15  SoCal_instruments_2014.xls      'All Data' r39-41
+%     2015-16  SoCal_instruments_2015.xls      'All Data' r54-58
+%     2016-17  SoCal_instruments_2016-2017.xls 'All Data' r26-29
+%     2017-18  SoCal_instruments_2017-2018.xls 'All Data' r32-35
+%     2018-19  DeploymentNotes2018-2019.xls    'All Data' r48-49
+%     2019-20  DeploymentNotes2019-2020.xls    'All Data' r66-68
+%
+%   THE CARRIED 0.63 WAS WRONG BY UP TO 0.25 m. Actual at-deployment values run
+%   0.38-0.76 m: the bed at this station moves far more than one number can
+%   describe. Worst cases TOR16D (0.38, off by -0.25) and TOR16C (0.42, -0.21).
+%   The old note's "Hs sensitivity well under 1%" still holds, but depth shifts
+%   one-for-one with doffp, so Hs/h, Ursell and Shields were biased by 2-3%.
+%
+%   Caveat: 2014-15 and the first three 2015-16 entries say "top of pressure
+%   CASE"; later years say "pressure PORT". If the port sits below the case top,
+%   those five are upper bounds.
+%
+%   [superseded] doffp is not recorded for the older years; 0.63 m is carried from the
 %   2019-2020 notes for this station's upward-looking frame ("Pressure port
 %   63cm above sand"). The Hs sensitivity is well under 1% (cosh(k*doffp)=1.0005
 %   at 8 m, 14 s swell); it shifts the reported water depth one-for-one.
@@ -128,7 +149,30 @@ function cfg = TorreyOffshore_config(deployment_name)
     end
     % ------------------------------------------------------------------------
     cfg.instruments(k).clockDrift    = NaN;     % handled by the filename clock recovery
-    cfg.instruments(k).doffp         = 0.63;    % m — station frame, see header
+    % doffp: PER-DEPLOYMENT from the field logs (resolved 2026-07-27, see header).
+    % At-deployment value; the recovery value follows in the comment because the
+    % difference is real bed change at this station and is large here.
+    doffpMap = containers.Map( ...
+        {'TOR14A','TOR14B','TOR14C', ...
+         'TOR15A','TOR15B','TOR15D', ...
+         'TOR16A','TOR16B','TOR16C','TOR16D', ...
+         'TOR17A','TOR17B','TOR17C','TOR17D', ...
+         'TOR18A','TOR19A','TOR20A'}, ...
+        { 0.63,   0.55,   0.76, ...      % 2014-15 #1 (rec 0.51) / #2 (0.72) / #3 (0.76)
+          0.52,   0.59,   0.64, ...      % 2015-16 #1 (rec 0.60) / #2 (see WARNING) / #4
+          0.52,   0.63,   0.42,  0.38, ...% 2016-17 #1 (0.63) / #2 (0.40) / #3 (0.38) / #4 (0.40)
+          0.60,   0.62,   0.65,  0.65, ...% 2017-18 #1 (0.69) / #2 (0.65) / #3 (0.65) / #4 (0.74)
+          0.57,   0.63,   0.60});        % 2018-19 (rec 0.58) / 2019-20 (rec 0.74) / 2020-21
+    cfg.instruments(k).doffp         = doffpMap(deployment_name);
+
+    % WARNING — TOR15B is NOT well described by a fixed doffp. The 2015-16
+    % season log records an inspection on 2016-02-04, mid-deployment, reading
+    % "4cm sand to top of pressure case, not removed". The port started at 59 cm
+    % and was within 4 cm of burial a month later, so doffp fell by ~55 cm over
+    % the record. The 0.59 applied here is correct only at the start. Treat
+    % TOR15B depth, Hs/h and any nonlinearity metric as unreliable, and do not
+    % use it in a depth-dependent analysis without reconstructing a time-varying
+    % doffp. (A time-varying doffp is a parked pipeline extension — docs/todo.md.)
     cfg.instruments(k).depth_nominal = 9;
     cfg.instruments(k).rawFormat     = 'VEC';
     cfg.instruments(k).clockSource   = 'filename';
