@@ -71,11 +71,37 @@ PDFs are now date-stamped so history is kept:
 `puv_pipeline_slides_2026-04-30.pdf` (archived) and
 `puv_pipeline_slides_2026-07-28.pdf` (47 pages, clean build).
 
-⚠️ **The rebuilt deck still carries the retracted spectral-peak-broadening
-frames.** The source has had a `RETRACTED 2026-07-25` banner in its comments
-since the resolution-artifact finding, but the banner is a LaTeX comment and so
-does not appear in the PDF. Anyone opening the built deck sees the retracted
-claims presented normally. Fix before showing it to anyone.
+**RESOLVED 2026-07-28 (science).** The retracted frames are rewritten in place
+rather than left behind a comment-only warning — a LaTeX comment never reaches
+the PDF, so the built deck had carried the retracted claims with no visible
+caveat. The April PDF was deleted (the `.tex` history is in git if that state is
+ever needed).
+
+Corrections applied, sourced from
+`PUV_paper/docs/findings_resolution_artifact_2026-07-24.md` and
+`findings_hypothesis_elimination_2026-07-27.md`:
+
+- H4 frame and Peakedness Diagnostic marked **RETRACTED on the slide itself**,
+  carrying the 1.225 self-comparison artifact and the matched-grid `Q_p` ratio
+  **1.008** (62/65 records, p = 0.44).
+- Cross-Deployment frame rewritten around what survives: `ν` ratio 1.060
+  (p = 4.6e-9), peak density 1.064 (p = 8.6e-11), and the depth trend
+  ρ(ν, h) = −0.42 at a **fixed 0.18 Hz** band limit — the control that rules out
+  `fCut` tracking depth at ρ = −0.998.
+- Key Findings and the ledger notes now name **nonlinear shoaling (H1)** as the
+  mechanism, per the elimination redone over 72,948 h / 61 records. H1 had been
+  ruled out in favour of the artifact, so the whole elimination had to be redone.
+- Future-work frame: the wave-dynamics paper's subject changed with the result.
+
+**One thing worth carrying forward:** the old slide argued the finding was
+robust *because* it reproduced across 11 instruments. That was the trap — a
+biased estimator reproduces everywhere. Breadth of reproduction is not evidence
+when the bias is in the metric.
+
+Also fixed: `siunitx` had been **deliberately removed** in `4b834a8`
+("remove siunitx/metropolis dependencies"), and the 07-27 edit reintroduced
+`\num{}` without it. Rather than re-add the dependency, the two uses are written
+longhand, honouring the earlier decision.
 
 ### Cruft — orphan docs
 

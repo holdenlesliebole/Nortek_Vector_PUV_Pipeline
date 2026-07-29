@@ -210,8 +210,18 @@ Site-wide conventions (cross-shore origin, MOP numbering, NAVD88 datums) are in
 `../CLAUDE.md`.
 
 **L2 segments are 1 hour** (`segLen = 7200` @ 2 Hz), switched from 17 min in
-May 2026. The legacy 17-min archive lives at `Processed_HLB_17min/` and exists
-only to reproduce the May 2026 mean-flow validation.
+May 2026. **The 17-min archive was deleted from the server 2026-07-28** (10 GB,
+19 deployments, L2+L3 only). Its manifest and README are kept as a record of
+what it held at `docs/archive_Processed_HLB_17min_{manifest.csv,README.md}`.
+It was not a clean reference by the end: it held no L1 of its own and was
+derived from an L1 that has since been superseded three times (channel
+decoupling 07-10/11, `doffp` on 25 records 07-27, clock on 18 records 07-28), so
+differencing new work against it would have mixed segment-length effects with
+input corrections. The mean-flow results it supported are written out with
+tables in `docs/mean_flow_validation_plan.md`, and the comparison itself is
+re-runnable from the current L1 at both segment lengths — which is the better
+test anyway. `validation/compare_seglen_phase2.m` will not run until someone
+regenerates a 17-min L2.
 
 **`doffp` is required and it matters.** Pressure-sensor height above the bed, in
 metres, from the field log — for San Diego, `/Volumes/group/DeploymentNotes/`.

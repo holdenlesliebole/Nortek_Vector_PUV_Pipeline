@@ -3,8 +3,29 @@
 % puv_pipeline_slides_YYYY-MM-DD.pdf alongside this file.
 
 % =====================================================================
-% RETRACTED 2026-07-25 -- THE SPECTRAL PEAK BROADENING RESULT IN THIS
-% DECK IS AN ARTIFACT. Do not present these frames as they stand.
+% CORRECTED 2026-07-28. The spectral-peak-broadening result was retracted
+% 2026-07-25 as an artifact; the affected frames have now been rewritten
+% in place rather than left standing with a comment-only warning (a LaTeX
+% comment never reaches the PDF, so the built deck carried the retracted
+% claims with no visible caveat for three days).
+%
+% What changed, and where the numbers come from:
+%   - H4 frame + Peakedness Diagnostic: marked RETRACTED on the slide
+%     itself, with the 1.225 self-comparison artifact and the matched-grid
+%     Q_p ratio 1.008 (62/65 records, p=0.44).
+%   - Cross-Deployment frame: rewritten around what survives -- nu ratio
+%     1.060 (p=4.6e-9), peak density 1.064 (p=8.6e-11), and the depth
+%     trend rho(nu,h) = -0.42 at a fixed 0.18 Hz band limit.
+%   - Key Findings + hypothesis-ledger notes: mechanism is now nonlinear
+%     shoaling (H1), per the elimination redone 2026-07-27 on 72,948 h /
+%     61 records. H1 had been ruled out in favour of the artifact.
+%   - Future-work frame: the wave-dynamics paper's subject changed.
+% Sources: PUV_paper/docs/findings_resolution_artifact_2026-07-24.md,
+%          PUV_paper/docs/findings_hypothesis_elimination_2026-07-27.md
+% Figures still computed on the interpolated grid are labelled as such on
+% the slide; regenerate with validation/compare_shape_matched.m.
+%
+% ORIGINAL RETRACTION NOTICE (kept for the record):
 %
 % The metric interpolated MOP's ~20 coarse frequency bins UP onto the
 % PUV's 3601-point grid (74x resolution mismatch), which manufactures a
@@ -32,9 +53,11 @@
 
 \usepackage{booktabs}
 \usepackage{amsmath}
-\usepackage{siunitx}   % \num{} — added 2026-07-28; used at l.1125/1137 since the
-                       % 2026-07-27 edit but never loaded, so the deck had not
-                       % compiled since. That is why the built PDF sat 3 months stale.
+% NO siunitx: it was deliberately dropped in 4b834a8 ("remove siunitx/metropolis
+% dependencies"). The 2026-07-27 edit reintroduced \num{} without it, so the deck
+% stopped compiling and the built PDF silently sat 3 months stale. Those two uses
+% are now written out longhand instead of re-adding the dependency. Keep it that
+% way -- if you need a formatted number here, typeset it by hand.
 \usepackage{graphicx}
 \usepackage{xcolor}
 \usepackage{tikz}
@@ -858,9 +881,10 @@
           focusing
     \item \textbf{Bound long waves} --- group-forced IG
           contamination
-% RETRACTED 2026-07-25 (artifact) -- see banner at top of file
     \item \textbf{MOP spectral peak broadening} --- numerical
           diffusion in the wave model
+          \textcolor{red!75!black}{(later eliminated: the test for it
+          was a resolution artifact)}
   \end{enumerate}
   \vspace{0.5em}
   Each hypothesis predicts a specific correlation between
@@ -1028,27 +1052,33 @@
 }
 
 % ------------------------------------------------------------------
-\begin{frame}{H4: MOP Spectral Peak Broadening}
+\begin{frame}{H4: MOP Spectral Peak Broadening --- \textcolor{red!75!black}{RETRACTED}}
   \begin{columns}[T]
     \begin{column}{0.50\textwidth}
       \begin{itemize}
-        \item $Q_p$ (Goda peakedness): PUV \textbf{24\%} higher
-              than MOP (multi-taper processing)
-        \item Previous Welch estimate showed only 7\% ---
-              Welch was smoothing the PUV peak too
-        \item $\Delta Q_p$ vs.\ $H_s$ amplification:
-              $R = 0.46$, $R^2 = 0.21$
-        \item[$\Rightarrow$] \textbf{\color{green!60!black}SUPPORTED}
+        \item Reported: $Q_p$ (Goda peakedness) \textbf{24\%} higher in
+              PUV than MOP
+        \item[$\Rightarrow$] \textbf{\color{red!75!black}ARTIFACT} ---
+              the metric interpolated MOP's ${\sim}20$ coarse bins
+              \emph{up} onto the PUV's 3601-point grid
+        \item A PUV spectrum compared against a degraded copy of
+              \textbf{itself} through that path yields
+              $Q_p$ ratio $\mathbf{1.225}$ --- larger than the whole
+              reported effect
+        \item On a resolution-matched grid, across 62 of 65 records:
+              $Q_p$ ratio $\mathbf{1.008}$ (IQR $0.980$--$1.039$),
+              $p = 0.44$ against 1
       \end{itemize}
       \vspace{0.3em}
-      {\footnotesize MOP model introduces numerical broadening of the
-      spectral peak during propagation. Multi-taper processing
-      resolves the true PUV peak shape, revealing a larger peakedness
-      gap than Welch estimated.}
+      {\footnotesize \textbf{There is no peak-shape bias.} The legacy
+      path reproduces the $1.225$ self-comparison artifact across the
+      whole catalog ($1.203$, IQR $1.161$--$1.238$).}
 
       \vspace{0.3em}
       {\scriptsize $Q_p = \frac{2}{m_0^2}\int f\,S_\eta^2\,df$
-      (Goda, 1970). Higher $Q_p$ = sharper, more peaked spectrum.}
+      (Goda, 1970). Retracted 2026-07-25; see
+      \texttt{findings\_resolution\_artifact\_2026-07-24.md}.
+      Replacement code: \texttt{validation/compare\_shape\_matched.m}.}
     \end{column}
     \begin{column}{0.48\textwidth}
       \includegraphics[width=\textwidth]{TBR23_MOP580_7m_normalized_shape.png}
@@ -1064,33 +1094,43 @@
 \end{frame}
 
 \note{
-  Hypothesis 4, and this is the one that works: MOP spectral peak
-  broadening. When we normalize the spectra by their peak frequency
-  and peak density, the shape difference is obvious --- PUV has a
-  taller, narrower peak, while MOP spreads that energy across a
-  wider frequency range. With multi-taper processing ($NW = 4$,
-  nfft = 2048), the Goda peakedness $Q_p$ shows PUV spectra are
-  24\% more peaked than MOP --- our original Welch estimate of 7\%
-  was understating the difference because Welch was also smoothing
-  the PUV peak. $Q_p$ is defined as
-  $2/m_0^2 \int f\,S_\eta^2\,df$; it equals 1 for white noise and
-  2--4 for narrow-banded swell. The correlation between the
-  peakedness difference and $H_s$ amplification is $R = 0.46$
-  ($R^2 = 0.21$). MOP propagates spectra through a numerical grid,
-  introducing frequency-space diffusion. The real ocean preserves
-  the narrow swell peak shape.
+  Hypothesis 4 was the one we thought worked, and it is the one that
+  turned out to be an artifact of our own metric. Retracted 2026-07-25.
+  The shape comparison interpolated MOP's roughly 20 coarse frequency
+  bins UP onto the PUV's 3601-point grid --- a 74x resolution mismatch
+  --- and then measured peak width and $Q_p$ on the fine grid. That
+  manufactures a broad smooth model peak and depresses the numerator of
+  $Q_p$. The decisive test: take a real PUV spectrum, degrade it through
+  exactly the MOP code path, and compare it against itself. Truth is
+  zero difference by construction; the metric returns 68.3\% bandwidth
+  narrowing and a $Q_p$ ratio of 1.225, more than the entire effect we
+  were reporting. On a resolution-matched grid across 62 of 65 records
+  the $Q_p$ ratio is 1.008, IQR 0.980--1.039, p = 0.44 against 1. There
+  is no peak-shape bias.
+  What IS real, from the same sweep: the spectral-width parameter $\nu$
+  runs about 6\% high (p = 4.6e-9) and peak density about 6\% high
+  (p = 8.6e-11). PUV spectra carry both a slightly sharper peak and more
+  high-frequency energy, while MOP holds relatively more in the
+  near-peak shoulders. $Q_p$ integrates over the band and is insensitive
+  to that redistribution --- which is part of why it was the wrong
+  metric to hang the original claim on. Records within a site are not
+  independent, so treat those p-values as indicative.
 }
 
 % ------------------------------------------------------------------
-\begin{frame}{Peakedness Diagnostic}
+\begin{frame}{Peakedness Diagnostic --- \textcolor{red!75!black}{RETRACTED}}
   \begin{center}
     \includegraphics[width=0.65\textwidth]{TBR23_MOP580_7m_peakedness.png}
   \end{center}
   {\footnotesize
-  Hours when PUV spectrum is more peaked relative to MOP correspond
-  to hours with larger positive $H_s$ bias. $\Delta Q_p$ vs.\
-  amplification ratio for TBR23 MOP580 (8.3~m). $R = 0.44$;
-  the tightest correlation among all four hypotheses.}
+  \textcolor{red!75!black}{\textbf{This figure is computed on the
+  interpolated grid and shows the artifact, not a physical effect.}}
+  It was read as: hours when the PUV spectrum is more peaked relative to
+  MOP correspond to hours with larger positive $H_s$ bias
+  ($R = 0.44$, TBR23 MOP580, 8.3~m). Because both axes inherit the same
+  resolution mismatch, the correlation does not establish a shape bias.
+  Regenerate on a matched grid with
+  \texttt{validation/compare\_shape\_matched.m} before using.}
 \end{frame}
 
 \note{
@@ -1125,7 +1165,7 @@
         partial $+0.149$ after $H_s/h$ & \\
       \addlinespace
       Directional spread &
-        $\sigma_1$ ratio $1.156$ ($p = \num{2.6e-6}$), &
+        $\sigma_1$ ratio $1.156$ ($p = 2.6\times10^{-6}$), &
         separate bias \\
        &
         uncorrelated with the discrepancy & \\
@@ -1137,7 +1177,7 @@
     \end{tabular}
   \end{table}
   \vspace{0.5em}
-  \num{72948} hours, 61 records. The spectral-width ratio is $1.000$ below
+  $72{,}948$ hours, 61 records. The spectral-width ratio is $1.000$ below
   $H_s/h = 0.04$ and $1.100$ above $0.20$: the model tracks the observations
   while the waves are linear.
 \end{frame}
@@ -1154,37 +1194,47 @@
 % Do not present these frames. See
 % ../PUV_paper/docs/findings_hypothesis_elimination_2026-07-27.md
 % =====================================================================
-  The summary table. Three hypotheses ruled out, one supported. The
-  take-home message is that the small positive $H_s$ bias is a
-  property of the MOP model, not of our PUV processing. The model
-  broadens the spectral peak during numerical propagation, spreading
-  energy that should be concentrated at the peak frequency across a
-  wider band. When you integrate to get $H_s$, the PUV spectrum has
-  a bit more energy because its peak is taller and sharper. This
-  means the PUV data don't need correction --- they're actually
-  capturing the true spectral shape more faithfully than MOP.
+  The summary table, as redone 2026-07-27 on 72,948 hours / 61 records
+  (validation/redo\_hypothesis\_elimination.m). The original version of
+  this slide said three hypotheses were ruled out and the fourth --- peak
+  broadening --- was supported. The fourth was an artifact, which means
+  the other three had been rejected in favour of something that does not
+  exist. That is not the same as being rejected on their own merits, so
+  the whole elimination was redone. The verdicts inverted:
+  H1 nonlinear shoaling (Ursell) was ruled out and now SURVIVES as the
+  mechanism; H2 directional narrowing is real but does not explain the
+  bias; H3 bound long waves is real and largely collinear with H1;
+  H4 peak broadening is eliminated as an artifact.
+  The take-home is unchanged in one respect only --- the PUV data still
+  do not need correction --- but the reason is different, and it is now
+  a physical mechanism in the water rather than numerical diffusion in
+  the model.
 }
 
 % ------------------------------------------------------------------
-\begin{frame}{Cross-Deployment Confirmation}
+\begin{frame}{Cross-Deployment: what survives the matched-grid test}
   \begin{columns}[T]
     \begin{column}{0.50\textwidth}
       \begin{itemize}
-% RETRACTED 2026-07-25 (artifact; also 11 -> 33 saved -> 65 catalog)
-        \item Pattern confirmed across \textbf{11 instruments}
-              from multiple deployments
-        \item Correlation $R(Q_p) = 0.30$--$0.63$ across instruments
-        \item Spans:
-          \begin{itemize}
-            \item Summer and winter wave climates
-            \item Depths 5.5--15.5~m
-            \item Multiple MOP transects
-          \end{itemize}
-% RETRACTED 2026-07-25 -- reproducible artifacts are reproducible
-        \item Spectral peak broadening is a \textbf{robust, general}
-              feature of the MOP model --- not site- or
-              season-specific
+        \item \textcolor{red!75!black}{\textbf{Not} peak broadening.}
+              Reproducing an artifact across 11 instruments reproduces
+              the artifact, not a mechanism
+        \item Matched grid, 62 of 65 records: $Q_p$ ratio $1.008$,
+              $p = 0.44$ --- \textbf{no peak-shape bias}
+        \item \textbf{What is real:} spectral width $\nu$ ratio
+              $1.060$ ($p = 4.6\times10^{-9}$) and peak density
+              $1.064$ ($p = 8.6\times10^{-11}$)
+        \item PUV carries a slightly sharper peak \emph{and} more
+              high-frequency energy; MOP holds more in the near-peak
+              shoulders. $Q_p$ integrates over the band and cannot
+              see that redistribution
+        \item \textbf{Depth trend survives a band control:}
+              $\rho(\nu,\,h) = -0.42$ ($p = 0.0008$) at a fixed
+              $0.18$~Hz upper limit, below every $f_\mathrm{cut}$ in
+              the catalog
       \end{itemize}
+      {\scriptsize Records within a site are not independent --- treat
+      $p$ as indicative.}
     \end{column}
     \begin{column}{0.48\textwidth}
       \includegraphics[width=\textwidth]{TBR23_band_ratio_vs_depth.png}
@@ -1200,17 +1250,26 @@
 \end{frame}
 
 \note{
-  This isn't just one instrument at one site. We see the same pattern
-% RETRACTED 2026-07-25 (artifact; count also stale)
-  across 11 instruments from TBR23, TOR23W, SOL23, TOR24, and SIO deployments.
-  The correlation ranges from 0.30 to 0.63, covering summer swell
-  from the southern hemisphere, winter North Pacific storms, and
-  depths from 5.5 to 15.5 meters. The depth-dependence plot shows
-  that the swell-peak amplification is strongest at shallower depths
-  and decreases offshore, but it's present everywhere. The mid-swell
-  and sea bands stay close to 1.0 regardless of depth. This confirms
-  that the peak broadening is a general property of MOP, not something
-  specific to one site or one season.
+  The old version of this slide argued the pattern was general because it
+  showed up across 11 instruments spanning seasons and depths. That
+  argument was the trap: the metric produced the effect from resolution
+  mismatch alone, so every instrument reproduced it. Breadth of
+  reproduction is not evidence when the bias is in the estimator.
+  On a matched grid the peak-shape bias is gone --- $Q_p$ ratio 1.008
+  across 62 of 65 records, p = 0.44 against 1.
+  Two things do survive and are worth presenting. First, the spectral
+  width $\nu$ and the peak density each run about 6\% high, which says
+  PUV holds relatively more high-frequency energy while MOP holds more
+  in the near-peak shoulders. Second, the $\nu$ discrepancy grows toward
+  shallower water. That one needed a control: the band mask upper limit
+  is min(0.25, fCut) and fCut tracks depth at rho = -0.998, so shallow
+  records automatically get a wider band, which inflates $\nu$ on its
+  own --- a band trend masquerading as an ocean trend. Recomputing at a
+  fixed 0.18 Hz, below every fCut in the catalog, gives rho = -0.42
+  (p = 0.0008), essentially unchanged. It collapses only at 0.12 Hz,
+  which sits just above the swell peak and leaves no tail to measure.
+  Excluding SIO Pier, the canyon end-member, it still holds
+  (rho = -0.355, p = 0.0071).
 }
 
 % ------------------------------------------------------------------
@@ -1239,10 +1298,13 @@
   This is the all-deployment bulk comparison Mark asked for. Every
   instrument with a MOP station is shown on the same scatter plot,
   colored by site. The summary bars on the right are sorted by depth.
-  The consistent positive bias across all sites and seasons reinforces
-  the spectral peak broadening explanation. Instruments at shallower
-  depths tend to have slightly larger bias, consistent with the
-  depth-dependence we showed earlier.
+  The consistent positive bias across all sites and seasons is real; the
+  explanation attached to it here was not. Peak broadening was retracted
+  2026-07-25 as a grid artifact, and the redone elimination points at
+  nonlinear shoaling (H1) instead. Instruments at shallower depths do
+  tend to have slightly larger bias, and the depth trend in the spectral
+  width survives a band control, so the depth structure stands on its
+  own --- it just is not evidence for broadening.
 }
 
 % ------------------------------------------------------------------
@@ -1948,11 +2010,15 @@
     \item \textbf{Bias identified}: small systematic positive
           $H_s$ bias concentrated at the swell spectral peak,
           \emph{not} from the pressure correction
-    \item \textbf{Mechanism determined}: MOP model introduces
-          numerical spectral peak broadening; PUV captures the true
-          narrower peak ($R = 0.44$ between $\Delta Q_p$ and bias)
-    \item \textbf{Cross-deployment robustness}: pattern confirmed
-          across 11 instruments, summer/winter, 5.5--15.5~m depth
+    \item \textbf{Mechanism}: \textbf{nonlinear shoaling (Ursell)},
+          on the elimination redone 2026-07-27 over 72{,}948~hours /
+          61~records. The earlier ``MOP peak broadening'' answer was a
+          resolution artifact of our own metric, retracted 2026-07-25
+    \item \textbf{Cross-deployment}: matched-grid $Q_p$ ratio $1.008$
+          ($p = 0.44$) across 62 of 65 records --- no peak-shape bias.
+          Spectral width and peak density each run ${\sim}6\%$ high,
+          and the width discrepancy deepens toward shore
+          ($\rho = -0.42$, band-controlled)
     \item \textbf{Full L1--L3 pipeline operational}: all 33 instruments
           processed through forcing characterization, storm detection,
           and transport proxy computation
@@ -1965,10 +2031,18 @@
   Six take-home messages. First, the pipeline works: 33 instruments
   processed with no pipeline failures and strong MOP validation.
   Second, we found a systematic bias and traced it to the spectral
-  peak. Third, the bias is a MOP model artifact, not a measurement
-  problem --- MOP numerically broadens the spectral peak. Fourth,
-  this isn't one site; it's across 11 instruments spanning seasons
-  and depths. Fifth, L3 is fully operational, giving us transport
+  peak. Third --- and this is the one that changed --- the bias is not
+  a MOP numerical artifact. The peak-broadening answer was itself an
+  artifact of comparing spectra across a 74x resolution mismatch, and
+  it was retracted on 2026-07-25. Redoing the elimination on 72,948
+  hours across 61 records put nonlinear shoaling back as the mechanism;
+  it had originally been ruled out in favour of the thing that does not
+  exist. Fourth, breadth of reproduction was never the evidence we took
+  it for --- an estimator bias reproduces everywhere, which is exactly
+  why it looked robust across 11 instruments. What does survive on a
+  matched grid is a 6\% excess in spectral width and peak density, and
+  a depth trend in the width that holds under a band control.
+  Fifth, L3 is fully operational, giving us transport
   proxies, storm detection, and tidal decomposition for all 33
   instruments. Sixth, the TBR23 analysis identified the depth-dependent
   competition between skewness and undertow, with a recovery boundary
@@ -2028,9 +2102,9 @@
               IG wave separation
         \item \textbf{L5}: PUV--altimeter integration (8
               transport relationships to test)
-        \item \textbf{Wave dynamics paper}: MOP peak broadening
-              across all deployments, SIO canyon focusing,
-              depth trends
+        \item \textbf{Wave dynamics paper}: nonlinear shoaling as the
+              bias mechanism, the surviving spectral-width and
+              peak-density excess, SIO canyon focusing, depth trends
       \end{itemize}
     \end{column}
   \end{columns}
@@ -2045,9 +2119,13 @@
   particle analyzer to get site-specific $D_{50}$ values instead of
   the generic 0.2 mm we're currently using. For the pipeline itself,
   L4 bispectral analysis and L5 altimeter integration are the two
-  main extensions. There's also a standalone wave dynamics paper
-  in the works that expands the MOP peak broadening result across
-  all 33 instruments, including the SIO Pier canyon focusing effect.
+  main extensions. There's also a standalone wave dynamics paper in the
+  works. Its subject changed: it was going to expand the MOP
+  peak-broadening result, and that result no longer exists. What it can
+  carry instead is the nonlinear-shoaling mechanism, the spectral-width
+  and peak-density excess that does survive a matched-grid test, the
+  depth trend that survives a band control, and the SIO Pier canyon
+  focusing effect.
 }
 
 % ------------------------------------------------------------------
