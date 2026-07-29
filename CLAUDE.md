@@ -182,6 +182,41 @@ no registry entry claims. When adding a per-deployment `containers.Map`, every
 deployment must appear in it — there is no benign default.
 **A count that disagrees with the file system is a symptom, not a rounding.**
 
+**Every config assumption that has been checked was wrong. Assume the next one
+is too.** This is not a figure of speech — it is the July 2026 tally, six for
+six:
+
+| assumption in the config | reality |
+|---|---|
+| Cardiff: "`doffp` was not recorded" | recorded, per deployment |
+| Coronado: "`doffp` was not recorded" | recorded — and the two deployments genuinely differ (0.58 / 0.72), so the single "program-typical" 0.65 was wrong in *both* directions |
+| Catalina: "`doffp` was not recorded" | recorded; the same file also had a **21.9 km** lat/lon error and unset serial |
+| TorreyOffshore: one `doffp` for 2014–2019 | recorded per deployment, spanning 0.38–0.76 |
+| Filename clock is UTC | Pacific **local**; 19 records 7–8 h out |
+| Coordinates are surveyed | 23 were hand-placed, up to **925 m** out |
+
+**The mechanism is always the same.** The value was inferred once during initial
+setup, the inference was written down as fact — often in the *file header*
+rather than on the line — and nothing ever went back to the field log. A header
+note does not age with the value it describes, and a plausible number attracts
+no suspicion. None of these were found by the pipeline failing; every one was
+found by someone going and reading the source document.
+
+**So:** treat an **unannotated value as unverified**, not as fine. Put the source
+on the line — deployment name, workbook, sheet, and the row's own wording — so
+the next reader can check it in one grep. Match on **serial number**, which is
+unambiguous, rather than on site and depth. Before trusting any inherited
+geometry, open `/Volumes/group/DeploymentNotes/*.xls` and look;
+`config/DOFFP_LOOKUP_CHECKLIST.md` says where. Two search traps live there:
+mid-deployment rows are often labelled only **"Redeploy"** with no site name, and
+a `doffp` may be quoted to the **altimeter face** rather than the pressure port.
+
+**The cheap detector: sort by precision.** A surveyed GPS fix is 5–7 decimal
+places (≈1 m); anything at 3 dp is ≈111 m and was placed by hand. That single
+sort found 17 wrong records that no other check had flagged.
+**69 values still carry no on-line source** — that is the size of the remaining
+exposure, not a clean bill of health.
+
 **The pipeline is standalone through L4.** L1–L4 must run without any altimeter
 data. Coupling to the altimeter pipeline happens only at L5.
 
