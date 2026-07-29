@@ -30,7 +30,16 @@ seen = containers.Map('KeyType','char','ValueType','logical');
 CUTS = [1.5 1.75 2.5 Inf];
 
 B = struct('ur',[],'hsh',[],'rec',[]);
-for c = 1:numel(CUTS), B.(sprintf('r%d',c)) = []; end
+% Save nu_PUV and nu_model SEPARATELY, not just their per-hour ratio. The
+% established catalog value (nu_ratio = 1.045) is a ratio of per-record MEDIANS
+% -- compare_shape_matched.m:314 -- and median(a/b) is not median(a)/median(b).
+% Storing both sides lets the same estimator be reconstructed here, which is the
+% only way this test can be checked against the established number.
+for c = 1:numel(CUTS)
+    B.(sprintf('r%d',c)) = [];
+    B.(sprintf('p%d',c)) = [];   % nu_PUV
+    B.(sprintf('m%d',c)) = [];   % nu_model
+end
 t0 = tic; nRec = 0;
 
 for d = 1:numel(names)
@@ -91,7 +100,7 @@ for d = 1:numel(names)
             kk = get_wavenumber(2*pi*fp, hh);
             ur = Hs/(hh*(kk*hh)^2); if ~isfinite(ur), continue; end
 
-            ok = true; rr = nan(1,numel(CUTS));
+            ok = true; rr = nan(1,numel(CUTS)); pp = rr; mm = rr;
             for c = 1:numel(CUTS)
                 b = band0 & fMid <= CUTS(c)*fp;
                 if sum(b) < 5, ok = false; break; end
@@ -99,11 +108,15 @@ for d = 1:numel(names)
                                     max(sum(fMid(b).*s(b).*fbw(b))^2,eps) - 1, 0));
                 a1 = nu(spb); a2 = nu(sm);
                 if ~isfinite(a1) || ~isfinite(a2) || a2 <= 0, ok = false; break; end
-                rr(c) = a1/a2;
+                rr(c) = a1/a2; pp(c) = a1; mm(c) = a2;
             end
             if ~ok, continue; end
             B.ur(end+1,1)=ur; B.hsh(end+1,1)=Hs/hh; B.rec(end+1,1)=nRec;
-            for c=1:numel(CUTS), B.(sprintf('r%d',c))(end+1,1)=rr(c); end
+            for c=1:numel(CUTS)
+                B.(sprintf('r%d',c))(end+1,1)=rr(c);
+                B.(sprintf('p%d',c))(end+1,1)=pp(c);
+                B.(sprintf('m%d',c))(end+1,1)=mm(c);
+            end
             nAdded = nAdded + 1;
         end
         fprintf('  %-9s %-13s %d hours\n', cfg.name, lab, nAdded);
@@ -112,11 +125,25 @@ end
 
 fprintf('\n%d records, %d hours, %.1f min\n', nRec, numel(B.ur), toc(t0)/60);
 fprintf('\n===== SUFFICIENT CONDITION: DOES THE RATIO STOP ORGANIZING? =====\n');
-fprintf('  %-16s %12s %12s\n','band upper limit','rho(ur,ratio)','median ratio');
+fprintf('TWO ESTIMATORS. "med(a/b)" is the median of per-hour ratios; "med a / med b"\n');
+fprintf('is the ratio of per-record medians, which is what compare_shape_matched\n');
+fprintf('reports (1.045 full band). They are not the same statistic -- if the\n');
+fprintf('second column does not reproduce ~1.045 on the full band, this test is\n');
+fprintf('still not measuring what the catalog value measures.\n\n');
+uR = unique(B.rec);
+fprintf('  %-16s %12s %12s %14s\n','band upper limit','rho(ur,ratio)','med(a/b)','med a / med b');
 for c = 1:numel(CUTS)
-    y = B.(sprintf('r%d',c)); g = isfinite(y)&isfinite(B.ur);
+    y = B.(sprintf('r%d',c)); a = B.(sprintf('p%d',c)); b = B.(sprintf('m%d',c));
+    g = isfinite(y)&isfinite(B.ur);
+    perRec = nan(numel(uR),1);
+    for j = 1:numel(uR)
+        m = B.rec==uR(j) & isfinite(a) & isfinite(b);
+        if sum(m) < 20, continue; end
+        perRec(j) = median(a(m)) / median(b(m));
+    end
     lbl='full band'; if isfinite(CUTS(c)), lbl=sprintf('%.2f fp',CUTS(c)); end
-    fprintf('  %-16s %+12.3f %12.4f\n', lbl, corr(B.ur(g),y(g),'type','Spearman'), median(y(g)));
+    fprintf('  %-16s %+12.3f %12.4f %14.4f\n', lbl, ...
+        corr(B.ur(g),y(g),'type','Spearman'), median(y(g)), median(perRec,'omitnan'));
 end
 save(fullfile(root,'harmonic_closure_ratio.mat'),'B','CUTS');
 fprintf('\nSaved: %s\n', fullfile(root,'harmonic_closure_ratio.mat'));
