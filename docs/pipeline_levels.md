@@ -1,6 +1,34 @@
 # PUV Pipeline Processing Levels
 
-Updated: July 27, 2026
+Updated: July 28, 2026
+
+> **2026-07-28 — timestamps and site geometry corrected. Read this before
+> using any pre-2023 record or any `L4_xspec`.**
+>
+> - **L1 timestamps.** The clock recovered from `MMDDHHMM` filenames was Pacific
+>   **local**, not UTC. All 19 `clockSource='filename'` records were 7–8 h out of
+>   phase against the NOAA tidal reference. `instr.clockOffsetHours` now converts
+>   them; 18 records were rebuilt L1→L4 and every one re-audits at lag 0
+>   (`scripts/audit_clock_lag.m`, R = 0.92–0.999). Bulk statistics were never
+>   affected — only the time axis, and anything joined on it.
+> - **`LATLON` on 23 records** was a hand-placed approximation, up to 925 m out.
+>   Corrected from the surveyed field logs. This changes **no measurement**: the
+>   only consumer is `PUV_L4_xspec.m:205`, which derives pair separations from it.
+>   `L4_xspec` was rebuilt for `RUBY22`, `TOR24S`, `TOR24W`, `TOR25S`;
+>   separations moved −50% to +53% while per-pair coherences are unchanged to
+>   four decimals. **Redo any coherence- or phase-versus-separation result from
+>   those four**; nothing else is affected.
+> - **`TOR18A`** was registered and fully processed but absent from every
+>   registry-driven audit for a day, because its config threw and every loop
+>   swallows that with `catch, continue`. Its data was correct. Guard added:
+>   `validation/audit_registry_loads.m`.
+> - **The 17-min archive is gone** (deleted from the server 2026-07-28).
+>   `validation/compare_seglen_phase2.m` will not run until a 17-min L2 is
+>   regenerated from current L1.
+>
+> Catalog re-verified after all of the above: 65 records, 0 missing
+> sub-products, 0 stripped metadata, 0 alignment problems, 50/50 configs
+> building.
 
 > **2026-07-26 — L4 repaired and re-verified.** Two defects found on 07-26 are
 > fixed: `bispectra` was missing on 23 of 65 records, and 3 records

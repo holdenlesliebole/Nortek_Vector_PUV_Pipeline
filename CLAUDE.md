@@ -27,6 +27,19 @@ Parent context: `../CLAUDE.md` (Scripps research root). This file governs work
 actually run at the time and are kept deliberately; never "correct" them.
 Likewise `outputs/_*_backup_*/` and `outputs/rerun_*/` are frozen snapshots.
 
+**Don't trust this file for state — check it.** `docs/todo.md` is gitignored, so
+a fresh clone has no live tracker, and prose goes stale. Four audits reconstruct
+the truth in a few minutes, and each has caught something no other check did:
+
+| audit | answers |
+|---|---|
+| `validation/audit_registry_loads.m` | do all configs build, and does any output on disk belong to none of them? **Run this first** — a config that throws is invisible to every other audit |
+| `validation/audit_L4_coverage.m` | are all 65 records complete and time-aligned to their L2? |
+| `scripts/audit_clock_lag.m` | is every filename-clocked record at lag 0 against the tidal reference? (needs a current L3) |
+| `validation/audit_config_provenance.m` | which `doffp`/`latlon`/`shorenormal` values cite a source on their own line? |
+
+If a count in any doc disagrees with what these report, **the audit is right**.
+
 ---
 
 ## Current state (2026-07-28)
