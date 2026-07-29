@@ -183,7 +183,7 @@ end
 
 geobasemap(gx2, 'satellite');
 geolimits(gx2, [32.922 32.940], [-117.275 -117.258]);
-title(gx2, 'Torrey Pines / Los Pe\~nasquitos Inset', 'FontSize', 13);
+title(gx2, 'Torrey Pines / Los Penasquitos Inset', 'FontSize', 13);
 
 %% ======================== DEPTH LEGEND ========================
 % Create a manual legend using annotation
