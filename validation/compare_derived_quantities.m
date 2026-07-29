@@ -29,8 +29,13 @@
 %    as f falls, so IG is weighted MORE heavily at the bed than its share of
 %    surface variance suggests. This is a categorical gap, not a percentage.
 %
-% 3. RETENTION VS FORCING, FIRST. PUV validity falls with wave height -- the
-%    energy that makes the signal defeats the instrument -- so any statistic
+% 3. RETENTION VS FORCING, FIRST. Any statistic conditioned on forcing could be
+%    computed on a sample selected by that forcing, so P(PUV valid | model Hs)
+%    is reported before any such statistic.
+%    NOTE (2026-07-29): the original premise here -- that validity FALLS with
+%    wave height -- does not hold catalog-wide. Median rho(valid, model Hs) is
+%    +0.084 over 55 records, falling in only 5 and rising in 26. The check is
+%    still worth running per record; the expectation was wrong. So any statistic
 %    conditioned on forcing (every threshold-exceedance number) is computed on
 %    a sample selected by the forcing. P(PUV valid | model Hs) is reported
 %    before any such statistic. The model Hs is the right conditioning axis
