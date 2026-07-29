@@ -54,6 +54,10 @@ function R = compare_shape_matched(L2, opts)
 if nargin < 2 || isempty(opts), opts = struct(); end
 if ~isfield(opts,'toolboxPath'), opts.toolboxPath = fullfile(getenv('HOME'),'Documents','Scripps','Research','toolbox'); end
 if ~isfield(opts,'fHiList'),     opts.fHiList     = [0.25 0.22 0.20 0.18 0.15 0.12]; end
+% fp-RELATIVE band upper limits, as multiples of the per-hour peak frequency.
+% Empty by default so every existing caller is bit-for-bit unchanged; set it to
+% run the sufficient-condition diagnostic (see the fpMultList block below).
+if ~isfield(opts,'fpMultList'),   opts.fpMultList   = []; end
 if ~isfield(opts,'matchWindow'), opts.matchWindow = minutes(30); end
 if ~isfield(opts,'perSegDepth'), opts.perSegDepth = true;  end
 if ~isfield(opts,'legacy'),      opts.legacy      = true;  end
@@ -282,6 +286,89 @@ for j = 1:numel(opts.fHiList)
     g = isfinite(np) & isfinite(nm);
     if any(g), nuByFHi(j) = median(np(g))/median(nm(g)); end
 end
+
+%% ---- nu RATIO vs fp-relative band limit: the SUFFICIENT condition ------
+% findings_harmonic_closure_2026-07-29.md closed the mechanism's NECESSARY
+% condition (the PUV shape statistic's nonlinearity signal is harmonic in
+% origin). The sufficient condition needs the same fp-relative truncation
+% applied to BOTH sides, so it speaks to the model-observation DISCREPANCY
+% rather than to the observed spectrum alone.
+%
+% Why it lives here rather than in a standalone test: the standalone attempt
+% (validation/test_harmonic_closure_ratio.m) returned a full-band nu ratio of
+% 0.842 where this script gives 1.045, because it fed the PUV side L2.Spp (the
+% raw PRESSURE spectrum) instead of L2.S_eta. Since S_pp = Kp^2 * S_eta with
+% Kp = cosh(kd)/cosh(kh), using Spp suppresses the high-frequency tail -- by a
+% factor ~4 more at 0.20 Hz than at a 0.08 Hz peak -- which deflates m2 and so
+% deflates nu_puv. That also explains why its rho was non-monotonic in the cut:
+% the contamination grows with band width, so its full-band value was its worst.
+% Computing the truncation inside the established path removes the whole class
+% of error: same S_eta, same shoaled model spectrum, same shape_coarse, same
+% ratio-of-medians estimator, same band on both sides.
+%
+% The cut is min(mult*fp, fHiEff) so the band never runs past the pressure
+% cutoff, and it is applied IDENTICALLY to both sides -- a ratio over two
+% different bands would be meaningless.
+nCut = numel(opts.fpMultList);
+nuByFpMult    = NaN(nCut,1);
+nuPuvByFpMult = NaN(nCut,1);
+nuMopByFpMult = NaN(nCut,1);
+nHrByFpMult   = zeros(nCut,1);
+segNuPuvFp = NaN(nK, nCut);
+segNuMopFp = NaN(nK, nCut);
+fpHour = NaN(nK,1);
+urHour = NaN(nK,1);
+hshHour = NaN(nK,1);
+if nCut > 0
+    for i = 1:nK
+        sFine = double(L2.S_eta(:, idxPUV(i)));
+        if all(~isfinite(sFine)), continue; end
+        band0 = f >= opts.band(1) & f <= fHiEff & isfinite(sFine);
+        if sum(band0) < 20, continue; end
+        [~, ip] = max(sFine .* band0);
+        fpi = f(ip);
+        if ~isfinite(fpi) || fpi <= 0, continue; end
+        fpHour(i) = fpi;
+        % Ursell in the same form as the sweep and test_harmonic_closure.m:
+        % ur = Hs / (h * (k*h)^2), k at fp. Hs here is from S_eta (the surface
+        % spectrum), so it is a true Hs -- test_harmonic_closure.m took it from
+        % Spp, which understates it. Units: Hs and h in m, k in rad/m.
+        hh = hSeg(min(i, numel(hSeg)));
+        if ~isfinite(hh) || hh <= 0, hh = median(hSeg, 'omitnan'); end
+        Hsi = 4*sqrt(max(trapz(f(band0), sFine(band0)), 0));
+        kk  = get_wavenumber(2*pi*fpi, hh);
+        if isfinite(kk) && kk > 0
+            urHour(i)  = Hsi / (hh * (kk*hh)^2);
+            hshHour(i) = Hsi / hh;
+        end
+        for j = 1:nCut
+            fHiJ = min(opts.fpMultList(j) * fpi, fHiEff);
+            ib = fMid >= opts.band(1) & fMid <= fHiJ & fbounds(2,:)' <= fHiJ;
+            if sum(ib) < 4, continue; end
+            [~,~,segNuPuvFp(i,j)] = shape_coarse(Spuv_c(:,i), fMid, fbw, ib);
+            [~,~,segNuMopFp(i,j)] = shape_coarse(Smop_c(:,i), fMid, fbw, ib);
+        end
+    end
+    for j = 1:nCut
+        gj = isfinite(segNuPuvFp(:,j)) & isfinite(segNuMopFp(:,j));
+        nHrByFpMult(j) = sum(gj);
+        if any(gj)
+            nuPuvByFpMult(j) = median(segNuPuvFp(gj,j));
+            nuMopByFpMult(j) = median(segNuMopFp(gj,j));
+            nuByFpMult(j)    = nuPuvByFpMult(j) / nuMopByFpMult(j);
+        end
+    end
+end
+R.fpMultList        = opts.fpMultList(:);
+R.nu_ratio_byFpMult = nuByFpMult;
+R.nu_puv_byFpMult   = nuPuvByFpMult;
+R.nu_mop_byFpMult   = nuMopByFpMult;
+R.nHours_byFpMult   = nHrByFpMult;
+seg.nu_puv_byFpMult = segNuPuvFp;
+seg.nu_mop_byFpMult = segNuMopFp;
+seg.fp     = fpHour;
+seg.ursell = urHour;
+seg.hsh    = hshHour;
 
 %% ---- Where the m2 difference lives ------------------------------------
 m0p = sum(Spuv_c(iB,:) .* fbw(iB), 1, 'omitnan');

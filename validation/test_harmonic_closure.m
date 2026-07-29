@@ -36,6 +36,28 @@ reg  = deployment_registry(); names = sort(keys(reg));
 seen = containers.Map('KeyType','char','ValueType','logical');
 
 CUTS = [1.5 1.75 2.5 Inf];      % band upper limit as a multiple of fp
+
+% WHICH SPECTRUM (added 2026-07-29). This test was originally written against
+% L2.Spp, the raw PRESSURE spectrum. That is NOT the quantity the paper's shape
+% metric uses: compare_shape_matched.m uses L2.S_eta, the surface spectrum, and
+% S_pp = Kp^2 * S_eta with Kp = cosh(kd)/cosh(kh). The missing 1/Kp^2 suppresses
+% the high-frequency tail -- roughly 4x more at 0.20 Hz than at a 0.08 Hz peak --
+% which deflates m2 and hence nu. Feeding Spp is what made
+% test_harmonic_closure_ratio.m return a full-band nu ratio of 0.842 against the
+% catalog's 1.045.
+%
+% Here the consequence is milder, because this test reports a rank correlation
+% and a within-test comparison ACROSS cuts rather than an absolute nu level. But
+% the suppression sits exactly in the harmonic band the argument is about, so the
+% result must be shown to survive on S_eta before it can be quoted alongside the
+% paper's nu.
+%
+% Default is 'Spp' so the published numbers in
+% findings_harmonic_closure_2026-07-29.md still reproduce byte-for-byte. Set
+% SPECTRUM = 'S_eta' for the robustness check.
+if ~exist('SPECTRUM','var') || isempty(SPECTRUM), SPECTRUM = 'Spp'; end
+fprintf('Spectrum: L2.%s\n', SPECTRUM);
+
 A = struct('ur',[],'hsh',[],'rec',[]);
 for c = 1:numel(CUTS), A.(sprintf('nu%d',c)) = []; end
 
@@ -61,7 +83,7 @@ for d = 1:numel(names)
         h  = median(L2.depth(v),'omitnan');
 
         for i = v(:)'
-            s = double(L2.Spp(:,i));
+            s = double(L2.(SPECTRUM)(:,i));
             if all(~isfinite(s)), continue; end
             fc = L2.fCut(i); if ~isfinite(fc), fc = fSS(2); end
             band0 = f >= fSS(1) & f <= min(fSS(2),fc) & isfinite(s);
@@ -107,5 +129,12 @@ for c = 1:numel(CUTS)
     fprintf('  %-16s %+10.3f %10.4f\n', lbl, corr(A.ur(g), y(g), 'type','Spearman'), median(y(g)));
 end
 
-save(fullfile(root,'harmonic_closure.mat'),'A','CUTS');
-fprintf('\nSaved: %s\n', fullfile(root,'harmonic_closure.mat'));
+% Keep the two spectra in separate files so the S_eta robustness check cannot
+% silently overwrite the published Spp numbers.
+if strcmp(SPECTRUM,'Spp')
+    outName = 'harmonic_closure.mat';
+else
+    outName = ['harmonic_closure_' SPECTRUM '.mat'];
+end
+save(fullfile(root,outName),'A','CUTS','SPECTRUM');
+fprintf('\nSaved: %s\n', fullfile(root,outName));
