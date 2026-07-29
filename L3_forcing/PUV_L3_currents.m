@@ -51,9 +51,10 @@ validIdx = L3.segValid;
 nSeg = length(L3.time);
 
 %% Prepare input time series
-% t_tide needs evenly-spaced data. L2 segments are non-overlapping 17-min
-% windows, so they're approximately evenly spaced when valid. However,
-% gaps (invalid segments) create holes.
+% t_tide needs evenly-spaced data. L2 segments are non-overlapping
+% 1-hour windows aligned to UTC top-of-hour, so they're approximately
+% evenly spaced when valid. However, gaps (invalid segments) create
+% holes.
 %
 % Strategy: interpolate mean currents onto a regular grid at the segment
 % spacing, run t_tide, then evaluate tidal prediction at actual segment times.

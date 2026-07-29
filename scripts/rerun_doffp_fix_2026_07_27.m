@@ -28,11 +28,16 @@
 startup_puv
 
 outRoot = fullfile(fileparts(fileparts(mfilename('fullpath'))), 'outputs');
-bkRoot  = fullfile(outRoot, '_pre_doffp_backup_2026-07-27');
+bkRoot  = fullfile(outRoot, '_pre_doffp_backup_TOR_2026-07-27');
 
-REC = { 'RUBY22','MOP578_10m'; 'RUBY22','MOP579_6m'; 'RUBY22','MOP582_30m';
-        'CDF15A','MOP677_9m';  'CDF15C','MOP677_9m';
-        'COR16B','MOP158_9m';  'COR17D','MOP158_9m' };
+% 2026-07-27 second pass: TorreyOffshore, 16 records, per-deployment doffp
+% recovered from the field logs (was a single carried 0.63 for all of them).
+REC = { 'TOR14A','MOP591_9m'; 'TOR14B','MOP591_9m'; 'TOR14C','MOP591_9m';
+        'TOR15A','MOP591_9m'; 'TOR15B','MOP591_9m'; 'TOR15D','MOP591_9m';
+        'TOR16A','MOP591_9m'; 'TOR16B','MOP591_9m'; 'TOR16C','MOP591_9m';
+        'TOR16D','MOP591_9m'; 'TOR17A','MOP591_9m'; 'TOR17B','MOP591_9m';
+        'TOR17C','MOP591_9m'; 'TOR17D','MOP591_9m'; 'TOR18A','MOP591_9m';
+        'TOR19A','MOP591_9m' };
 
 if isempty(gcp('nocreate')), parpool('Processes'); end
 p = gcp('nocreate');

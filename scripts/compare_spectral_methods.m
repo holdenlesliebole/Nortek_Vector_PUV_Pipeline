@@ -160,24 +160,36 @@ xlabel('Frequency (Hz)'); ylabel('S_\eta (m^2/Hz)');
 title('Swell peak detail');
 xlim([0.04 0.12]); grid on;
 
-%% Figure 4: Z-test comparison
-fig4 = figure('Position', [50 50 800 350], 'Name', 'Z-test comparison');
+%% Figure 4: Pressure-velocity QC diagnostics across spectral methods
+% Z-test (P-U transfer-function magnitude) and Q-test (P-U coherence) are the
+% two QC diagnostics raised by Bob/Steve. This panel shows BOTH are insensitive
+% to the spectral estimator. Regenerated on bug-fixed Z (median ~0.95, not the
+% pre-2026-06-05 buggy ~0.79).
+fig4 = figure('Position', [50 50 1200 350], 'Name', 'PUV QC vs spectral method');
 
-subplot(1,2,1)
+subplot(1,3,1)
 for m = 1:3
     histogram(L2{m}.ztest_SS(v), 40, 'FaceColor', colors(m,:), 'FaceAlpha', 0.4, ...
         'DisplayName', sprintf('%s: med=%.3f', methods{m}, median(L2{m}.ztest_SS(v), 'omitnan'))); hold on
 end
-xline(1, 'k--'); xlabel('Z-test (SS band)'); ylabel('Count');
+xline(1, 'k--', 'HandleVisibility','off'); xlabel('Z-test (SS band)'); ylabel('Count');
 title('Z-test SS band'); legend('FontSize', 7); grid on;
 
-subplot(1,2,2)
+subplot(1,3,2)
 for m = 1:3
     histogram(L2{m}.ztest_IG(v), 40, 'FaceColor', colors(m,:), 'FaceAlpha', 0.4, ...
         'DisplayName', sprintf('%s: med=%.3f', methods{m}, median(L2{m}.ztest_IG(v), 'omitnan'))); hold on
 end
-xline(1, 'k--'); xlabel('Z-test (IG band)'); ylabel('Count');
+xline(1, 'k--', 'HandleVisibility','off'); xlabel('Z-test (IG band)'); ylabel('Count');
 title('Z-test IG band'); legend('FontSize', 7); grid on;
+
+subplot(1,3,3)
+for m = 1:3
+    histogram(L2{m}.qtest_PU(v), 40, 'FaceColor', colors(m,:), 'FaceAlpha', 0.4, ...
+        'DisplayName', sprintf('%s: med=%.3f', methods{m}, median(L2{m}.qtest_PU(v), 'omitnan'))); hold on
+end
+xline(1, 'k--', 'HandleVisibility','off'); xlabel('P-U coherence (0.05-0.20 Hz)'); ylabel('Count');
+title('Q-test: P-U coherence^2'); legend('FontSize', 7, 'Location','northwest'); grid on;
 
 %% Print summary statistics
 fprintf('\n=== SUMMARY: Spectral Method Comparison ===\n');
@@ -191,6 +203,7 @@ for m = 1:3
     Ef_med(m) = median(L2{m}.Ef(v), 'omitnan');
     Sxx_med(m) = median(L2{m}.Sxx(v), 'omitnan');
     zSS_med(m) = median(L2{m}.ztest_SS(v), 'omitnan');
+    qPU_med(m) = median(L2{m}.qtest_PU(v), 'omitnan');
     sp_med(m) = median(L2{m}.wt_spread_SS, 'omitnan');
 end
 
@@ -199,6 +212,7 @@ fprintf('%-25s  %12.2f  %12.2f  %12.2f\n', 'Tp median (s)', Tp_med);
 fprintf('%-25s  %12.1f  %12.1f  %12.1f\n', 'Ef median (W/m)', Ef_med);
 fprintf('%-25s  %12.1f  %12.1f  %12.1f\n', 'Sxx median (N/m)', Sxx_med);
 fprintf('%-25s  %12.3f  %12.3f  %12.3f\n', 'Z-test SS median', zSS_med);
+fprintf('%-25s  %12.3f  %12.3f  %12.3f\n', 'P-U coherence median', qPU_med);
 fprintf('%-25s  %12.1f  %12.1f  %12.1f\n', 'Spread SS median (deg)', sp_med);
 fprintf('\n');
 
