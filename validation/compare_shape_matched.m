@@ -42,6 +42,9 @@
 %         .nu_ratio_byFHi                      nu ratio at each opts.fHiList
 %         .sig1_puv .sig1_mop .sig1_ratio      directional spread at the peak
 %         .Hs_ratio .m0_ratio
+%         .Eharm_ratio .Elow_ratio .nBinsHarm    band-energy ratios on the
+%              matched grid: harmonic 0.12-0.20 Hz, low control 0.04-0.12 Hz
+%              (added 2026-07-30 for the beta-excess closure, todo #60)
 %         .fracM2_hi_puv .fracM2_hi_mop        share of m2 above 0.18 Hz
 %         .Qp_ratio_legacy .bw_narrow_legacy   old interp-up path, for audit
 %         .seg_*                               per-hour vectors
@@ -382,6 +385,24 @@ R.m2_contrib_mop = cm;
 R.fracM2_hi_puv  = sum(cp(fB > 0.18)) / sum(cp);
 R.fracM2_hi_mop  = sum(cm(fB > 0.18)) / sum(cm);
 
+%% ---- Band energies on the matched grid (beta-excess closure, todo #60) --
+% Absolute bands: harmonic 0.12-0.20 Hz matches the bispectral beta band;
+% low 0.04-0.12 Hz carries ~no bound energy, so its ratio measures the
+% record's generic model energy error and can normalize the harmonic ratio.
+% Plain sums (no omitnan) so an hour with any non-finite bin drops to NaN
+% rather than contributing a partial band.
+iH = iB & fMid >= 0.12 & fMid <= 0.20;
+iL = iB & fMid >= 0.04 & fMid <  0.12;
+R.nBinsHarm = sum(iH);
+if sum(iH) >= 2 && sum(iL) >= 2
+    seg.Eharm_puv = sum(Spuv_c(iH,:) .* fbw(iH), 1).';   % [nK x 1], m^2
+    seg.Eharm_mop = sum(Smop_c(iH,:) .* fbw(iH), 1).';
+    seg.Elow_puv  = sum(Spuv_c(iL,:) .* fbw(iL), 1).';
+    seg.Elow_mop  = sum(Smop_c(iL,:) .* fbw(iL), 1).';
+else
+    [seg.Eharm_puv, seg.Eharm_mop, seg.Elow_puv, seg.Elow_mop] = deal(NaN(nK,1));
+end
+
 %% ---- Reduce -----------------------------------------------------------
 g = isfinite(seg.Qp_puv) & isfinite(seg.Qp_mop);
 R.nGood = sum(g);
@@ -402,6 +423,8 @@ R.nu_ratio     = R.nu_puv     / R.nu_mop;
 R.sig1_ratio   = R.sig1_puv   / R.sig1_mop;
 R.Hs_ratio     = med(seg.Hs_ratio);
 R.m0_ratio     = med(seg.m0_puv) / med(seg.m0_mop);
+R.Eharm_ratio  = med(seg.Eharm_puv) / med(seg.Eharm_mop);
+R.Elow_ratio   = med(seg.Elow_puv)  / med(seg.Elow_mop);
 
 R.nu_ratio_byFHi = nuByFHi;
 R.fHiList        = opts.fHiList(:);
