@@ -85,7 +85,7 @@ for r = 1:size(RECS,1)
     fprintf('  fs=%g  doffp=%.2f  %d hourly segments\n', fs, doff, nSeg);
 
     % accumulate
-    rh = []; rp = []; hs = []; hh = []; ur = []; fr = []; nAcc = 0;
+    rh = []; rp = []; r46 = []; hs = []; hh = []; ur = []; fr = []; nAcc = 0;
     m0mine = []; tmine = NaT(0,1,'TimeZone','UTC');
     tAll = PUV.time(:);
     if isempty(tAll.TimeZone), tAll.TimeZone = 'UTC'; end
@@ -101,7 +101,7 @@ for r = 1:size(RECS,1)
         if std(zH) < 1e-3, continue; end
 
         % --- linear reconstruction in the frequency domain, matching
-        % pressure_correction_wu: Kp = cosh(k doffp)/cosh(k H), zero below KpMin.
+        % pressure_correction_linear: Kp = cosh(k doffp)/cosh(k H), zero below KpMin.
         N   = numel(zH);
         kix = (0:N-1)';
         ffold = min(kix, N-kix) * fs / N;      % |f| for each fft bin
@@ -116,13 +116,18 @@ for r = 1:size(RECS,1)
         Zl(keep) = Zh(keep) ./ Kp(keep);
         zL  = real(ifft(Zl));
 
-        % --- nonlinear correction
-        zNL = bonneton_nl_correction(zL, fs, g);
+        % --- nonlinear correction, both forms:
+        %   eq. (19) = bottom-mounted sensor
+        %   eq. (46) = sensor at height doffp, adding the vertical-velocity
+        %              quadratic term, which scales as -(1/2)(doffp/H)^2
+        zNL   = bonneton_nl_correction(zL, fs, g);
+        zNL46 = bonneton_nl_correction(zL, fs, g, doff, H);
 
-        % --- spectra, identical treatment of both
+        % --- spectra, identical treatment of all three
         nfft = 2^nextpow2(segLen/8);
-        [SL, ff] = pwelch(zL,  hanning(nfft), nfft/2, nfft, fs);
-        [SN, ~ ] = pwelch(zNL, hanning(nfft), nfft/2, nfft, fs);
+        [SL, ff] = pwelch(zL,    hanning(nfft), nfft/2, nfft, fs);
+        [SN, ~ ] = pwelch(zNL,   hanning(nfft), nfft/2, nfft, fs);
+        [S46,~ ] = pwelch(zNL46, hanning(nfft), nfft/2, nfft, fs);
 
         b0 = ff >= SS(1) & ff <= SS(2);
         if sum(b0) < 10, continue; end
@@ -136,6 +141,7 @@ for r = 1:size(RECS,1)
 
         EH_L = trapz(ff(bH), SL(bH));  EH_N = trapz(ff(bH), SN(bH));
         EP_L = trapz(ff(bP), SL(bP));  EP_N = trapz(ff(bP), SN(bP));
+        EH_46 = trapz(ff(bH), S46(bH));
         if EH_L <= 0 || EP_L <= 0, continue; end
 
         m0 = trapz(ff(b0), SL(b0));
@@ -143,6 +149,7 @@ for r = 1:size(RECS,1)
         k0  = get_wavenumber(2*pi*fref, H);
 
         rh(end+1,1) = EH_N/EH_L;   rp(end+1,1) = EP_N/EP_L; %#ok<SAGROW>
+        r46(end+1,1) = EH_46/EH_L; %#ok<SAGROW>
         hs(end+1,1) = Hsi;         hh(end+1,1) = H;         %#ok<SAGROW>
         ur(end+1,1) = Hsi/(H*(k0*H)^2);  fr(end+1,1) = fref; %#ok<SAGROW>
 
@@ -190,8 +197,12 @@ for r = 1:size(RECS,1)
     fprintf('    f_ref median            %.4f Hz\n', median(fr));
     fprintf('    Hs median               %.3f m,  Hs/h %.4f,  Ursell %.4f\n', ...
         median(hs), median(hs./hh), median(ur));
-    fprintf('    S_NL/S_L harmonic band  %.4f   IQR %.4f - %.4f\n', ...
+    fprintf('    S_NL/S_L harmonic band  %.4f   IQR %.4f - %.4f   [eq. 19]\n', ...
         median(rh), prctile(rh,25), prctile(rh,75));
+    fprintf('    same, elevated sensor   %.4f   (eq. 46; delta/H = %.4f)\n', ...
+        median(r46), doff/median(hh));
+    fprintf('    eq.46 - eq.19           %+.6f  (expect ~ -0.5*(delta/H)^2 * correction)\n', ...
+        median(r46) - median(rh));
     fprintf('    S_NL/S_L peak band [C]  %.4f   IQR %.4f - %.4f\n', ...
         median(rp), prctile(rp,25), prctile(rp,75));
     fprintf('    harmonic/peak (net)     %.4f\n', median(rh)/median(rp));
@@ -204,7 +215,8 @@ for r = 1:size(RECS,1)
                'Hs_median',median(hs),'ur_median',median(ur), ...
                'ratio_harm',median(rh),'ratio_peak',median(rp), ...
                'closure_ratio',median(rat,'omitnan'), ...
-               'rh',rh,'rp',rp,'ur',ur,'hs',hs,'hh',hh,'fr',fr);
+               'ratio_harm46',median(r46), ...
+               'rh',rh,'rp',rp,'r46',r46,'ur',ur,'hs',hs,'hh',hh,'fr',fr);
     if isempty(OUT), OUT = o; else, OUT(end+1) = o; end %#ok<SAGROW>
 end
 
@@ -215,13 +227,14 @@ fprintf('================================================================\n');
 if isempty(OUT)
     fprintf(' no records processed\n');
 else
-    fprintf(' %-9s %-13s %6s %7s %9s %9s %9s %8s\n', ...
-        'deploy','label','h(m)','Ursell','harm','peak[C]','net','closure');
+    fprintf(' %-9s %-13s %6s %7s %9s %9s %9s %8s %9s\n', ...
+        'deploy','label','h(m)','Ursell','harm','peak[C]','net','closure','harm46');
     for i = 1:numel(OUT)
         o = OUT(i);
-        fprintf(' %-9s %-13s %6.1f %7.4f %9.4f %9.4f %9.4f %8.4f\n', ...
+        fprintf(' %-9s %-13s %6.1f %7.4f %9.4f %9.4f %9.4f %8.4f %9.4f\n', ...
             o.deployment, o.label, o.h_median, o.ur_median, ...
-            o.ratio_harm, o.ratio_peak, o.ratio_harm/o.ratio_peak, o.closure_ratio);
+            o.ratio_harm, o.ratio_peak, o.ratio_harm/o.ratio_peak, o.closure_ratio, ...
+            o.ratio_harm46);
     end
     allh = vertcat(OUT.rh); allp = vertcat(OUT.rp);
     fprintf('\n pooled harmonic  %.4f   pooled peak %.4f   net %.4f  (n=%d)\n', ...

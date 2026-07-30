@@ -69,12 +69,12 @@ for i=1:nSeg
     [Svv,~]=pwelch(vv,hann(nfft),nfft/2,nfft,fs);
     om=2*pi*f; k=zeros(size(f)); k(2:end)=get_wavenumber(om(2:end),H);
     u2p=zeros(size(f)); u2p(2:end)=om(2:end)./(g*k(2:end));
-    Se = pressure_correction_wu((Suu+Svv).*u2p.^2, f, H, doffp10, KpMin);
+    Se = pressure_correction_linear((Suu+Svv).*u2p.^2, f, H, doffp10, KpMin);
     Z(i,2)=4*sqrt(max(trapz(f(iTot),Se(iTot)),0));
     Z(i,3)=4*sqrt(max(trapz(f(iSS ),Se(iSS )),0));
     if pv
         [Spp,~]=pwelch(detrend(pdb(idx)*1e4/(rho*g)),hann(nfft),nfft/2,nfft,fs);
-        Sm = pressure_correction_wu(Spp,f,H,doffp10,KpMin);
+        Sm = pressure_correction_linear(Spp,f,H,doffp10,KpMin);
         Z(i,4)=4*sqrt(max(trapz(f(iTot),Sm(iTot)),0));
         Z(i,5)=4*sqrt(max(trapz(f(iSS ),Sm(iSS )),0));
     end

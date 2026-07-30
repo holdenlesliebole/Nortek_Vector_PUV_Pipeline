@@ -53,7 +53,7 @@ function L2 = PUV_L2_spectral(PUV, instr, opts)
 %     L2 - struct with spectral results, bulk params, and metadata
 %
 %   REQUIRES
-%     On MATLAB path: pressure_correction_wu, compute_bulk_params,
+%     On MATLAB path: pressure_correction_linear, compute_bulk_params,
 %     bed_velocity_ifft, bed_stress, compute_reynolds_stress,
 %     compute_velocity_moments, rotate_shorenormal, get_wavenumber, get_cg
 % Author: Holden Leslie-Bole, 2026
@@ -415,7 +415,7 @@ for i = 1:nSeg
             case 'welch',                  [Spp_p, ~] = pwelch(pS_m, win, noverlap, nfft, fs);
             case {'mtm_hybrid','mtm_full'},[Spp_p, ~, ~] = psd_multitaper(pS_m, [], nfft, fs, opts.NW);
         end
-        [S_eta_p, Kp_p, fCut_p] = pressure_correction_wu(Spp_p, f, H, PUV.doffp, opts.KpMin);
+        [S_eta_p, Kp_p, fCut_p] = pressure_correction_linear(Spp_p, f, H, PUV.doffp, opts.KpMin);
         L2.Spp(:,i) = Spp_p;  L2.S_eta(:,i) = S_eta_p;  L2.Kp(:,i) = Kp_p;  L2.fCut(i) = fCut_p;
         nanv = NaN(size(f));
         bp = compute_bulk_params(S_eta_p, nanv, nanv, nanv, nanv, f, H, opts);
@@ -496,7 +496,7 @@ for i = 1:nSeg
     end
 
     % --- Pressure correction (Wu method) ---
-    [S_eta, Kp_seg, fCut] = pressure_correction_wu(Spp, f, H, PUV.doffp, opts.KpMin);
+    [S_eta, Kp_seg, fCut] = pressure_correction_linear(Spp, f, H, PUV.doffp, opts.KpMin);
 
     % --- Store spectra ---
     L2.S_eta(:,i) = S_eta;

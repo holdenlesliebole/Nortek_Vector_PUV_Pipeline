@@ -136,6 +136,56 @@ for i = 1:size(tests,1)
 end
 if ok4, fprintf('   PASS\n'); else, fprintf('   *** FAIL ***\n'); anyFail = true; end
 
+%% ---- 5. eq. (46): the elevated-sensor third term ----------------------
+% Bonneton & Lannes eq. (46) adds  +(1/g) M(D) [ N(D) d_t zeta_L ]^2  with
+%   M = cosh(h0 k)/cosh(delta_m k),  N = sinh(delta_m k)/sinh(h0 k).
+% For zeta_L = A cos(omega t), d_t zeta_L = -A omega sin(omega t), so
+%   (N d_t zeta_L)^2 = N^2 A^2 omega^2 sin^2 = N^2 A^2 omega^2 (1 - cos 2wt)/2
+% and the 2*omega part of the third term is  -(M N^2 / 2)(A^2 omega^2/g).
+%
+% CAREFUL WITH WHICH FREQUENCY EACH MULTIPLIER SEES. N(D) acts on d_t zeta_L,
+% which for a monochromatic primary contains ONLY omega, so N is evaluated at
+% omega. The squaring then creates the 2*omega content, and M(D) acts on that, so
+% M is evaluated at 2*omega. Using N at 2*omega instead over-predicts by
+% [N(omega)/N(2 omega)]^2, which is a factor 1.28 at h = 8 m -- an error this test
+% caught in the first version of this prediction. In the shallow-water limit both
+% N's tend to delta_m/h0 and the distinction disappears, which is why their
+% eq. (47) has a clean (delta_m/h0)^2 coefficient.
+fprintf('\n5. ELEVATED-SENSOR THIRD TERM, eq. (46)\n');
+h0 = 8.0;
+k1 = ndisp_l(w0,   h0, g);     % primary: where N is evaluated
+k2 = ndisp_l(2*w0, h0, g);     % harmonic: where M is evaluated
+ok5 = true;
+
+% (a) delta_m = 0 must reduce EXACTLY to eq. (19)
+[~, dzA] = bonneton_nl_correction(zL, fs, g);
+[~, dzB, dz3B] = bonneton_nl_correction(zL, fs, g, 0, h0);
+fprintf('   delta_m = 0 reduces to eq. (19): max|diff| = %.3e, max|dz3| = %.3e\n', ...
+    max(abs(dzA-dzB)), max(abs(dz3B)));
+if max(abs(dzA-dzB)) > 1e-12 || max(abs(dz3B)) > 0
+    fprintf('   *** FAIL: the delta_m = 0 limit is not exact ***\n'); ok5 = false;
+end
+
+% (b) the third term's 2*omega amplitude, and its size relative to the main term
+fprintf('   %-9s %-9s %-14s %-14s %-10s %s\n', ...
+        'delta_m','dm/h0','T3 at 2w','predicted','ratio','T3/main');
+for dm = [0.30 0.60 0.95 2.00]
+    [~, ~, dz3] = bonneton_nl_correction(zL, fs, g, dm, h0);
+    c3 = 2/N * sum(dz3 .* cos(2*w0*t));
+    Mv = cosh(h0*k2)/cosh(dm*k2);      % M at 2*omega
+    Nv = sinh(dm*k1)/sinh(h0*k1);      % N at omega (acts on d_t zeta_L)
+    pr3 = -(Mv*Nv^2/2) * (A^2*w0^2/g);
+    fprintf('   %-9.2f %-9.4f %-14.6e %-14.6e %-10.6f %+.5f\n', ...
+        dm, dm/h0, c3, pr3, c3/pr3, c3/predicted);
+    if abs(c3/pr3 - 1) > 5e-3, ok5 = false; end
+end
+if ok5
+    fprintf('   PASS -- third term matches the hand-derived -(M N^2/2)(A^2 w^2/g),\n');
+    fprintf('   and is a fraction ~-(1/2)(dm/h0)^2 of the main term as expected.\n');
+else
+    fprintf('   *** FAIL ***\n'); anyFail = true;
+end
+
 %% ---- verdict ----------------------------------------------------------
 fprintf('\n=====================================================\n');
 if anyFail
@@ -143,9 +193,16 @@ if anyFail
     fprintf('=====================================================\n\n');
     error('bonneton_nl_correction closure test failed.');
 else
-    fprintf(' RESULT: PASS — operator matches hand derivation on all 4 checks.\n');
+    fprintf(' RESULT: PASS — operator matches hand derivation on all 5 checks.\n');
     fprintf(' Key physical conclusion: the correction ADDS second-harmonic\n');
     fprintf(' energy, so the linear TFM UNDER-estimates a bound harmonic.\n');
+    fprintf(' The eq. (46) elevated-sensor term is real but scales as\n');
+    fprintf(' -(1/2)(delta_m/h0)^2 of the main term: negligible for our geometry.\n');
     fprintf('=====================================================\n\n');
 end
+end
+
+function k = ndisp_l(w, h, g)
+    k = w^2/g;
+    for ii = 1:200, k = w^2/(g*tanh(k*h)); end
 end

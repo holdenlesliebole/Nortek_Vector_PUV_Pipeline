@@ -161,7 +161,7 @@ for i = 1:nSeg
         R.Hs_meas(i) = hs_from_Spp(Spp, f, H, doffp10, KpMin, iTot);
         Sfv = (Suu+Svv).*u2p.^2;
         iSS = f>=fSS(1) & f<=fSS(2);
-        Set = pressure_correction_wu(Spp, f, H, doffp10, KpMin);
+        Set = pressure_correction_linear(Spp, f, H, doffp10, KpMin);
         R.ztest(i) = sum(Spp(iSS).*Set(iSS)) / sum(Sfv(iSS).*Set(iSS) + eps);
     end
 
@@ -186,7 +186,7 @@ end
 
 % ---------------- helpers ----------------
 function Hs = hs_from_Spp(Spp, f, H, z, KpMin, iTot)
-S_eta = pressure_correction_wu(Spp, f, H, z, KpMin);
+S_eta = pressure_correction_linear(Spp, f, H, z, KpMin);
 Hs = 4*sqrt(max(trapz(f(iTot), S_eta(iTot)), 0));
 end
 

@@ -81,12 +81,12 @@ for i=1:nSeg
 
     % 7 m S_eta from its own (healthy) pressure
     [Sp7,~]=pwelch(detrend(pp7*1e4/(rho*g)),hann(nfft),nfft/2,nfft,fs);
-    E7(:,i)=pressure_correction_wu(Sp7,f,H7,doffp7,KpMin);
+    E7(:,i)=pressure_correction_linear(Sp7,f,H7,doffp7,KpMin);
 
     % 10 m measured S_eta, where pressure lives
     if pv
         [Sp10,~]=pwelch(detrend(p10(idx)*1e4/(rho*g)),hann(nfft),nfft/2,nfft,fs);
-        EM(:,i)=pressure_correction_wu(Sp10,f,H10,doffp10,KpMin);
+        EM(:,i)=pressure_correction_linear(Sp10,f,H10,doffp10,KpMin);
     end
 end
 
@@ -140,5 +140,5 @@ end
 function S_eta = seta_from_vel(Svel, f, H, doffp, KpMin, g)
 om=2*pi*f; k=zeros(size(f)); k(2:end)=get_wavenumber(om(2:end),H);
 u2p=zeros(size(f)); u2p(2:end)=om(2:end)./(g*k(2:end));
-S_eta = pressure_correction_wu(Svel.*u2p.^2, f, H, doffp, KpMin);
+S_eta = pressure_correction_linear(Svel.*u2p.^2, f, H, doffp, KpMin);
 end

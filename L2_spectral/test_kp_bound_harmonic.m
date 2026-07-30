@@ -118,6 +118,67 @@ end
 fprintf('\nNote how the LINEAR column sits below the input: using it under-states\n');
 fprintf('the bound fraction. Use the reciprocal form.\n');
 
+%% ---- 5: the reference-free bound wavenumber ---------------------------
+% shared/bound_wavenumber_spectral.m computes the expected bound wavenumber at
+% EVERY frequency from the full spectral shape, with no peak and no band:
+%   kb = 2 conv(k.*S, S) / conv(S, S)
+% Two limits pin it down:
+%   (a) monochromatic primary at f0 -> the only pair summing to 2 f0 is (f0,f0),
+%       so kb(2 f0) must equal 2 k(f0) EXACTLY.
+%   (b) bichromatic f1, f2 -> at f1+f2 the only pair is (f1,f2), so
+%       kb(f1+f2) = k(f1) + k(f2). This is the case a peak-referenced band cannot
+%       represent at all, and it is why the reference-free form matters for the
+%       mixed sea/swell states that make up a quarter of the catalog.
+% Use NARROW GAUSSIANS, not single-bin deltas. A delta whose centre is not an
+% exact multiple of df puts conv(S,S) one bin away from the queried frequency, so
+% the weight there is zero and kb comes back NaN. That is a grid artifact, not a
+% physics failure -- real spectra are broad -- but it also exposed a test bug
+% worth recording: the first version compared abs(NaN/x - 1) > tol, which is
+% FALSE, so a NaN silently PASSED. Every check below now requires finiteness
+% explicitly.
+fprintf('\n5. REFERENCE-FREE BOUND WAVENUMBER (full spectral shape)\n');
+dfg = 1/2048; fg = (0:dfg:0.6)';
+sig = 4*dfg;                                  % narrow but resolved
+gauss = @(fc) exp(-0.5*((fg - fc)/sig).^2) / (sig*sqrt(2*pi));
+ok5 = true;
+
+Sg  = gauss(f0);
+kbA = bound_wavenumber_spectral(fg, Sg, h, g);
+[~, j2] = min(abs(fg - 2*f0));
+rA = kbA(j2)/(2*k0);
+fprintf('   (a) monochromatic: kb(2f0) = %.6f, 2*k0 = %.6f, ratio %.6f\n', ...
+        kbA(j2), 2*k0, rA);
+if ~isfinite(rA) || abs(rA - 1) > 2e-3, ok5 = false; end
+
+fa = 0.06; fb = 0.11;
+Sg2 = gauss(fa) + gauss(fb);
+[kbB, ~, z2p2] = bound_wavenumber_spectral(fg, Sg2, h, g);
+ka_ = ndisp(2*pi*fa, h, g); kb_ = ndisp(2*pi*fb, h, g);
+[~, js] = min(abs(fg - (fa+fb)));
+rB = kbB(js)/(ka_+kb_);
+fprintf('   (b) bichromatic:   kb(f1+f2) = %.6f, k(f1)+k(f2) = %.6f, ratio %.6f\n', ...
+        kbB(js), ka_+kb_, rB);
+if ~isfinite(rB) || abs(rB - 1) > 5e-3, ok5 = false; end
+
+fprintf('   (c) z2pred at f1+f2 = %.6f  (must exceed 1 for a bound component)\n', z2p2(js));
+if ~isfinite(z2p2(js)) || ~(z2p2(js) > 1.001), ok5 = false; end
+
+% (d) a failable null: for a purely FREE field the diagnostic must not report
+% boundness. Here that means kb at the sum frequency differs from k_free(f),
+% which is the whole point -- if kb ever equalled k_free the method would be
+% blind. Assert they are distinguishable by more than 5%.
+kfr = ndisp(2*pi*(fa+fb), h, g);
+fprintf('   (d) k_free(f1+f2) = %.6f vs kb = %.6f  -> separation %.1f%%\n', ...
+        kfr, kbB(js), 100*(kfr/kbB(js) - 1));
+if ~(kfr/kbB(js) > 1.05), ok5 = false; end
+
+if ok5
+    fprintf('   PASS -- recovers 2*k0 monochromatically and k(f1)+k(f2)\n');
+    fprintf('   bichromatically, with no peak frequency in the calculation at all.\n');
+else
+    fprintf('   *** FAIL ***\n'); anyFail = true;
+end
+
 %% ---- verdict ---------------------------------------------------------
 fprintf('\n=====================================================\n');
 if anyFail

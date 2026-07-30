@@ -165,7 +165,7 @@ omega = 2*pi*f;
 k = zeros(size(f)); k(2:end) = get_wavenumber(omega(2:end), h);
 u2p = zeros(size(f)); u2p(2:end) = omega(2:end)./(g*k(2:end));
 Spp = (Suu + Svv) .* u2p.^2;
-S_eta = pressure_correction_wu(Spp, f, h, doffp, 0.1);
+S_eta = pressure_correction_linear(Spp, f, h, doffp, 0.1);
 i = f >= 0.04 & f <= 0.25;
 Hs = 4*sqrt(max(trapz(f(i), S_eta(i)), 0));
 end

@@ -2,7 +2,7 @@ function test_pressure_correction_synthetic()
 % TEST_PRESSURE_CORRECTION_SYNTHETIC  Rule-4 closure for the Hs/pressure path.
 %
 % Paper 1's wave-climate numbers (Hs, energy flux, Ursell) flow through
-% shared/pressure_correction_wu.m (Spp -> S_eta -> Hs). The 2026-06 bug was in a
+% shared/pressure_correction_linear.m (Spp -> S_eta -> Hs). The 2026-06 bug was in a
 % DIFFERENT routine (the Spp_from_vel z-test, now fixed + regression-tested), but
 % this path was never independently certified. This generates a monochromatic
 % wave of KNOWN surface amplitude, builds the pressure PSD it would produce at a
@@ -27,13 +27,13 @@ f = (0:0.005:0.5)'; df = mean(diff(f));
 Spp_m = zeros(numel(f),1);
 Spp_m(i0) = ((a*Kp0)^2/2) / df;                    % m0_p = (a*Kp0)^2/2
 
-[S_eta, Kp, ~] = pressure_correction_wu(Spp_m, f, H, z_s);
+[S_eta, Kp, ~] = pressure_correction_linear(Spp_m, f, H, z_s);
 
 m0_rec  = sum(S_eta*df);
 Hs_rec  = 4*sqrt(m0_rec);
 Hs_true = 4*sqrt(a^2/2);                            % = 2*sqrt(2)*a
 
-fprintf('\n=== Rule-4 synthetic closure: pressure_correction_wu (Hs path) ===\n');
+fprintf('\n=== Rule-4 synthetic closure: pressure_correction_linear (Hs path) ===\n');
 fprintf('a=%.2f m, f0=%.3f Hz, H=%.1f m, z_sensor=%.2f m\n', a, f0, H, z_s);
 fprintf('%-18s %10s %10s %7s\n','quantity','routine','analytic','err');
 fprintf('%-18s %10.4f %10.4f %6.2f%%\n','Kp @ f0', Kp(i0), Kp0, 100*abs(Kp(i0)-Kp0)/Kp0);
