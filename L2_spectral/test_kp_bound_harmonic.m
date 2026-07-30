@@ -42,6 +42,17 @@ function test_kp_bound_harmonic()
 % Using the linear form 1 + beta*(z^2_pred - 1) instead UNDER-estimates the bound
 % fraction by roughly 30-50% at these values, which is why this test exists.
 %
+% ⚠ SCOPE LIMIT (audit 2026-07-29): the synthetic p,u fields below are built
+% from the SAME linearized impedance the diagnostic assumes (p = -rho*phi_t).
+% A real bound harmonic's pressure also carries the coherent quadratic Bernoulli
+% term -(1/2)rho|grad phi1|^2 at 2*sigma, of relative amplitude ~sinh^2(k0h)/3
+% (4.5-21.5% over 5.6-15.5 m). So this test validates the CODE against the
+% model, not the model against physics -- Rule 3's exact failure mode, caught by
+% the foundations audit. Until the fields are rebuilt from the full second-order
+% solution (Sharma & Dean 1981; Herbers & Guza 1991/1992), z2_pred and the beta
+% inversion carry a factor ~3-4 uncertainty. See
+% PUV_paper/docs/audit_foundations_2026-07-29.md.
+%
 % Usage: >> test_kp_bound_harmonic
 %
 % Author: Holden Leslie-Bole, 2026
