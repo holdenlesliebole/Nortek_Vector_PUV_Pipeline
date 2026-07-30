@@ -258,7 +258,13 @@ fprintf('  z^2 OBSERVED harmonic band     median %.4f  IQR %.4f - %.4f\n', ...
 fprintf('  z^2 OBSERVED peak band [CTRL]  median %.4f  IQR %.4f - %.4f\n', ...
     median(A.z2_peak(gz)), prctile(A.z2_peak(gz),25), prctile(A.z2_peak(gz),75));
 rel  = A.z2_harm(gz) ./ max(A.z2_peak(gz), eps);
-beta = (rel - 1) ./ max(A.z2_pred(gz) - 1, eps);
+% RECIPROCAL mixture, validated in L2_spectral/test_kp_bound_harmonic.m. Each
+% component contributes Spp_j to the numerator and Spp_j*(kappa_j/k_a)^2 to the
+% denominator, so a band that is a fraction E_b bound returns
+%   z^2 = 1/[E_b/z2_pred + (1-E_b)]  =>  E_b = (1 - 1/z^2)/(1 - 1/z2_pred).
+% The linear form (z^2-1)/(z2_pred-1) under-states E_b by ~15-30% at these values
+% (0.105 recovered for an input of 0.125) and must not be used.
+beta = (1 - 1./max(rel,eps)) ./ (1 - 1./max(A.z2_pred(gz), 1+eps));
 fprintf('\n  z^2_harm / z^2_peak            median %.4f  IQR %.4f - %.4f\n', ...
     median(rel), prctile(rel,25), prctile(rel,75));
 fprintf('  implied bound fraction beta    median %.4f  IQR %.4f - %.4f\n', ...
