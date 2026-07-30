@@ -28,6 +28,15 @@ function [Eb, nPair] = bound_energy_from_bispectrum(B, P, f, opts)
 %            .minP  skip pairs where P(i1) or P(i2) <= minP (default 0).
 %                   Real spectra are positive everywhere; the floor exists
 %                   for synthetic line spectra where empty bins give 0/0.
+%            .minF1 skip pairs whose LOWER primary f(i1) < minF1 (Hz;
+%                   default 0 = no restriction). Cells with an IG primary
+%                   (f1 ~ 0.01-0.04 Hz, f2 ~ f3 - f1) are the group-bound-IG
+%                   triads -- the same three waves as the classic difference
+%                   interaction, biphase ~ pi -- in which the BOUND leg is
+%                   the IG component, not f3. Counting them misbooks free
+%                   sea energy as bound energy at f3. For a bound-harmonic
+%                   fraction, set minF1 to the IG/swell boundary (0.04 Hz
+%                   in this pipeline) so only sea-swell pairs are summed.
 %
 %   OUTPUTS
 %     Eb    - [nf x 1] bound energy at each sum-frequency bin (m^2 per bin)
@@ -45,7 +54,8 @@ function [Eb, nPair] = bound_energy_from_bispectrum(B, P, f, opts)
 % Author: Holden Leslie-Bole, 2026
 
 if nargin < 4, opts = struct(); end
-if ~isfield(opts, 'minP'), opts.minP = 0; end
+if ~isfield(opts, 'minP'),  opts.minP  = 0; end
+if ~isfield(opts, 'minF1'), opts.minF1 = 0; end
 
 f = f(:);
 P = P(:);
@@ -69,6 +79,7 @@ nPair = zeros(nf, 1);
 for i3 = 3:nf
     for i1 = 2:floor((i3 + 1) / 2)
         i2 = i3 + 1 - i1;                    % i2 >= i1 by the loop bound
+        if f(i1) < opts.minF1, continue; end
         if P(i1) <= opts.minP || P(i2) <= opts.minP, continue; end
         Eb(i3)    = Eb(i3) + real(B(i1, i2))^2 / (P(i1) * P(i2));
         nPair(i3) = nPair(i3) + 1;

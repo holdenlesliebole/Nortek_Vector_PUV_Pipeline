@@ -178,6 +178,15 @@ errOrd = abs(Eord - 2*Etrue) / (2*Etrue);
 fprintf('   ordered-pair sum = %.6e = %.4f x true (expect 2.0000) : rel err %.2e\n', ...
     Eord, Eord/Etrue, errOrd);
 assert(errOrd < 2e-2, 'TEST 3 FAILED: ordered sum is not exactly the 2x double-count');
+
+% opts.minF1 pair restriction: with minF1 between the two lower primaries
+% (nP*dfm = 0.0684 < minF1 < n1*dfm = 0.0781), only pair (n1,n2) survives.
+EbR = bound_energy_from_bispectrum(L4.B_mean, Pana, L4.f, ...
+    struct('minP', 1e-12, 'minF1', 0.075));
+errR = abs(EbR(i3) - abA^2/4) / (abA^2/4);
+fprintf('   minF1 = 0.075 keeps only pair A : Eb = %.6e vs abA^2/4 = %.6e : rel err %.2e\n', ...
+    EbR(i3), abA^2/4, errR);
+assert(errR < 2e-2, 'TEST 3 FAILED: minF1 restriction did not isolate pair A');
 fprintf('   PASS\n');
 
 %% ---- TEST 4a: exact null (stepped free phase) -------------------------
