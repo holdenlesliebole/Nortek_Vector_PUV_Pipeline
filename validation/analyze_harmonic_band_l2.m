@@ -31,10 +31,20 @@
 % The pipeline forms Spp_from_vel = (Suu+Svv)*(sigma/(g k_a))^2 with k_a the FREE
 % wavenumber (PUV_L2_spectral.m:556-566), so
 %
-%   z^2(sigma) = (k_a / kappa)^2
+%   z^2(sigma) = (k_a / kappa)^2        [KINEMATIC-ONLY -- incomplete, see below]
 %
-% Unity for a free wave; for a bound harmonic (kappa = 2k0 < k_a) it is ABOVE
-% unity -- catalog median ~1.24. z^2 at the PEAK is the internal control: same
+% Unity for a free wave; above unity for a bound harmonic (kappa = 2k0 < k_a).
+% SECOND CORRECTION (2026-07-29, later): the kinematic-only prediction (~1.24)
+% is itself incomplete -- it uses linearized Bernoulli, omitting the coherent
+% quadratic pressure -(1/2)rho|grad phi1|^2 at the sum frequency. The COMPLETE
+% theory (Herbers & Guza 1991 eq. 4, shared/hg91_bound_impedance.m, anchored to
+% five published values) gives z2_pred ~1.04-1.08, nearly FLAT in kh: the
+% quadratic term opposes the forced-potential pressure and cancels most of the
+% kh growth. This script now uses the full prediction; z2_kin is kept for
+% comparison. Consequence: the impedance diagnostic's discriminating power is
+% weak (z2_pred - 1 is only ~2-3x plausible measurement systematics), so beta
+% from this route needs the pressure-noise bound reported below and ultimately
+% the bispectral cross-check. z^2 at the PEAK is the internal control: same
 % instrument, same hour, same processing, not expected to be bound, so ~1. The
 % control also absorbs the ~5% systematic z^2 offset, so read the RATIO
 % z2_harm/z2_peak, not z2_harm alone.
@@ -75,9 +85,9 @@ PKB = [0.85 1.15];       % peak band, as multiples of the reference (the control
 SWELL = [0.0375 0.0875]; % O'Reilly et al. (2016) swell band
 
 A = struct('rec',{[]},'h',[],'doffp',[],'fp_argmax',[],'f_ref',[],'f_swell',[], ...
-           'ambig',[],'ur',[],'hsh',[],'I',[],'z2_pred',[], ...
+           'ambig',[],'ur',[],'hsh',[],'I',[],'z2_pred',[],'z2_kin',[], ...
            'nu',[],'nu_corr',[],'z2_harm',[],'z2_peak',[], ...
-           'Eharm_frac',[],'velnoise',[],'nbH',[]);
+           'Eharm_frac',[],'velnoise',[],'pn_frac',[],'nbH',[]);
 recName = {};
 
 t0 = tic; nRec = 0; nExcl = 0;
@@ -144,9 +154,14 @@ for d = 1:numel(names)
             k0  = get_wavenumber(2*pi*f_ref,  hh);
             ka  = get_wavenumber(4*pi*f_ref,  hh);     % free wave at 2*f_ref
             kb  = 2*k0;                                 % bound harmonic
-            % z^2 if the band were FULLY bound. Derived from the potential, so it
-            % carries no free-surface assumption: z^2 = (k_a/kappa)^2 > 1.
-            z2p  = ( ka / kb )^2;
+            % z^2 if the band were FULLY bound — COMPLETE second-order theory
+            % (Herbers & Guza 1991 eq. 4 via shared/hg91_bound_impedance.m,
+            % anchored to five published values). The earlier kinematic-only
+            % (k_a/kappa)^2 omitted the coherent quadratic Bernoulli pressure;
+            % the full theory sits much closer to unity (~1.04-1.08, nearly flat
+            % in kh) and z2kin is kept only for comparison. Self-sum collinear
+            % pair (f_ref, f_ref) as the band representative.
+            [z2p, z2kin] = hg91_bound_impedance(f_ref, f_ref, 0, hh, dof);
 
             % Kp inflation. RETRACTED as derived -- this expression assumes the
             % bound wave obeys the free-wave p<->eta relation, which it does not.
@@ -184,6 +199,21 @@ for d = 1:numel(names)
             vn  = NaN;
             if sum(bN) > 3, vn = median(Su(bN)+Sv(bN), 'omitnan'); end
 
+            % PRESSURE noise proxy — the DANGEROUS-sign confound. A pressure
+            % floor inflates Spp and raises z^2, mimicking the bound signature,
+            % and it matters most in the harmonic band where Kp^2 has attenuated
+            % the signal. Estimate the floor from Spp well above fCut, where
+            % free-wave pressure is attenuated by >1e3; note forced waves DO
+            % reach there (HG91's whole point), so this is an UPPER bound on the
+            % instrument floor. Report it as a fraction of harmonic-band Spp:
+            % that fraction is directly the bias it could put on z2_harm.
+            pn = NaN; pnf = NaN;
+            bNp = f >= max(2.2*f_ref, fHi*1.3) & f <= min(0.8, max(f));
+            if sum(bNp) > 5 && sum(bH) > 2
+                pn  = median(Sp(bNp), 'omitnan');
+                pnf = pn / max(median(Sp(bH), 'omitnan'), eps);
+            end
+
             % Ursell, same form as test_harmonic_closure.m / the sweeps
             Hs  = 4*sqrt(max(m0all,0));
             ur  = Hs / (hh * (k0*hh)^2);
@@ -192,7 +222,8 @@ for d = 1:numel(names)
             A.rec(end+1,1)=nRec;      A.h(end+1,1)=hh;         A.doffp(end+1,1)=dof;
             A.fp_argmax(end+1,1)=fp_am; A.f_ref(end+1,1)=f_ref; A.f_swell(end+1,1)=f_sw;
             A.ambig(end+1,1)=ambig;   A.ur(end+1,1)=ur;        A.hsh(end+1,1)=Hs/hh;
-            A.I(end+1,1)=Ival;        A.z2_pred(end+1,1)=z2p;
+            A.I(end+1,1)=Ival;        A.z2_pred(end+1,1)=z2p;   A.z2_kin(end+1,1)=z2kin;
+            A.pn_frac(end+1,1)=pnf; %#ok<AGROW>
             A.nu(end+1,1)=nuv;        A.nu_corr(end+1,1)=nuc;
             A.z2_harm(end+1,1)=z2h;   A.z2_peak(end+1,1)=z2k;
             A.Eharm_frac(end+1,1)=Ehf; A.velnoise(end+1,1)=vn; A.nbH(end+1,1)=sum(bH);
@@ -280,6 +311,18 @@ fprintf('  CONFOUND: velocity noise inflates Suu and depresses z^2 the same way.
 fprintf('  rho(velnoise, z2_harm) = %+.3f  <- if strongly negative, noise is\n', ...
     corr_safe(A.velnoise(gz), A.z2_harm(gz)));
 fprintf('  contaminating the signature and must be subtracted before inverting.\n');
+fprintf('\n  z^2 predictions: FULL (HG91)  median %.4f  IQR %.4f - %.4f\n', ...
+    median(A.z2_pred(gz),'omitnan'), prctile(A.z2_pred(gz),25), prctile(A.z2_pred(gz),75));
+fprintf('                   kinematic     median %.4f  (retained for comparison)\n', ...
+    median(A.z2_kin(gz),'omitnan'));
+fprintf('  PRESSURE-noise share of harmonic-band Spp (upper bound on the floor):\n');
+fprintf('    median %.4f   IQR %.4f - %.4f   90th pct %.4f\n', ...
+    median(A.pn_frac(gz),'omitnan'), prctile(A.pn_frac(gz),25), ...
+    prctile(A.pn_frac(gz),75), prctile(A.pn_frac(gz),90));
+fprintf('  This fraction is directly the upward bias it could put on z2_harm.\n');
+fprintf('  Compare it to z2_pred-1 = %.4f: if comparable, beta is not resolvable\n', ...
+    median(A.z2_pred(gz),'omitnan')-1);
+fprintf('  from the impedance alone and the bispectral route must carry it.\n');
 
 save(fullfile(root,'harmonic_band_l2.mat'),'A','recName','HB','PKB','NPK','SWELL');
 fprintf('\nSaved harmonic_band_l2.mat\n');

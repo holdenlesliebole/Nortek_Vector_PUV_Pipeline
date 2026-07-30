@@ -67,6 +67,27 @@ for d = 1:numel(names)
         nRec = nRec + 1; recName{nRec} = sprintf('%s/%s',cfg.name,lab); %#ok<SAGROW>
 
         f = L2.f(:);
+        dof = 0.6;
+        if isfield(cfg.instruments(k),'doffp') && isfinite(cfg.instruments(k).doffp)
+            dof = cfg.instruments(k).doffp;
+        end
+
+        % --- Precompute the FULL second-order impedance coefficients per pair,
+        % at the record's median depth (z2_full is nearly flat in kh, so tidal
+        % depth variation is negligible here; the hourly SPECTRAL weights are
+        % what matter and they stay per-hour below). For target bin j and
+        % primary bin i, the partner sits at index j - i - 7 on this grid
+        % (FC = 0.04:0.005:0.25), requiring both primaries >= 0.04 Hz.
+        hmed = median(L2.depth(v), 'omitnan');
+        C1M = nan(nC,nC); C2M = nan(nC,nC); K3M = nan(nC,nC);
+        for j = 9:nC
+            i1 = 1:(j-8);
+            i2 = j - i1 - 7;
+            [~,~,c1v,c2v,k3v] = hg91_bound_impedance(FC(i1), FC(i2), 0, hmed, dof);
+            C1M(j,i1) = c1v; C2M(j,i1) = c2v; K3M(j,i1) = k3v;
+        end
+        kaR = get_wavenumber(2*pi*FC, hmed);   % free wavenumber at target bins
+
         nHr = 0; bAcc = [];
         for i = v(:)'
             Se = double(L2.S_eta(:,i)); Sp = double(L2.Spp(:,i));
@@ -81,9 +102,26 @@ for d = 1:numel(names)
             ok = isfinite(Sec) & isfinite(Spc) & isfinite(Suc) & Sec > 0 & FC <= fc;
             if sum(ok) < 12, continue; end
 
-            % reference-free bound wavenumber and prediction
+            % reference-free bound wavenumber (kept for output/consistency) ...
             Suse = Sec; Suse(~ok) = 0;
-            [kbnd, kfr, z2p, wt] = bound_wavenumber_spectral(FC, Suse, hh, g);
+            [kbnd, kfr, ~, wt] = bound_wavenumber_spectral(FC, Suse, hh, g); %#ok<ASGLU>
+
+            % ... and the FULL second-order z2 prediction, pair-weighted:
+            % z2_pred(f_j) = ka_j^2 * sum_i[w (C1+C2)^2] / sum_i[w (C2 k3)^2]
+            % with w = S(f1)S(f2), the same weighting as kappa_bound. This
+            % replaces the kinematic (kfr/kbnd)^2, which omitted the quadratic
+            % Bernoulli pressure (audit 2026-07-29).
+            z2p = nan(nC,1);
+            for j = 9:nC
+                i1 = 1:(j-8);
+                i2 = j - i1 - 7;
+                w  = Suse(i1) .* Suse(i2);
+                sw = sum(w);
+                if sw <= 0, continue; end
+                num = sum(w(:)' .* (C1M(j,i1) + C2M(j,i1)).^2);
+                den = sum(w(:)' .* (C2M(j,i1) .* K3M(j,i1)).^2);
+                if den > 0, z2p(j) = kaR(j)^2 * num / den; end
+            end
 
             % observed z^2, exactly the pipeline's form
             u2p = (2*pi*FC) ./ (g * max(kfr, eps));

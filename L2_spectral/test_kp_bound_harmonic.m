@@ -42,16 +42,18 @@ function test_kp_bound_harmonic()
 % Using the linear form 1 + beta*(z^2_pred - 1) instead UNDER-estimates the bound
 % fraction by roughly 30-50% at these values, which is why this test exists.
 %
-% ⚠ SCOPE LIMIT (audit 2026-07-29): the synthetic p,u fields below are built
-% from the SAME linearized impedance the diagnostic assumes (p = -rho*phi_t).
-% A real bound harmonic's pressure also carries the coherent quadratic Bernoulli
-% term -(1/2)rho|grad phi1|^2 at 2*sigma, of relative amplitude ~sinh^2(k0h)/3
-% (4.5-21.5% over 5.6-15.5 m). So this test validates the CODE against the
-% model, not the model against physics -- Rule 3's exact failure mode, caught by
-% the foundations audit. Until the fields are rebuilt from the full second-order
-% solution (Sharma & Dean 1981; Herbers & Guza 1991/1992), z2_pred and the beta
-% inversion carry a factor ~3-4 uncertainty. See
-% PUV_paper/docs/audit_foundations_2026-07-29.md.
+% RESOLVED (same day): the scope limit flagged by the foundations audit -- that
+% the synthetic fields shared the diagnostic's linearized-Bernoulli assumption --
+% is closed. Section 6 below now builds the bound component from the COMPLETE
+% second-order theory (Herbers & Guza 1991 eq. 4, via
+% shared/hg91_bound_impedance.m), anchored to five published values first, so
+% the test stands on external truth. The old kinematic-only case is retained,
+% relabeled, to display the difference: z2_kin = (k_a/2k0)^2 = 1.217 at 8 m,
+% versus the full theory's z2_full = 1.057 -- the quadratic Bernoulli pressure
+% OPPOSES the forced-potential pressure (C1/C2 < 0) and cancels most of the
+% kh-dependence. The beta inversion must therefore use z2_full, and its
+% discriminating power is correspondingly weaker; see
+% PUV_paper/docs/audit_foundations_2026-07-29.md and the findings doc.
 %
 % Usage: >> test_kp_bound_harmonic
 %
@@ -80,10 +82,38 @@ fprintf('predicted z^2 for a fully bound harmonic = (k_a/2k0)^2 = %.6f\n\n', z2p
 
 anyFail = false;
 
+%% ---- 0: anchor hg91_bound_impedance to PUBLISHED values ---------------
+% Before any synthetic field is built from it, the interaction coefficient must
+% reproduce numbers printed in Herbers & Guza (1991): the Miche special case
+% C(dth=pi, f1=f2) = -2 pi^2 f^2/g quoted in their text, and all four Fig. 7
+% caption values. This grounds the test in external truth rather than in any
+% derivation made in this project.
+fprintf('0. ANCHORS — HG91 eq. (4) against published values\n');
+anch = { 0.20, 0.20, pi, 13.0, -2*pi^2*0.4^2/9.81, 'Miche -2pi^2 f^2/g', 1e-5; ...
+         0.20, 0.20, 0,  13.0, -3.7e-3, 'Fig.7a  f=0.4 dth=0',   0.02; ...
+         0.20, 0.20, pi, 13.0, -0.32,   'Fig.7a  f=0.4 dth=180', 0.01; ...
+         0.25, 0.25, 0,  13.0, -7.0e-4, 'Fig.7b  f=0.5 dth=0',   0.01; ...
+         0.25, 0.25, pi, 13.0, -0.50,   'Fig.7b  f=0.5 dth=180', 0.01 };
+ok0 = true;
+for i = 1:size(anch,1)
+    [~,~,c1,c2] = hg91_bound_impedance(anch{i,1}, anch{i,2}, anch{i,3}, anch{i,4}, 0);
+    Ct = c1 + c2;
+    fprintf('   %-22s C = %+.6f   published %+.6f   ratio %.4f\n', ...
+            anch{i,6}, Ct, anch{i,5}, Ct/anch{i,5});
+    if abs(Ct/anch{i,5} - 1) > anch{i,7}, ok0 = false; end
+end
+if ok0, fprintf('   PASS — all five anchors reproduced.\n\n');
+else,   fprintf('   *** FAIL — do not trust anything below ***\n\n'); anyFail = true; end
+
+% Full-theory impedance for the self-sum bound harmonic at this test's geometry:
+[z2full, z2kin_chk] = hg91_bound_impedance(f0, f0, 0, h, d);
+fprintf('   z2 self-sum bound @ 2f0, h=%.1f, d=%.2f:  kinematic-only %.4f,  FULL %.4f\n\n', ...
+        h, d, z2kin_chk, z2full);
+
 %% ---- 1-3: single components ------------------------------------------
 cases = { 'free primary  @ f0',   w0,    k0, 1.0; ...
           'free          @ 2f0',  2*w0,  ka, 1.0; ...
-          'BOUND         @ 2f0',  2*w0,  kb, z2pred };
+          'BOUND kinematic-only', 2*w0,  kb, z2pred };
 fprintf('%-22s %-12s %-12s %s\n','case','z^2 measured','z^2 expected','ratio');
 for i = 1:size(cases,1)
     sig = cases{i,2}; kap = cases{i,3}; exp_ = cases{i,4};
@@ -96,13 +126,37 @@ for i = 1:size(cases,1)
         fprintf('   *** FAIL ***\n'); anyFail = true;
     end
 end
+fprintf(['(the kinematic-only row checks CODE plumbing; the physical prediction\n' ...
+         ' for a real bound harmonic is the FULL-theory case next)\n']);
+
+%% ---- 3b: bound harmonic with the COMPLETE second-order fields ----------
+% p and u built from HG91 eq. (4): p2 = C1 + C2 (head), u2 = C2*g*k3/sigma3,
+% both at sensor elevation d. The pipeline's ztest must return z2full — and
+% must NOT return the kinematic-only value, which is what the pre-audit version
+% of this test asserted. This section is what makes the test independent of the
+% assumption it is testing.
+fprintf('\n3b. BOUND @ 2f0, FULL second-order fields (HG91 eq. 4)\n');
+[~, ~, C1v, C2v, k3v] = hg91_bound_impedance(f0, f0, 0, h, d);
+apB  = 0.30;                                       % pressure-head amplitude
+uampB = apB * (C2v*g*k3v/(2*w0)) / (C1v + C2v);    % full-theory u per unit p
+pB = apB  * sin(2*w0*t);
+uB = uampB * sin(2*w0*t);
+z2m = ztest_at(pB, uB, zeros(N,1), fs, 2*f0, h, g);
+fprintf('   z2 measured %.6f   z2_full %.6f   ratio %.6f\n', z2m, z2full, z2m/z2full);
+fprintf('   (kinematic-only would predict %.4f — off by %.0f%%)\n', ...
+        z2kin_chk, 100*abs(z2kin_chk/z2full - 1));
+if abs(z2m/z2full - 1) > tol
+    fprintf('   *** FAIL ***\n'); anyFail = true;
+else
+    fprintf('   PASS — pipeline returns the full-theory impedance.\n');
+end
 
 %% ---- 4: mixture, and the inversion -----------------------------------
 % Put the bound and free parts at ADJACENT frequencies inside the harmonic band so
 % they are spectrally separable rather than interfering at one frequency.
-fprintf('\nMIXTURE: recover the input bound fraction\n');
+fprintf('\nMIXTURE: recover the input bound fraction (bound part = FULL theory)\n');
 fprintf('%-10s %-12s %-12s %-12s %-12s\n', ...
-        'E_b in','z^2 band','E_b recip','E_b linear','recip err');
+        'E_b in','z^2 band','E_b FULL','E_b kin-only','FULL err');
 okMix = true;
 for Eb = [0.0 0.05 0.125 0.25 0.50 1.0]
     fh   = 2*f0;
@@ -110,14 +164,15 @@ for Eb = [0.0 0.05 0.125 0.25 0.50 1.0]
     apb  = sqrt(Eb);
     apf  = sqrt(1-Eb);
     sig1 = 2*pi*fh; sig2 = 2*pi*fh2;
-    kb1  = kb;                       kf2 = ndisp(sig2, h, g);
-    p    = apb*sin(sig1*t)                    + apf*sin(sig2*t);
-    u    = apb*(g*kb1/sig1)*sin(sig1*t)       + apf*(g*kf2/sig2)*sin(sig2*t);
+    kf2  = ndisp(sig2, h, g);
+    % bound part now carries the FULL-theory impedance (3b), not kinematic-only
+    p    = apb*sin(sig1*t)                              + apf*sin(sig2*t);
+    u    = apb*(C2v*g*k3v/sig1)/(C1v+C2v)*sin(sig1*t)   + apf*(g*kf2/sig2)*sin(sig2*t);
     % band-integrated z^2 across both components
     z2b  = ztest_band(p, u, zeros(N,1), fs, [fh-0.004 fh2+0.004], h, g);
-    EbR  = (1 - 1/z2b) / (1 - 1/z2pred);          % correct, reciprocal
-    EbL  = (z2b - 1)   / (z2pred - 1);            % the linear approximation
-    fprintf('%-10.3f %-12.6f %-12.6f %-12.6f %+.4f\n', Eb, z2b, EbR, EbL, EbR-Eb);
+    EbR  = (1 - 1/z2b) / (1 - 1/z2full);          % reciprocal, FULL z2_pred
+    EbK  = (1 - 1/z2b) / (1 - 1/z2pred);          % with the kinematic-only z2_pred
+    fprintf('%-10.3f %-12.6f %-12.6f %-12.6f %+.4f\n', Eb, z2b, EbR, EbK, EbR-Eb);
     if abs(EbR - Eb) > 0.02, okMix = false; end
 end
 if okMix
@@ -126,8 +181,8 @@ else
     fprintf('*** FAIL: inversion does not recover the input fraction ***\n');
     anyFail = true;
 end
-fprintf('\nNote how the LINEAR column sits below the input: using it under-states\n');
-fprintf('the bound fraction. Use the reciprocal form.\n');
+fprintf('\nNote the kin-only column: inverting with the kinematic z2_pred UNDER-states\n');
+fprintf('the bound fraction, because the full z2_pred is much closer to unity.\n');
 
 %% ---- 5: the reference-free bound wavenumber ---------------------------
 % shared/bound_wavenumber_spectral.m computes the expected bound wavenumber at
