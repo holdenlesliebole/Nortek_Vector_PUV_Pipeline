@@ -209,6 +209,7 @@ seg = struct('Ub_puv_fine',z,'Ub_puv_bin',z,'Ub_mop',z, ...
              'tau_puv',z,'tau_mop',z,'sh_puv',z,'sh_mop',z, ...
              'Sxy_puv',z,'Sxy_mop',z,'Pl_puv',z,'Pl_mop',z, ...
              'th_puv',z,'th_mop',z, ...
+             'a2b_puv',z,'b2b_puv',z,'a2b_mop',z,'b2b_mop',z, ...
              'Ab_puv',z,'Ab_mop',z,'Tb_puv',z,'Tb_mop',z, ...
              'Tm01_puv',z,'Tm01_mop',z,'Tpk_puv',z, ...
              'tau_puv_Tm01',z,'tau_mop_Tm01',z,'tau_puv_Tpk',z);
@@ -387,6 +388,17 @@ for i = 1:nK
             % line, a model failure should track obliquity across sites.
             b2b = sum(sb .* b2p .* w) / max(sum(sb .* w), eps);
             seg.th_puv(i) = 0.5*asind(max(min(b2b,1),-1));
+
+            % Band-averaged second moments, BOTH components, for the
+            % direction-vs-spread split (todo #22). a2 is even under the
+            % handedness flip, so no negation; b2b above is the sine moment
+            % the same energy weighting produced.
+            a2p_f = double(L2.a2(:, ii));
+            na  = bin_spectrum_to_grid(f, s_fine .* a2p_f, fbounds);
+            a2p = na(iB) ./ max(sb, eps);
+            a2p(~isfinite(a2p)) = 0;
+            seg.a2b_puv(i) = sum(sb .* a2p .* w) / max(sum(sb .* w), eps);
+            seg.b2b_puv(i) = b2b;
         end
 
         % Model: rotate geographic second moments into the shore-normal frame
@@ -409,6 +421,16 @@ for i = 1:nK
             seg.Pl_mop(i)  = rho*g*sum(sm .* n_i .* (b2r/2) .* c_i .* w);
             b2bm = sum(sm .* b2r .* w) / max(sum(sm .* w), eps);
             seg.th_mop(i) = 0.5*asind(max(min(b2bm,1),-1));
+
+            % Shore-frame cosine moment for the split (todo #22): rotation
+            % only -- a2 is even under the nautical/math handedness flip that
+            % negates b2r above. hypot(a2r, b2r) equals hypot(a2m, b2m) per
+            % frequency (rotation preserves the norm; the flip negates one
+            % component), so the band r2 needs no frame convention at all.
+            a2r = a2m*cos(2*alpha) + b2m*sin(2*alpha);
+            a2r = a2r(iB);
+            seg.a2b_mop(i) = sum(sm .* a2r .* w) / max(sum(sm .* w), eps);
+            seg.b2b_mop(i) = b2bm;
         end
     end
 end
