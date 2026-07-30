@@ -8,7 +8,7 @@ asking "how do you know it isn't X?" is answered by these files. All figure
 inputs are saved `.mat` in `outputs/validation/`, so nothing in the live
 figure chain depends on this directory; what lives here is provenance.
 
-Findings docs are in `../../../PUV_paper/docs/`. The older `_retired/`
+Findings docs are in `../../../Wave_model_validation_paper/docs/`. The older `_retired/`
 directory (segment-length comparisons and the `test1*` series) predates this
 archive and is left as it was.
 
@@ -43,7 +43,7 @@ archive and is left as it was.
 | `test_period_defs.m` | Full-spectrum period treatment (`findings_consequences_2026-07-25.md`). |
 | `test_sxy_estimators.m` | The `Sxy_b0` estimator selection (with `test_sxy_conditioning.m` above). |
 | `paper1_period_sensitivity.m` | Paper-1 favor: T_b vs T_p sensitivity; result quoted in the Paper 1 repo. |
-| `compare_wavenumber_methods.m` | Decision record: Newton solve kept; Wu & Thornton (1986) approximation rejected (referenced from `PUV_paper/docs/architecture.md`). |
+| `compare_wavenumber_methods.m` | Decision record: Newton solve kept; Wu & Thornton (1986) approximation rejected (referenced from `Wave_model_validation_paper/docs/architecture.md`). |
 
 ## Era scaffolding (pre-reframe phases; no live claim rests on these)
 
