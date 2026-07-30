@@ -119,7 +119,7 @@ for d = 1:numel(names)
             'analyze_bispectral_beta:grid', '%s: bispectra grid differs.', rec);
 
         % --- recover the exact P_mean from |B_mean|/Bic_mean ---------------
-        [P_rec, resid] = recover_P(B, Bic, nf);
+        [P_rec, resid] = recover_P_from_bispectrum(B, Bic, nf);
 
         % closure: reproduce the saved Bic_mean on every cell it defines
         [I1, I2] = meshgrid(1:nf, 1:nf);
@@ -254,31 +254,7 @@ save(fullfile(root, 'validation', 'bispectral_beta.mat'), 'R', 'fGrid', 'meta');
 fprintf('\nsaved outputs/validation/bispectral_beta.mat\n');
 
 %% ---- local functions ---------------------------------------------------
-function [P, resid] = recover_P(B, Bic, nf)
-% Exact P_mean from Bic = |B|/sqrt(P1 P2 P3): sparse log-linear LS.
-% Bin 1 (the merged near-DC bin) is a real unknown: only the exact DC line
-% is zeroed before merging, so merged bin 1 carries IG energy and the saved
-% Bic has finite cells on row/column 1. For i = 1 the sum index k equals j,
-% so that unknown appears twice in the equation -- sparse() accumulates
-% duplicate (row,col) entries, which handles the coefficient automatically.
-rows = []; cols = []; rhs = [];
-nEq = 0;
-for i = 1:nf
-    for j = i:nf
-        kk = i + j - 1;
-        if kk > nf, break; end
-        if ~isfinite(Bic(i,j)) || ~(Bic(i,j) > 0) || ~(abs(B(i,j)) > 0), continue; end
-        nEq = nEq + 1;
-        rows = [rows; nEq; nEq; nEq]; %#ok<AGROW>
-        cols = [cols; i; j; kk]; %#ok<AGROW>
-        rhs  = [rhs; 2 * log(abs(B(i,j)) / Bic(i,j))]; %#ok<AGROW>
-    end
-end
-A = sparse(rows, cols, 1, nEq, nf);
-x = A \ rhs;
-resid = sqrt(mean((A * x - rhs).^2));
-P = exp(x);
-end
+% (P recovery promoted to shared/recover_P_from_bispectrum.m, 2026-07-30)
 
 function [biphAll, biphSS] = deal_biphase(B, P, f, inBand, f1min)
 % Energy-weighted mean biphase over cells feeding the band bins, full
