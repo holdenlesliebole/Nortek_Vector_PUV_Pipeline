@@ -22,7 +22,7 @@ startup_puv
 
 outRoot = fullfile(fileparts(fileparts(mfilename('fullpath'))), 'outputs');
 bkRoot  = fullfile(outRoot, '_pre_grainsize_backup_2026-07-31');
-SCOPE   = {'TBR23','TOR23W','TOR24S','TOR24W','SOL23','SOL24','SOL25A','SOL25B'};
+SCOPE   = {'TBR23','TOR23W','TOR24S','TOR24W','TOR25S','SOL23','SOL24','SOL25A','SOL25B'};
 
 % Only touch registered deployments -- outputs/ can hold held-out exploratory
 % runs (see the guard in scripts/copy_to_server.m).
