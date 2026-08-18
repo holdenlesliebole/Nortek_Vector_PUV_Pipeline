@@ -160,10 +160,23 @@ processed at 1-hour cadence. Output: `outputs/L2/{deployment}/{label}_L2.mat`.
 
 ### L3c — Transport Proxies
 - Bottom energy flux Fb = ρg·cg·Ub² (spectral integral)
-- Shields parameter time series (configurable D50)
-- Rouse number time series
+- Shields parameter time series (configurable D50), from the **wave** stress
+  amplitude `L2.tau_b` — the correct quantity for wave mobilization
+- Wave-current combined bed shear stress (Soulsby 1997): `tau_c`, `tau_m`, `tau_max`
+- Rouse number time series, computed from **`tau_m`**, the mean combined stress
 - Mobilization fraction (% time above critical Shields)
 - Cumulative bottom energy flux
+
+> **Rouse changed on 2026-08-13.** It was previously computed from the
+> oscillatory wave stress amplitude, which is the wrong stress: the Rouse profile
+> assumes a steady boundary layer with diffusivity `kappa*u_star*z` over the water
+> column, whereas the wave boundary layer is centimetres thick, and an amplitude
+> is not a mean. Both errors inflated `u_star`, so the old field **overstated
+> suspension** (median 4.8 against a corrected 41.5 at MOP580 5 m). The field was
+> regenerated across all L3; no downstream code consumed it, and `shields`,
+> `mobilized`, `Fb` and `Fb_cum` are bit-identical. See `docs/audit.md`
+> (2026-08-13) and the entrainment/suspension/advection split documented in
+> `shared/wave_current_stress.m`.
 
 ### L3d — Current Decomposition
 - t_tide tidal harmonic analysis on uMean/vMean

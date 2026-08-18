@@ -61,7 +61,9 @@ Related directories:
   - **L3b storm/event detection** — storm events from Hs time series,
     event metrics, calm/recovery windows, MOP gap-filling
   - **L3c transport proxies** — bottom energy flux Fb, Shields/Rouse time
-    series (configurable D50), mobilization fraction
+    series (configurable D50), mobilization fraction, wave-current combined
+    stress (`tau_c`/`tau_m`/`tau_max`, Soulsby 1997). Shields uses the **wave**
+    stress; Rouse uses **`tau_m`** (corrected 2026-08-13, see `docs/audit.md`)
   - **L3d current decomposition** — t_tide harmonic analysis on uMean/vMean,
     subtidal residual currents, undertow (validated vs NOAA Scripps gauge)
 - **Output**: `outputs/L3/{deployment}/{label}_L3.mat` per instrument
