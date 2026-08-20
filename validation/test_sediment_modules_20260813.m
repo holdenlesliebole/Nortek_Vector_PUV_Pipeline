@@ -86,4 +86,25 @@ end
 c11 = max(abs(v - v(1))) < 1e-9; ok = ok & c11;
 chk(c11, sprintf('shadow and canonical now agree (%d copies, spread %.2e)', numel(v), max(abs(v-v(1)))));
 
+% 12. EVERY copy on the path must accept the SAME CALL, not just return the same
+%     value. Added 2026-08-19: run_transport_model began forwarding 'shape', and the
+%     Paper_1 shadow still had a 4-argument signature, so it threw "Too many input
+%     arguments" wherever it won the path. That killed the Bailard M1 series and the
+%     bailard animation variant, and test 11 did not catch it because the VALUES
+%     agreed perfectly -- only the call did not.
+c12 = true;
+for i = 1:numel(w)
+    here = fileparts(w{i}); old = cd(here);
+    try
+        settling_velocity(246e-6, 2650, 1025, 1e-6, 'shape', 'natural');
+        settling_velocity(246e-6, 2650, 1025, 1e-6, 'shape', 'sphere');
+        settling_velocity(246e-6, 2650, 1025, 1e-6, 'C2', 1.0);
+    catch
+        c12 = false;
+    end
+    cd(old);
+end
+ok = ok & c12;
+chk(c12, sprintf('all %d copies accept the option signature', numel(w)));
+
 if ok, fprintf('\nALL PASS\n'); else, fprintf('\nFAILURES PRESENT\n'); end
