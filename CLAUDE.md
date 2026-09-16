@@ -5,7 +5,8 @@ spectra → wave forcing → IG / nonlinear diagnostics. Public repo
 (`github.com/holdenlesliebole/Nortek_Vector_PUV_Pipeline`), so it is written to be
 site-agnostic — everything site-specific lives in one config file per deployment.
 
-Parent context: `../CLAUDE.md` (Scripps research root). This file governs work
+Parent context: `../AGENTS.md` (Scripps research root; shared by Claude and
+Codex). This file governs work
 *inside* `PUV_Pipeline/`.
 
 ---
@@ -255,7 +256,7 @@ L2-vs-L3/L4 before trusting a level after a rerun.
 L2 rotates to shore-normal (+x onshore, +y alongshore-north) from either
 `instr.shorenormal` (manual, any site) or `instr.mopStation` (CDIP, California).
 Site-wide conventions (cross-shore origin, MOP numbering, NAVD88 datums) are in
-`../CLAUDE.md`.
+`../AGENTS.md`.
 
 **L2 segments are 1 hour** (`segLen = 7200` @ 2 Hz), switched from 17 min in
 May 2026. **The 17-min archive was deleted from the server 2026-07-28** (10 GB,
