@@ -175,6 +175,14 @@ deliberately do not collide with the MOP582 10 m station's `TOR19W`/`TOR20W`):
 | TOR18A | 1049 | 2018-12-21 → 2019-02-06 | 0.94 | +0.05 m |
 | TOR19A | 0806 | 2019-12-03 → 2020-02-19 (78 d) | 0.89 | +0.02 m |
 
+**TOR19A empty hourly files (checked 2026-09-22, storage audit).** 614 of the 2,485 hourly
+`.VEC` files in `Sarah_LPL_2014-2023/2019-2020/Raw Data/` are 0 bytes, on the server and in the
+local cache alike. Every empty file is named 02191700 through 03250120 (MMDDHHMM), i.e. from the
+last hour of the record (2020-02-19) to 2020-03-25; the 1,871 non-empty files run
+2019-12-01 to 2020-02-19 with no empty file inside that span. The recorder kept opening hourly
+files after it stopped writing data, so the empties are the instrument end, not a copy fault,
+and the L1 coverage (78 d) is correct as built. No action.
+
 The chronological-burst-sort fix (from CDF15A) was exercised again on the three year-crossing
 deployments (TOR16A, TOR17A, TOR18A) and worked. R² sits in the same 0.5-0.9 band as the other
 firmware-1.21 records at this station, for the same reasons (distance from the MOP transect,

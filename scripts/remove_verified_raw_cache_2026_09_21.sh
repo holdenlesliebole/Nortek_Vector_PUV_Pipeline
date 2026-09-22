@@ -51,9 +51,12 @@ def server_size(cands, rel, f, want):
             if seen==want: return seen
     return seen
 summary=[]
+SENTINEL='/Volumes/group/PUV_data/Vector/Processed_HLB/manifest.csv'
 for dep in sorted(os.listdir('raw_cache')):
     d=os.path.join('raw_cache',dep)
     if not os.path.isdir(d) or (only and dep not in only): continue
+    if not os.path.exists(SENTINEL):
+        print(f'\nMOUNT DROPPED before {dep}: stopping. Remount and rerun; removed deployments are skipped.'); break
     cands=special.get(dep, sorted(roots))
     n=ok=empty=0; bad=[]; kept=[]; total=0
     for dirpath,_,files in os.walk(d):
