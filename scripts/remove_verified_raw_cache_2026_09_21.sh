@@ -16,7 +16,10 @@
 #         scripts/remove_verified_raw_cache_2026_09_21.sh --delete   # verify and remove
 set -u
 cd "$(dirname "$0")/.." || exit 1
-mount | grep -q ' /Volumes/group ' || { echo "reefbreak not mounted"; exit 1; }
+if ! ls /Volumes/group/PUV_data/Vector/Processed_HLB/manifest.csv >/dev/null 2>&1; then
+  /Users/holden/Documents/Scripps/Research/remount_group.sh >/dev/null 2>&1; sleep 2
+  ls /Volumes/group/PUV_data/Vector/Processed_HLB/manifest.csv >/dev/null 2>&1 || { echo "reefbreak not mounted and remount failed"; exit 1; }
+fi
 MODE="${1:-dry}"
 ONLY="${2:-}"   # optional comma-separated deployment list
 python3 - "$MODE" "$ONLY" <<'PY'
