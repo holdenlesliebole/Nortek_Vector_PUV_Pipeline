@@ -20,7 +20,7 @@ mount | grep -q ' /Volumes/group ' || { echo "reefbreak not mounted"; exit 1; }
 MODE="${1:-dry}"
 ONLY="${2:-}"   # optional comma-separated deployment list
 python3 - "$MODE" "$ONLY" <<'PY'
-import os,re,sys,shutil
+import os,re,sys,shutil,subprocess
 mode=sys.argv[1]; only=set(x for x in sys.argv[2].split(',') if x)
 V='/Volumes/group/PUV_data/Vector'
 # literal roots from every config
@@ -40,15 +40,29 @@ for m in re.finditer(r"reg\('(\w+)'\)\s*=\s*\{(server|fullfile\(sarah,'([^']+)',
 special['Ruby2D']=['/Volumes/group/Ruby2D/PUV/Level1_QC','/Volumes/group/Ruby2D/PUV/Level2_QC']
 special['TORREY02_2019_test']=[f'{V}/recopied/TorreyPines2019-2020MOP582_10meter']
 keep_files={'Ruby2D/legacy_bulk_582_6m.mat'}   # 238 KB derived file of unknown server location; kept
+# One streaming listing per server folder instead of one stat per file: thousands of
+# individual SMB lookups were dropping the mount mid-run (2026-09-22, twice).
+_index={}
+def folder_index(folder):
+    if folder in _index: return _index[folder]
+    d={}
+    try:
+        out=subprocess.run(['find',folder,'-maxdepth','3','-type','f','-ls'],capture_output=True,text=True,timeout=1800).stdout
+        for line in out.splitlines():
+            parts=line.split(None,10)
+            if len(parts)==11: d[os.path.relpath(parts[10],folder)]=int(parts[6])
+    except Exception as e:
+        print(f'   listing failed for {folder}: {e}')
+    _index[folder]=d
+    return d
 def server_size(cands, rel, f, want):
-    # the same file name can exist under more than one root (e.g. Vector/ and Vector/retry/);
-    # return the size that matches if any candidate does, else the last size seen
     seen=None
     for r in cands:
-        for sp in (os.path.join(r, rel, f) if rel!='.' else os.path.join(r,f), os.path.join(r,f)):
-            try: seen=os.path.getsize(sp)
-            except OSError: continue
-            if seen==want: return seen
+        idx=folder_index(r)
+        for key in ((os.path.join(rel,f) if rel!='.' else f), f):
+            if key in idx:
+                seen=idx[key]
+                if seen==want: return seen
     return seen
 summary=[]
 SENTINEL='/Volumes/group/PUV_data/Vector/Processed_HLB/manifest.csv'
