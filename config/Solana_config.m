@@ -15,6 +15,7 @@ function cfg = Solana_config(deployment_name)
     cfg.name      = deployment_name;
     cfg.fs        = 2;  % Hz
     cfg.outputDir = fullfile(fileparts(mfilename('fullpath')), '..', 'outputs');
+    cfg.qcOpts.Tvalid = [9 26];  % San Diego coastal; matches the canonical L1 (rerun_*_2026_07_11 injection)
 
     % Approximate lat/lon for Solana Beach MOP 654.5 at 7m depth
     sol_latlon = [32.991, -117.279];

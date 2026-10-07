@@ -21,6 +21,7 @@ function cfg = SIO_Pier_config(deployment_name)
     cfg.name      = deployment_name;
     cfg.fs        = 2;  % Hz
     cfg.outputDir = fullfile(fileparts(mfilename('fullpath')), '..', 'outputs');
+    cfg.qcOpts.Tvalid = [9 26];  % San Diego coastal; matches the canonical L1 (rerun_*_2026_07_11 injection)
 
     % Surveyed position of the SIO Pier 6 m station (MOP511). Every deployment
     % since 2023 reuses the same pipe, so one value covers them all:

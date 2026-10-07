@@ -26,7 +26,7 @@ figure scripts that load saved `.mat` from `../outputs/validation/` and plot.
 - `analyze_*.m`, `diagnose_*.m` — analyses on saved outputs (bispectral β,
   localization reconciliation, COR16B).
 - `audit_*.m` — reusable integrity checks (L4 coverage, bulk plausibility,
-  registry, timezones). Run these after any reprocessing.
+  registry, timezones, L1 qc.opts vs config). Run these after any reprocessing.
 - `test_*.m` — regression tests. Run before quoting a number produced by the
   routine they test (`test_bispectral_bound`, `test_shoal_bin_synthetic`,
   `test_resolution_artifact`, `test_shape_metric_sensitivity`,

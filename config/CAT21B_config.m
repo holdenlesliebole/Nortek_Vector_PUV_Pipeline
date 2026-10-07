@@ -22,6 +22,7 @@ function cfg = CAT21B_config()
     cfg.name        = 'CAT21B';
     cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector/recopied/Catalina_2021';
     cfg.outputDir   = fullfile(fileparts(mfilename('fullpath')), '..', 'outputs');
+    cfg.qcOpts.Tvalid = [9 26];  % SD coastal range, not a Catalina-specific value; matches the canonical L1 (rerun_*_2026_07_11 injection)
     cfg.fs          = 2;  % Hz
 
     k = 0;
