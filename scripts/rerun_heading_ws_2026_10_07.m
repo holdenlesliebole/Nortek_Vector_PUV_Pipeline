@@ -12,6 +12,7 @@
 %   stage = 'L3'        L3-only regeneration (PUV_L3_transport on the existing
 %                       L3) for every registered record still carrying the
 %                       pre-2026-08-13 smooth-sphere (C2 = 0.4) ws.
+%                       l3Recs = {dep,label; ...} overrides the stale list.
 %   dryRun = true       stop after PREFLIGHT; nothing is backed up or written.
 %
 % Heading changes (config, magnetic deg; old = PUV.rotation.sensor in the L1
@@ -107,7 +108,17 @@ if any(strcmp(stage, {'heading','sio24a'}))
 end
 
 if strcmp(stage, 'L3')
-    LIST = stale_L3_list(reg, outRoot, HDG, SIO);
+    if exist('l3Recs', 'var')
+        % Explicit records (e.g. stamp-only on L3s that already carry the natural
+        % ws but predate transport_params.ws_C2). Same gates as the stale pass.
+        LIST = cell(size(l3Recs,1), 4);
+        for r = 1:size(l3Recs,1)
+            q = load(fullfile(outRoot,'L3',l3Recs{r,1},[l3Recs{r,2} '_L3.mat']),'L3'); tp = q.L3.transport_params;
+            LIST(r,:) = {l3Recs{r,1}, l3Recs{r,2}, tp.ws, settling_velocity(tp.D50, tp.rho_s, 1025, 1e-6)};
+        end
+    else
+        LIST = stale_L3_list(reg, outRoot, HDG, SIO);
+    end
     fprintf('  %d registered L3 files carry the stale (C2 = 0.4) ws and will be regenerated\n', size(LIST,1));
     for r = 1:size(LIST,1), fprintf('    %-8s %-12s ws %.6f -> %.6f\n', LIST{r,:}); end
 end
@@ -368,6 +379,8 @@ function s = regen_L3(dep, lab, outRoot, bkRoot)
         bad = [bad badTP];
         if okWs && okD && okR && isempty(bad)
             L3 = B; save(f3, 'L3', '-v7.3');
+            q = load(f3, 'L3');   % the file must load and match what was written
+            if ~isequaln(q.L3, B), error('reloaded L3 differs from the one saved: %s', f3); end
             s = sprintf('%-8s %-12s PASS saved | ws %.6f -> %.6f (x%.4f) | rouse ratio exact | %d other fields unchanged', ...
                 dep, lab, tpA.ws, tpB.ws, tpB.ws/tpA.ws, nf);
         else
