@@ -755,14 +755,15 @@ function PUV = PUV_raw_process(instr, cfg)
         V_true = uv(2,:).';   % +y NORTH
 
     elseif coordSystem == "ENU"
-        % ENU: instrument compass already rotated to East-North-Up.
-        % U = East, V = North, W = Up (no z-flip needed).
-        % Convert to MOP convention: +x WEST = -East, +y NORTH = North.
-        U_true = -U;          % +x WEST
-        V_true =  V;          % +y NORTH
+        % ENU: the instrument rotated to East-North-Up on board using its
+        % MAGNETIC compass, so U = magnetic East, V = magnetic North, W = Up
+        % (no z-flip needed). Add declination, then convert to the MOP
+        % convention +x WEST, +y NORTH (true). Omitted before 2026-10-07.
+        [U_true, V_true] = enu_to_buoy_frame(U, V, magDeclination);
         % W already +z UP in ENU — no flip.
         theta_mag = NaN;      % heading not used for ENU rotation
-        fprintf('  ENU coordinates — no heading rotation needed\n');
+        fprintf('  ENU coordinates — declination %+.2f deg applied, no heading rotation\n', ...
+            magDeclination);
 
     else
         error('PUV_raw_process:unknownCoordSys', ...
@@ -798,6 +799,10 @@ function PUV = PUV_raw_process(instr, cfg)
     PUV.LATLON         = instr.latlon;
     PUV.rotation.sensor = theta_mag;      % actual heading used (may be auto-computed)
     PUV.rotation.mag    = magDeclination;
+    % Stamp (2026-10-07): an L1 without these fields predates the ENU
+    % declination fix, and its ENU velocities are in MAGNETIC coordinates.
+    PUV.rotation.coordSystem        = char(coordSystem);
+    PUV.rotation.declinationApplied = true;   % XYZ via heading, ENU via enu_to_buoy_frame
     PUV.doffp           = instr.doffp;     % pressure sensor height above bed (m)
     PUV.label            = instr.label;
     PUV.deploymentName   = cfg.name;
