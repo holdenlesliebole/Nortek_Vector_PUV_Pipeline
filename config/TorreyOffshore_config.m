@@ -114,30 +114,38 @@ function cfg = TorreyOffshore_config(deployment_name)
 
     % ---- HEADING OVERRIDES (added 2026-07-27) -------------------------------
     % Three 2016-17 deployments were processed with a compass heading that does
-    % not reflect the instrument's true orientation. Divers mount these units in
-    % near-zero visibility and the housing is close to rotationally symmetric, so
-    % a misalignment of any angle is possible; the compass reading additionally
-    % failed to capture it (a physically rotated instrument with a working
-    % compass would still rotate correctly, so the compass itself was stuck,
-    % obstructed, or magnetically disturbed).
+    % not reflect the instrument's true orientation. The compass on these
+    % units does not track orientation (see below), so the median of the
+    % compass is not a measurement of the mount heading.
     %
-    % TWO INDEPENDENT ESTIMATES OF EACH OFFSET, agreeing to <= 1.5 deg:
-    %   (a) the L1 compass heading relative to the clean TOR16A deployment
-    %       (88.8 deg, same site, and for TOR16C the SAME instrument S/N 824)
-    %   (b) the circular median of (PUV wave direction - MOP wave direction),
-    %       shore-relative, over the swell band
+    % The offsets rest on ONE estimate: the circular median of (PUV wave
+    % direction - MOP wave direction), shore-relative, over the swell band.
     %
-    %   deploy   L1 sensor   (a) vs TOR16A   (b) vs MOP   applied
-    %   TOR16B     198.0        109.2          110.7      -110.7  (empirical)
-    %   TOR16C     268.4        179.6          179.2      -180.0  (exact)
-    %   TOR16D     265.2        176.4          177.4      -180.0  (exact)
+    %   deploy   L1 sensor   vs MOP   applied
+    %   TOR16B     198.0     110.7    -110.7  (empirical)
+    %   TOR16C     268.4     179.2    -180.0  (exact)
+    %   TOR16D     265.2     177.4    -180.0  (exact)
     %
-    % C and D are set to EXACTLY 180 so the correction is independent of MOP --
-    % 180 is a discrete, physically meaningful misalignment and both independent
-    % estimates land within 3.6 deg of it. B has no such round value, so its
-    % correction is the empirical offset; it is corroborated by the compass
-    % estimate (109.2) but is partly MOP-referenced. See the caveat in
-    % ../../PUV_paper/docs/findings_consequences_2026-07-25.md.
+    % A second estimate, the L1 compass relative to TOR16A (88.8 deg), was
+    % listed here as independent and is withdrawn (2026-10-07). TOR16A is not
+    % a clean reference: its raw compass drifts from 53.8 to 136.9 deg over
+    % ~35 days at constant pitch/roll, and the PUV-MOP offset does not follow
+    % it (slope +0.02 against compass(t); a real rotation gives -1, confirmed
+    % at -0.983 by injecting the same drift). The 88.8 is the midpoint of a
+    % drift. TOR16B, TOR16D, TOR17A and TOR17C compasses drift the same way.
+    % See outputs/validation/heading_audit_2026-10-07/.
+    %
+    % The field log records the mount heading for the whole season:
+    % SoCal_instruments_2016-2017.xls 'All Data' row 27, "PUV-Torrey, 1st
+    % Deployment" S/N V0824: "82.3 deg (mag)"; rows 28-30 (V1049, V0824, V1049):
+    % "unchanged". With 82.3 the four records score +1.70, +0.65, -0.05, -2.64
+    % deg against MOP, versus +8.20, +5.65, +6.05, +0.26 as applied. Values
+    % are NOT changed here; adopting the logged heading is an open decision.
+    %
+    % C and D are set to EXACTLY 180 because 180 is a discrete, physically
+    % meaningful misalignment and the MOP estimate lands within 2.6 deg of it.
+    % B has no such round value, so its correction is MOP-referenced only. See
+    % the caveat in ../../PUV_paper/docs/findings_consequences_2026-07-25.md.
     %
     % Detected by validation/sweep_heading_flips.m; controls confirm the two
     % flips fixed in May 2026 (TBR23/MOP580_5m, TOR24S/MOP586_7m) now read clean.
