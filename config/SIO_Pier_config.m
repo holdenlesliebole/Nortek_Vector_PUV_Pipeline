@@ -151,7 +151,7 @@ function cfg = SIO_Pier_config(deployment_name)
             cfg.instruments(k).depth_nominal  = 6;
             cfg.instruments(k).serialNum      = 17047;
             cfg.instruments(k).latlon         = sio_latlon;
-            cfg.instruments(k).heading        = NaN;
+            cfg.instruments(k).heading        = NaN;   % auto-compute. DISPUTED (|log - compass| > 10 deg; value left on the compass median; reported via shared/heading_disputed_records.m): DeploymentNotes2025-2026.xls 'All Data' row 8, S/N 17047: "+X onshore, 88.0deg magnetic.  Measured with new KVH."; compass median 99.3
             cfg.instruments(k).clockDrift     = NaN;
             cfg.instruments(k).doffp          = 0.90;      % meters (90 cm from 2025-2026 notes, deploy 11/25/2025)
 

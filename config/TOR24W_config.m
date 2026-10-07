@@ -54,7 +54,7 @@ function cfg = TOR24W_config()
     cfg.instruments(k).depth_nominal  = 10;
     cfg.instruments(k).serialNum      = 16737;
     cfg.instruments(k).latlon         = [32.93035, -117.26572];   % surveyed; DeploymentNotes2024-2025.xls 'All Data' "Torrey Pines 10m MOP586 PUV Vector" -- same jetted pipe reused, was [32.930 -117.266] (47 m off)
-    cfg.instruments(k).heading        = NaN;
+    cfg.instruments(k).heading        = NaN;   % auto-compute. DISPUTED (|log - compass| > 10 deg; value left on the compass median; reported via shared/heading_disputed_records.m): DeploymentNotes2024-2025.xls 'All Data' row 34, S/N 16737: "+X onshore, ???deg. magnetic. KVH Compass failed. 59.5deg previously measured."; compass median 71.9
     cfg.instruments(k).clockDrift     = NaN;
     cfg.instruments(k).doffp          = 0.78;      % meters (78 cm from notes)
 

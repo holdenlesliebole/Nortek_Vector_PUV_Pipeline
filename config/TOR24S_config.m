@@ -40,7 +40,7 @@ function cfg = TOR24S_config()
     cfg.instruments(k).depth_nominal  = 5;
     cfg.instruments(k).serialNum      = 16737;
     cfg.instruments(k).latlon         = [32.93056, -117.26319];   % surveyed; DeploymentNotes2023-2024.xls 'All Data' "Torrey Pines 5m MOP586 PUV Vector" -- same jetted pipe reused, was [32.930 -117.264] (98 m off)
-    cfg.instruments(k).heading        = NaN;
+    cfg.instruments(k).heading        = 85.0;       % magnetic; DeploymentNotes2023-2024.xls 'All Data' row 24, "Redeploy" S/N 16737: "+X onshore, 85deg. magnetic." Replaces the compass median 98.8; +x as logged, no 180 (PUV direction 0.4 deg from onshore)
     cfg.instruments(k).clockDrift     = NaN;
     cfg.instruments(k).doffp          = 0.63;      % meters (63 cm, redeploy 2/28/2024)
 
@@ -54,7 +54,7 @@ function cfg = TOR24S_config()
     cfg.instruments(k).depth_nominal  = 7;
     cfg.instruments(k).serialNum      = 16739;
     cfg.instruments(k).latlon         = [32.93048, -117.26420];   % surveyed; DeploymentNotes2023-2024.xls 'All Data' "Torrey Pines 7m MOP586 PUV Vector" -- same jetted pipe reused, was [32.930 -117.265] (92 m off)
-    cfg.instruments(k).heading        = 78.7;       % explicit; auto-compass read 258.7 was 180-deg flipped, confirmed by eta/u_sn phase test 2026-05-14
+    cfg.instruments(k).heading        = 94.5;       % magnetic; DeploymentNotes2023-2024.xls 'All Data' row 35, "Redeploy" S/N 16739: "+X onshore, 94.5deg. magnetic." Was 78.7 = compass 258.7 - 180 (flip found by eta/u_sn phase test 2026-05-14); the logged +X-onshore value keeps that orientation (PUV direction 1.1 deg from onshore)
     cfg.instruments(k).clockDrift     = NaN;
     cfg.instruments(k).doffp          = 0.70;      % meters (70 cm, redeploy 2/28/2024)
 

@@ -44,7 +44,7 @@ function cfg = LPL_config(deployment_name)
             cfg.instruments(k).depth_nominal  = 8;
             cfg.instruments(k).serialNum      = 15032;
             cfg.instruments(k).latlon         = lpl_latlon;
-            cfg.instruments(k).heading        = NaN;   % auto-compute (XYZ)
+            cfg.instruments(k).heading        = NaN;   % auto-compute (XYZ). DISPUTED (|log - compass| > 10 deg; value left on the compass median; reported via shared/heading_disputed_records.m): DeploymentNotes2023-2024.xls 'All Data' row 75, "LosPen 8m Offshore PUV Vector" S/N 15032: "+X onshore, 96.7deg. magnetic."; compass median 82.0
             cfg.instruments(k).clockDrift     = NaN;
             cfg.instruments(k).doffp          = 0.88;      % meters (88 cm from notes)
 

@@ -51,7 +51,7 @@ function cfg = TOR25S_config()
     cfg.instruments(k).depth_nominal  = 10;
     cfg.instruments(k).serialNum      = 16737;
     cfg.instruments(k).latlon         = [32.93035, -117.26572];   % surveyed; DeploymentNotes2024-2025.xls 'All Data' "Torrey Pines 10m MOP586 PUV Vector" -- same jetted pipe reused, was [32.930 -117.266] (47 m off)
-    cfg.instruments(k).heading        = NaN;
+    cfg.instruments(k).heading        = NaN;   % auto-compute. DISPUTED (|log - compass| > 10 deg; value left on the compass median; reported via shared/heading_disputed_records.m): DeploymentNotes2024-2025.xls 'All Data' row 36, S/N 16737: "+X onshore, 286.6deg magnetic using new compass on 6/5/2025."; compass median 235.9 (neither points onshore at face value)
     cfg.instruments(k).clockDrift     = NaN;
     cfg.instruments(k).doffp          = 0.86;      % meters (86 cm, redeploy 3/5/2025)
 
@@ -66,7 +66,7 @@ function cfg = TOR25S_config()
     cfg.instruments(k).depth_nominal  = 15;
     cfg.instruments(k).serialNum      = 17047;
     cfg.instruments(k).latlon         = [32.93005, -117.26950];   % surveyed; DeploymentNotes2024-2025.xls 'All Data' "Torrey Pines 15m MOP586 PUV Vector" -- same jetted pipe reused, was [32.930 -117.270] (47 m off)
-    cfg.instruments(k).heading        = NaN;
+    cfg.instruments(k).heading        = NaN;   % auto-compute. DISPUTED (|log - compass| > 10 deg; value left on the compass median; reported via shared/heading_disputed_records.m): DeploymentNotes2024-2025.xls 'All Data' row 40, S/N 17047: "+X onshore, 34.2deg magnetic using new compass on 6/5/2025."; compass median 46.1
     cfg.instruments(k).clockDrift     = NaN;
     cfg.instruments(k).doffp          = 0.80;      % meters (80 cm, redeploy 3/5/2025)
 
