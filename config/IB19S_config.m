@@ -12,6 +12,7 @@ function cfg = IB19S_config()
     cfg.name        = 'IB19S';
     cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector/recopied';
     cfg.outputDir   = fullfile(fileparts(mfilename('fullpath')), '..', 'outputs');
+    cfg.qcOpts.Tvalid = [9 26];  % San Diego coastal; matches the canonical L1 (rerun_*_2026_07_11 injection)
     cfg.fs          = 2;  % Hz, from .hdr
 
     k = 0;

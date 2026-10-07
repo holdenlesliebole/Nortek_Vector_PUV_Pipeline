@@ -29,7 +29,7 @@ actually run at the time and are kept deliberately; never "correct" them.
 Likewise `outputs/_*_backup_*/` and `outputs/rerun_*/` are frozen snapshots.
 
 **Don't trust this file for state — check it.** `docs/todo.md` is gitignored, so
-a fresh clone has no live tracker, and prose goes stale. Four audits reconstruct
+a fresh clone has no live tracker, and prose goes stale. Five audits reconstruct
 the truth in a few minutes, and each has caught something no other check did:
 
 | audit | answers |
@@ -38,6 +38,7 @@ the truth in a few minutes, and each has caught something no other check did:
 | `validation/audit_L4_coverage.m` | are all 65 records complete and time-aligned to their L2? |
 | `scripts/audit_clock_lag.m` | is every filename-clocked record at lag 0 against the tidal reference? (needs a current L3) |
 | `validation/audit_config_provenance.m` | which `doffp`/`latlon`/`shorenormal` values cite a source on their own line? |
+| `validation/audit_L1_qcopts.m` | would rebuilding each L1 from its config reproduce the `qc.opts` stored in it? (loads all L1, several minutes) |
 
 If a count in any doc disagrees with what these report, **the audit is right**.
 

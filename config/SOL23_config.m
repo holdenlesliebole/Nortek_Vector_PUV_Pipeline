@@ -15,6 +15,7 @@ function cfg = SOL23_config()
     cfg.name        = 'SOL23';
     cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector';
     cfg.outputDir   = fullfile(fileparts(mfilename('fullpath')), '..', 'outputs');
+    cfg.qcOpts.Tvalid = [9 26];  % San Diego coastal; matches the canonical L1 (rerun_*_2026_07_11 injection)
     cfg.fs          = 2;  % Hz
 
     k = 0;

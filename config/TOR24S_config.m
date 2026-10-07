@@ -11,6 +11,7 @@ function cfg = TOR24S_config()
     cfg.name        = 'TOR24S';
     cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector/Torrey20240228-20240510';
     cfg.outputDir   = fullfile(fileparts(mfilename('fullpath')), '..', 'outputs');
+    cfg.qcOpts.Tvalid = [9 26];  % San Diego coastal; matches the canonical L1 (rerun_*_2026_07_11 injection)
     cfg.fs          = 2;  % Hz
 
     k = 0;

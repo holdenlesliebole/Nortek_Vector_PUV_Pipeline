@@ -354,28 +354,8 @@ function PUV = PUV_raw_process(instr, cfg)
     %   tiltAbsMax   = 30 deg — absolute tilt beyond which data is unreliable
     %   tiltWindow   = 120 samples (60 sec at 2 Hz) — window for rolling std
 
-    % --- Per-channel QC options (channel decoupling, 2026-07-09). Thresholds unchanged
-    % from the historical pipeline; only their propagation between channels has changed.
-    qcOpts = struct( ...
-        'corrMin',     70, ...      % Nortek minimum beam correlation, %
-        'Tvalid',      [-2 40], ... % PRIMARY thermistor-failure discriminant: plausible
-        ...                         % seawater temperature, degC. Default is a wide absolute
-        ...                         % bound (catches freezing / firmware garbage anywhere);
-        ...                         % SET TO THE SITE'S RANGE (SD coastal ~[9 26]) to catch
-        ...                         % subtler within-bounds failures.
-        'maxJump',     Inf, ...     % optional rate gate: |T[i]-T[i-1]| beyond this = sensor
-        ...                         % glitch. Inf = off. Never fires on genuine drift.
-        'cFactorTol',  0.002, ...   % below this, no sound-speed rescale is applied
-        'tiltStdMax',  2, ...       % deg, rolling-std tilt-variability threshold
-        'tiltAbsMax',  30, ...      % deg, absolute tilt = toppled; ALWAYS gates velocity
-        'tiltWindow',  120);        % samples for the rolling std (60 s at 2 Hz)
-    % TmaxDev / TrefHours (deviation-from-median test, first-48h reference) are REMOVED:
-    % they conflated genuine seasonal range with sensor failure and corrupted good velocity
-    % at the seasonal tails. See docs/OUTSTANDING_channel_decoupling.md and puv_channel_qc.m.
-    if isfield(cfg,'qcOpts')
-        fn = fieldnames(cfg.qcOpts);
-        for q = 1:numel(fn), qcOpts.(fn{q}) = cfg.qcOpts.(fn{q}); end
-    end
+    % --- Per-channel QC options: defaults overlaid with cfg.qcOpts (see l1_qc_opts.m).
+    qcOpts = l1_qc_opts(cfg);
 
     tiltStdMax = qcOpts.tiltStdMax;   % used by the diagnostic plot below; the per-channel
     tiltAbsMax = qcOpts.tiltAbsMax;   % QC decisions are made in puv_channel_qc.m from qcOpts

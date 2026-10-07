@@ -50,6 +50,7 @@ function cfg = RUBY22_config()
     cfg.name        = 'RUBY22';
     cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector/recopied/Ruby2D_2021-2022';
     cfg.outputDir   = fullfile(fileparts(mfilename('fullpath')), '..', 'outputs');
+    cfg.qcOpts.Tvalid = [9 26];  % San Diego coastal; matches the canonical L1 (rerun_*_2026_07_11 injection)
     cfg.fs          = 2;  % Hz, from .hdr
 
     k = 0;

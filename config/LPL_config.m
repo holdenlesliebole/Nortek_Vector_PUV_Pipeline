@@ -19,6 +19,7 @@ function cfg = LPL_config(deployment_name)
     cfg.name      = deployment_name;
     cfg.fs        = 2;  % Hz
     cfg.outputDir = fullfile(fileparts(mfilename('fullpath')), '..', 'outputs');
+    cfg.qcOpts.Tvalid = [9 26];  % San Diego coastal; matches the canonical L1 (rerun_*_2026_07_11 injection)
 
     % Surveyed position of the Los Penasquitos offshore station. Stable across
     % 2019-2026 in the field logs (same jetted pipe reused each season):
