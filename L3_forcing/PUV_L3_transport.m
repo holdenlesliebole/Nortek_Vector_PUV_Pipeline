@@ -104,12 +104,12 @@ f = L2.f;
 df = f(2) - f(1);
 iSS = f >= 0.04 & f <= 0.25;
 
-% Settling velocity for Rouse number.
-% NOTE the C2 default is Ferguson & Church's smooth-sphere value (0.4); natural
-% sand is 1.0. The default is deliberately frozen because it feeds Paper 1's
-% Bailard suspended load. See shared/settling_velocity.m.
+% Settling velocity for Rouse number, with settling_velocity's default drag
+% coefficient: natural grains, C2 = 1.0 since 2026-08-13 (it was the
+% smooth-sphere 0.4 before; see shared/settling_velocity.m). The C2 actually
+% used is returned by settling_velocity and stamped in transport_params.ws_C2.
 nu = 1e-6;
-ws = settling_velocity(D50, rho_s, rho, nu);
+[ws, ws_C2] = settling_velocity(D50, rho_s, rho, nu);
 
 % Critical Shields parameter (Soulsby & Whitehouse 1997) via the shared helper.
 % Was inlined here until 2026-08-13; the inline expression was numerically
@@ -187,11 +187,12 @@ L3.transport_params.D50_source = D50_source;
 L3.transport_params.rho_s      = rho_s;
 L3.transport_params.theta_cr   = theta_cr;
 L3.transport_params.ws         = ws;
+L3.transport_params.ws_C2      = ws_C2;   % drag coefficient used for ws (1.0 natural, 0.4 sphere)
 L3.transport_params.tau_cr     = theta_cr * (rho_s - rho) * g * D50;
 L3.transport_params.Dstar      = Dstar;
 L3.transport_params.Cd_current = Cd_current;
 L3.transport_params.rouse_stress = 'tau_m (Soulsby 1997 wave-current mean)';
-L3.transport_params.code_version = 'PUV_L3_transport/2026-08-13';
+L3.transport_params.code_version = 'PUV_L3_transport/2026-10-07';   % adds ws_C2
 
 %% Summary
 fprintf('  L3c transport proxies:\n');

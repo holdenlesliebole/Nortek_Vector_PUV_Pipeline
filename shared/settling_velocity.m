@@ -1,4 +1,4 @@
-function ws = settling_velocity(D, rho_s, rho, nu, varargin)
+function [ws, C2] = settling_velocity(D, rho_s, rho, nu, varargin)
 % SETTLING_VELOCITY  Sediment settling velocity via Ferguson & Church (2004).
 %
 %   ws = settling_velocity(D, rho_s, rho, nu)
@@ -18,6 +18,8 @@ function ws = settling_velocity(D, rho_s, rho, nu, varargin)
 %
 %   OUTPUT
 %     ws     - settling velocity (m/s)
+%     C2     - drag coefficient actually used (optional second output, so a
+%              caller can stamp it without keeping its own copy of the default)
 %
 %   WHICH C2 TO USE
 %
