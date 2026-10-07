@@ -36,8 +36,12 @@ run(fullfile(repoRoot, 'startup_puv.m'));
 % (1) Every function must resolve into this checkout. l1_qc_opts arrives with
 %     the Tvalid-in-config change; until that is merged this check fails.
 fprintf('code root = %s\n', repoRoot);
+% Sibling worktrees under .claude/worktrees can also shadow this checkout
+% (genpath from the main checkout adds them), so the list includes the
+% sediment helpers and the configs, not just the L1 code.
 for fnName = {'PUV_raw_process', 'l1_qc_opts', 'enu_to_buoy_frame', 'PUV_L2_spectral', ...
-              'PUV_L3_transport', 'rouse_number', 'PUV_L4_bispectra'}
+              'PUV_L3_transport', 'rouse_number', 'settling_velocity', 'site_grain_size', ...
+              'PUV_L4_bispectra', 'Solana_config', 'LPL_config', 'deployment_registry'}
     w = which(fnName{1});
     fprintf('  which %-18s %s\n', fnName{1}, w);
     if isempty(w) || ~startsWith(w, [repoRoot filesep])
