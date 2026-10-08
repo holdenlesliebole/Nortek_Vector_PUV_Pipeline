@@ -180,7 +180,7 @@ function s = rebuild_heading_record(reg, dep, lab, hNew, outRoot, rawRoot, bkRoo
         q = load(fullfile(bkRoot,'L1',dep,[lab '_processed.mat']),'PUV'); O = q.PUV; clear q
         if isfield(O.rotation,'declinationApplied'), error('backup L1 is already a rebuilt one'); end
 
-        cfg = copy_raw_to_local(cfg, rawRoot);
+        cfg = copy_raw_one(cfg, instr, rawRoot);
         t0 = tic; PUV = PUV_raw_process(instr, cfg);
 
         % ---- L1 check: only U/V may change, by the heading (+ any IGRF) change ----
@@ -211,6 +211,29 @@ function s = rebuild_heading_record(reg, dep, lab, hNew, outRoot, rawRoot, bkRoo
         fprintf(2, '  FAIL: %s\n', ME.message);
         for k = 1:numel(ME.stack), fprintf(2,'    %s (line %d)\n', ME.stack(k).name, ME.stack(k).line); end
     end
+end
+
+function cfg = copy_raw_one(cfg, instr, rawRoot)
+% Cache only this instrument's raw files (copy_raw_to_local copies every
+% instrument of a deployment), then require every cached file to match the
+% server by size, so a copy cut short by a dropped mount is never reused.
+    one = cfg; one.instruments = instr;
+    one = copy_raw_to_local(one, rawRoot);
+    cfg.localDataRoot = one.localDataRoot;
+    src = fullfile(cfg.rawDataRoot, instr.rawSubfolder);
+    dst = fullfile(cfg.localDataRoot, instr.rawSubfolder);
+    S = dir(src); S = S(~[S.isdir]);
+    if isempty(S), error('no raw files on the server at %s', src); end
+    nOk = 0;
+    for k = 1:numel(S)
+        d = dir(fullfile(dst, S(k).name));
+        if isempty(d) || d.bytes ~= S(k).bytes
+            error('raw cache mismatch for %s (server %d bytes, local %d)', S(k).name, S(k).bytes, ...
+                  ternary(isempty(d), -1, d(1).bytes));
+        end
+        nOk = nOk + 1;
+    end
+    fprintf('  raw cache verified: %d/%d files match the server by size (%.2f GB)\n', nOk, numel(S), sum([S.bytes])/1e9);
 end
 
 function [maxRot, maxSpd, n, med] = bearing_shift(N, O, expShift)
@@ -272,7 +295,7 @@ function s = stage_sio24a(reg, dep, lab, outRoot, rawRoot, bkRoot, stRoot)
              fullfile(outRoot,'L3',dep,[lab '_L3.mat']),        fullfile(outRoot,'L4',dep,[lab '_L4.mat']), ...
              fullfile(outRoot,'L1','diagnostics',[dep '_' lab '_L1_QC.png'])};
         backup_files(P, outRoot, bkRoot);
-        cfg = copy_raw_to_local(cfg, rawRoot);
+        cfg = copy_raw_one(cfg, instr, rawRoot);
         PUV = PUV_raw_process(instr, cfg);
         dst = fullfile(stRoot,'L1',dep,[lab '_processed.mat']);
         if ~isfolder(fileparts(dst)), mkdir(fileparts(dst)); end
