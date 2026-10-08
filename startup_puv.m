@@ -19,3 +19,6 @@ end
 dirs = dirs(keep & ~cellfun(@isempty, dirs));
 addpath(strjoin(dirs, pathsep));
 fprintf('PUV Pipeline paths added. Root: %s\n', root);
+% This is a script, so its variables land in the caller's workspace. Leave only
+% `root`, which it has always set, so callers' own variables are not clobbered.
+clear dirs skip keep s
