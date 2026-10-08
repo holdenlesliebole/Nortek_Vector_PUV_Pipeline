@@ -15,6 +15,10 @@
 %                       L3) for every registered record still carrying the
 %                       pre-2026-08-13 smooth-sphere (C2 = 0.4) ws.
 %                       l3Recs = {dep,label; ...} overrides the stale list.
+%   stage = 'L4'        L4-only rebuild, from the current L1 and L2, for the
+%                       records in L4RECS (L4 content-stale against L2, found
+%                       2026-10-07). L1-L3 are not touched.
+%                       xspecDeps = {...} lists the deployments for 'xspec'.
 %   dryRun = true       stop after PREFLIGHT; nothing is backed up or written.
 %
 % Heading changes (config, magnetic deg; old = PUV.rotation.sensor in the L1
@@ -54,6 +58,16 @@ HDG = {'COR16B','MOP158_9m', 21.6,   5.2;
        'TOR24S','MOP586_5m', 85.0,  98.8;
        'TOR24S','MOP586_7m', 94.5,  78.7};
 SIO = {'SIO24A','SIO_6m'};
+% L4 content-stale records (L4.eta.depth ~= L2.depth), 2026-10-07 scans
+L4RECS = {'IB18W','MOP055_7m'; 'IB18W','MOP045_7m'; 'IB19S','MOP055_7m'; 'IB19S','MOP045_7m';
+          'LPL23','LPL_8m'; 'LPL25B','LPL_8m'; 'SIO25C','SIO_6m'; 'SIO25D','SIO_6m'; 'SIO25E','SIO_6m';
+          'SOL23','MOP651_7m'; 'SOL23','MOP654_7m'; 'SOL25A','MOP654_7m'; 'SOL25B','MOP654_7m';
+          'TBR23','MOP580_5m'; 'TBR23','MOP580_7m'; 'TBR23','MOP586_5m'; 'TBR23','MOP586_7m';
+          'TOR23W','MOP580_5m'; 'TOR23W','MOP580_7m'; 'TOR23W','MOP586_5m'; 'TOR23W','MOP586_7m';
+          'TOR23W','MOP586_10m'; 'TOR23W','MOP586_15m'; 'TOR24S','MOP580_7m'; 'TOR24S','MOP586_10m';
+          'TOR24W','MOP586_7m'; 'TOR24W','MOP586_15m'; 'TOR25S','MOP586_10m'; 'TOR25S','MOP586_15m'};
+L4WANT = {'eta','ref','bispectra','boundwave','moments','reflection_free','pdf', ...
+          'label','deploymentName','LATLON','doffp','shorenormal'};   % as scripts/copy_to_server.m
 
 %% ===================== PREFLIGHT (aborts the whole run) =====================
 fprintf('\nPREFLIGHT\n  code root = %s\n', repoRoot);
@@ -109,6 +123,31 @@ if any(strcmp(stage, {'heading','sio24a'}))
     fprintf('      raw %s/%s*: %d files, %.2f GB\n', cfg.rawDataRoot, instr.filePrefix, numel(dd), sum([dd.bytes])/1e9);
 end
 
+if strcmp(stage, 'L4')
+    if exist('onlyRecs', 'var')
+        L4RECS = L4RECS(ismember(strcat(L4RECS(:,1),'/',L4RECS(:,2)), strcat(onlyRecs(:,1),'/',onlyRecs(:,2))), :);
+    end
+    totB = 0;
+    for r = 1:size(L4RECS,1)
+        f1 = l1path(outRoot, L4RECS{r,1}, L4RECS{r,2});
+        f2 = fullfile(outRoot,'L2',L4RECS{r,1},[L4RECS{r,2} '_L2.mat']);
+        f4 = fullfile(outRoot,'L4',L4RECS{r,1},[L4RECS{r,2} '_L4.mat']);
+        if ~isfile(f1) || ~isfile(f2) || ~isfile(f4), error('PREFLIGHT: missing L1/L2/L4 for %s/%s', L4RECS{r,:}); end
+        d4 = dir(f4); totB = totB + d4.bytes;
+        q = load(f2, 'L2'); L2 = q.L2; q = load(f4, 'L4'); L4o = q.L4; clear q
+        [l4map, info] = l4_l2_index_map(L2, L4o);   % l4map(i) = L4 index for L2 segment i, NaN if none
+        ok = ~isnan(l4map(:)) & L2.segValid(:);
+        dd = max(abs(L4o.eta.depth(l4map(ok)) - L2.depth(ok)));
+        fprintf('  %-7s %-11s L4 %.2f GB, aligned %d, stale max|eta.depth - L2.depth| %.4f m\n', ...
+            L4RECS{r,1}, L4RECS{r,2}, d4.bytes/1e9, info.identity, dd);
+        if ~info.identity, error('PREFLIGHT: %s/%s L4 not identity-aligned to L2', L4RECS{r,:}); end
+    end
+    fprintf('  %d records, L4 backup %.2f GB\n', size(L4RECS,1), totB/1e9);
+end
+if strcmp(stage, 'xspec') && exist('xspecDeps', 'var')
+    for d = xspecDeps, if ~isfile(fullfile(outRoot,'L4_xspec',d{1},'xspec.mat')), error('PREFLIGHT: no xspec for %s', d{1}); end, end
+    fprintf('  xspec deployments: %s\n', strjoin(xspecDeps, ', '));
+end
 if strcmp(stage, 'L3')
     if exist('l3Recs', 'var')
         % Explicit records (e.g. stamp-only on L3s that already carry the natural
@@ -131,7 +170,7 @@ if dryRun
 end
 
 %% ============================== STAGES =====================================
-if isempty(gcp('nocreate')) && any(strcmp(stage, {'heading','sio24a'})), parpool('Processes'); end
+if isempty(gcp('nocreate')) && any(strcmp(stage, {'heading','sio24a','L4'})), parpool('Processes'); end
 summary = {};
 switch stage
 case 'heading'
@@ -150,7 +189,14 @@ case 'heading'
 case 'sio24a'
     summary{end+1} = promote_sio24a(reg, SIO{1}, SIO{2}, outRoot, bkRoot, stRoot);
 case 'xspec'
-    summary{end+1} = rebuild_xspec('TOR24S', outRoot, bkRoot);
+    if ~exist('xspecDeps', 'var'), xspecDeps = {'TOR24S'}; end
+    for d = xspecDeps
+        summary{end+1} = rebuild_xspec(d{1}, outRoot, bkRoot); %#ok<SAGROW>
+    end
+case 'L4'
+    for r = 1:size(L4RECS,1)
+        summary{end+1} = rebuild_L4_only(L4RECS{r,1}, L4RECS{r,2}, outRoot, bkRoot, L4WANT); %#ok<SAGROW>
+    end
 case 'L3'
     for r = 1:size(LIST,1)
         summary{end+1} = regen_L3(LIST{r,1}, LIST{r,2}, outRoot, bkRoot); %#ok<SAGROW>
@@ -278,6 +324,11 @@ function [L2, L3, L4] = build_L2_L4(PUV, instr, P, bkL2, bkL3)
         end
     end
     save(P{3}, 'L3', '-v7.3');
+    L4 = build_L4(PUV, L2); save(P{4}, 'L4', '-v7.3');
+    fprintf('  L2-L4 built (%.1f min), %d/%d valid\n', toc(t0)/60, sum(L2.segValid), numel(L2.time));
+end
+
+function L4 = build_L4(PUV, L2)
     L4 = struct();
     L4.eta = PUV_L4_eta(PUV, L2);
     L4.ref = PUV_L4_reflection(PUV, L2, L4.eta);
@@ -289,8 +340,41 @@ function [L2, L3, L4] = build_L2_L4(PUV, instr, P, bkL2, bkL3)
     L4.label = PUV.label; L4.deploymentName = PUV.deploymentName;
     L4.LATLON = PUV.LATLON; L4.doffp = PUV.doffp; L4.shorenormal = L2.shorenormal;
     if isfield(L2,'mopStation'), L4.mopStation = L2.mopStation; end
-    L4.builtAt = datetime('now'); save(P{4}, 'L4', '-v7.3');
-    fprintf('  L2-L4 built (%.1f min), %d/%d valid\n', toc(t0)/60, sum(L2.segValid), numel(L2.time));
+    L4.builtAt = datetime('now');
+end
+
+function s = rebuild_L4_only(dep, lab, outRoot, bkRoot, L4WANT)
+% L4 only, from the current L1 and L2. Gates before saving: identity
+% alignment, eta.depth == L2.depth (time-matched) to 1e-9 m, every L4WANT
+% field present, Z flag ok. After saving: the file reloads and matches.
+    fprintf('\n[L4] %s/%s\n', dep, lab);
+    try
+        f4 = fullfile(outRoot,'L4',dep,[lab '_L4.mat']);
+        backup_files({f4}, outRoot, bkRoot);
+        q = load(fullfile(outRoot,'L1',dep,[lab '_processed.mat']),'PUV'); PUV = q.PUV;
+        q = load(fullfile(outRoot,'L2',dep,[lab '_L2.mat']),'L2'); L2 = q.L2; clear q
+        t0 = tic; L4 = build_L4(PUV, L2);
+        [l4map, info] = l4_l2_index_map(L2, L4);    % l4map(i) = L4 index for L2 segment i, NaN if none
+        ok = ~isnan(l4map(:)) & L2.segValid(:);
+        dd = max(abs(L4.eta.depth(l4map(ok)) - L2.depth(ok)));
+        miss = setdiff(L4WANT, fieldnames(L4));
+        qz = ztest_record_flag(L2.ztest_SS, L2.segValid);
+        chk = {};
+        if ~info.identity, chk{end+1} = 'not identity-aligned'; end
+        if ~(dd <= 1e-9), chk{end+1} = sprintf('eta.depth vs L2.depth %.3g m', dd); end
+        if ~isempty(miss), chk{end+1} = ['missing ' strjoin(miss, ',')]; end
+        if ~strcmp(qz.status, 'ok'), chk{end+1} = ['Z ' qz.status]; end
+        if ~isempty(chk), error('L4 gate failed (not saved): %s', strjoin(chk, '; ')); end
+        save(f4, 'L4', '-v7.3');
+        q = load(f4, 'L4');
+        if ~isequaln(q.L4, L4), error('reloaded L4 differs from the one saved: %s', f4); end
+        s = sprintf('%-7s %-11s PASS saved (%.1f min) | aligned 1 | max|eta.depth-L2.depth| %.1e m | fields %d/%d | Z ok | reload ok', ...
+            dep, lab, toc(t0)/60, dd, numel(L4WANT) - numel(miss), numel(L4WANT));
+    catch ME
+        s = sprintf('%-7s %-11s FAILED: %s', dep, lab, ME.message);
+        fprintf(2, '  FAIL: %s\n', ME.message);
+    end
+    fprintf('  %s\n', s);
 end
 
 function s = verify_L2_L4(dep, lab, bkL2, B, L4, expDir, D)
