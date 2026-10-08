@@ -6,6 +6,8 @@
 %                       a STAGED L1 for SIO24A (now decoded from .VEC). SIO24A's
 %                       new L1 goes to outputs/_staging_SIO24A_2026-10-07/ and
 %                       is NOT promoted by this stage.
+%                       onlyRecs = {dep,label; ...} resumes a subset; skipSIO = true
+%                       skips the SIO24A staging.
 %   stage = 'sio24a'    promote the staged SIO24A L1 and build its L2-L4
 %                       (only after its old-vs-new comparison was accepted).
 %   stage = 'xspec'     L4_xspec for TOR24S (two of its instruments changed).
@@ -133,11 +135,18 @@ if isempty(gcp('nocreate')) && any(strcmp(stage, {'heading','sio24a'})), parpool
 summary = {};
 switch stage
 case 'heading'
+    if exist('onlyRecs', 'var')   % resume: {dep, label; ...}; records not listed are left alone
+        keep = ismember(strcat(HDG(:,1),'/',HDG(:,2)), strcat(onlyRecs(:,1),'/',onlyRecs(:,2)));
+        HDG = HDG(keep, :);
+        fprintf('resuming %d heading record(s): %s\n', size(HDG,1), strjoin(strcat(HDG(:,1),'/',HDG(:,2))', ', '));
+    end
     for r = 1:size(HDG,1)
         [dep, lab, hNew] = HDG{r,1:3};
         summary{end+1} = rebuild_heading_record(reg, dep, lab, hNew, outRoot, rawRoot, bkRoot); %#ok<SAGROW>
     end
-    summary{end+1} = stage_sio24a(reg, SIO{1}, SIO{2}, outRoot, rawRoot, bkRoot, stRoot);
+    if ~exist('skipSIO','var') || ~skipSIO
+        summary{end+1} = stage_sio24a(reg, SIO{1}, SIO{2}, outRoot, rawRoot, bkRoot, stRoot);
+    end
 case 'sio24a'
     summary{end+1} = promote_sio24a(reg, SIO{1}, SIO{2}, outRoot, bkRoot, stRoot);
 case 'xspec'
@@ -204,7 +213,8 @@ function s = rebuild_heading_record(reg, dep, lab, hNew, outRoot, rawRoot, bkRoo
         if ~isempty(chk), error('L1 check failed: %s', strjoin(chk, '; ')); end
         save(P{1}, 'PUV', '-v7.3');
 
-        [L2, L3, L4] = build_L2_L4(PUV, instr, P);
+        [L2, L3, L4] = build_L2_L4(PUV, instr, P, fullfile(bkRoot,'L2',dep,[lab '_L2.mat']), ...
+                                   fullfile(bkRoot,'L3',dep,[lab '_L3.mat']));
         s = verify_L2_L4(dep, lab, fullfile(bkRoot,'L2',dep,[lab '_L2.mat']), L2, L4, -expShift, PUV.rotation.mag);
     catch ME
         s = sprintf('%-7s %-10s FAILED: %s', dep, lab, ME.message);
@@ -244,11 +254,30 @@ function [maxRot, maxSpd, n, med] = bearing_shift(N, O, expShift)
     n = sum(m); med = median(dB);
 end
 
-function [L2, L3, L4] = build_L2_L4(PUV, instr, P)
+function [L2, L3, L4] = build_L2_L4(PUV, instr, P, bkL2, bkL3)
+% bkL2/bkL3 (optional): backup files. The CDIP fetches in L2 (shore-normal)
+% and L3 (storm reference) fall back SILENTLY when the network is down, and
+% the fallback would be saved. A heading change cannot alter either, so each
+% level must match its backup on these before it is written.
     t0 = tic;
-    L2 = PUV_L2_spectral(PUV, instr, struct()); save(P{2}, 'L2', '-v7.3');
+    L2 = PUV_L2_spectral(PUV, instr, struct());
+    if nargin >= 4 && ~isempty(bkL2)
+        q = load(bkL2, 'L2');
+        if ~isfinite(L2.shorenormal) || ~isequal(L2.shorenormal, q.L2.shorenormal)
+            error('L2 shore-normal %.4g differs from backup %.4g (CDIP fetch failed?) -- L2 not saved', ...
+                  L2.shorenormal, q.L2.shorenormal);
+        end
+    end
+    save(P{2}, 'L2', '-v7.3');
     L3 = PUV_L3_bands(L2); L3 = PUV_L3_storms(L3, L2);
-    L3 = PUV_L3_transport(L3, L2); L3 = PUV_L3_currents(L3, L2); save(P{3}, 'L3', '-v7.3');
+    L3 = PUV_L3_transport(L3, L2); L3 = PUV_L3_currents(L3, L2);
+    if nargin >= 5 && ~isempty(bkL3)
+        q = load(bkL3, 'L3');
+        if ~isequaln(L3.mop, q.L3.mop) || ~isequaln(L3.events, q.L3.events)
+            error('L3 storm reference (mop/events) differs from backup (CDIP fetch failed?) -- L3 not saved');
+        end
+    end
+    save(P{3}, 'L3', '-v7.3');
     L4 = struct();
     L4.eta = PUV_L4_eta(PUV, L2);
     L4.ref = PUV_L4_reflection(PUV, L2, L4.eta);
