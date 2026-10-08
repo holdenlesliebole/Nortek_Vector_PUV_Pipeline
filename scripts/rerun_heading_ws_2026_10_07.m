@@ -170,7 +170,7 @@ if dryRun
 end
 
 %% ============================== STAGES =====================================
-if isempty(gcp('nocreate')) && any(strcmp(stage, {'heading','sio24a','L4'})), parpool('Processes'); end
+if isempty(gcp('nocreate')) && any(strcmp(stage, {'heading','sio24a'})), parpool('Processes'); end
 summary = {};
 switch stage
 case 'heading'
@@ -195,6 +195,10 @@ case 'xspec'
     end
 case 'L4'
     for r = 1:size(L4RECS,1)
+        % Fresh pool per record: on 2026-10-08 the client hung for 5.5 h in the
+        % bispectra parfor with every worker idle, and one wedged pool would
+        % otherwise stall every record after it.
+        delete(gcp('nocreate')); parpool('Processes');
         summary{end+1} = rebuild_L4_only(L4RECS{r,1}, L4RECS{r,2}, outRoot, bkRoot, L4WANT); %#ok<SAGROW>
     end
 case 'L3'
@@ -217,9 +221,15 @@ function backup_files(files, outRoot, bkRoot)
         dst = fullfile(bkRoot, extractAfter(f{1}, [outRoot filesep]));
         if isfile(dst), continue, end
         if ~isfolder(fileparts(dst)), mkdir(fileparts(dst)); end
-        copyfile(f{1}, dst);
-        a = dir(f{1}); b = dir(dst);
+        % copy to a temporary name and rename only when complete, so a run
+        % killed mid-copy can never leave a partial file that a later run
+        % would accept as the pre-change original
+        tmp = [dst '.part'];
+        if isfile(tmp), delete(tmp); end
+        copyfile(f{1}, tmp);
+        a = dir(f{1}); b = dir(tmp);
         if a.bytes ~= b.bytes, error('backup size mismatch for %s', f{1}); end
+        movefile(tmp, dst);
     end
 end
 
@@ -363,13 +373,17 @@ function s = rebuild_L4_only(dep, lab, outRoot, bkRoot, L4WANT)
         if ~info.identity, chk{end+1} = 'not identity-aligned'; end
         if ~(dd <= 1e-9), chk{end+1} = sprintf('eta.depth vs L2.depth %.3g m', dd); end
         if ~isempty(miss), chk{end+1} = ['missing ' strjoin(miss, ',')]; end
-        if ~strcmp(qz.status, 'ok'), chk{end+1} = ['Z ' qz.status]; end
+        % Z is computed from L2, which an L4-only rebuild does not touch, so
+        % its status cannot change here. 'insufficient' (too few segments for
+        % a record-level verdict, e.g. SIO25C's 17) is not a flag per
+        % ztest_record_flag; only 'FLAG' fails the gate.
+        if strcmp(qz.status, 'FLAG'), chk{end+1} = ['Z ' qz.status]; end
         if ~isempty(chk), error('L4 gate failed (not saved): %s', strjoin(chk, '; ')); end
         save(f4, 'L4', '-v7.3');
         q = load(f4, 'L4');
         if ~isequaln(q.L4, L4), error('reloaded L4 differs from the one saved: %s', f4); end
-        s = sprintf('%-7s %-11s PASS saved (%.1f min) | aligned 1 | max|eta.depth-L2.depth| %.1e m | fields %d/%d | Z ok | reload ok', ...
-            dep, lab, toc(t0)/60, dd, numel(L4WANT) - numel(miss), numel(L4WANT));
+        s = sprintf('%-7s %-11s PASS saved (%.1f min) | aligned 1 | max|eta.depth-L2.depth| %.1e m | fields %d/%d | Z %s (from L2, n %d) | reload ok', ...
+            dep, lab, toc(t0)/60, dd, numel(L4WANT) - numel(miss), numel(L4WANT), qz.status, qz.n);
     catch ME
         s = sprintf('%-7s %-11s FAILED: %s', dep, lab, ME.message);
         fprintf(2, '  FAIL: %s\n', ME.message);
