@@ -87,7 +87,7 @@ fprintf('  4 config mismatch refused                     %d\n', ok);
 old = 'c519aec';   % 2026-07-29; L2_spectral and shared/ changed after it
 [st, full] = system(sprintf('git -C "%s" rev-parse %s 2>/dev/null', repoRoot, old)); full = strtrim(full);
 sc = sidecar_path(f2); J = jsondecode(fileread(sc)); J.code.git_hash = full; J.code.dirty = false;
-fid = fopen(sc, 'w'); fwrite(fid, jsonencode(J), 'char'); fclose(fid);
+fid = fopen(sc, 'w'); fwrite(fid, jsonencode(J, 'ConvertInfAndNaN', false), 'char'); fclose(fid);
 rq = req2; rq.ackCodeLevels = {};
 r = check_prov(rq); total = total + 1; ok = st == 0 && ~r.ok && has(r, 'SOFT: L2 code changed since build commit'); pass = pass + ok;
 fprintf('  5a code change without ack refused            %d\n', ok);
@@ -124,7 +124,7 @@ L3ok = L3; L3ok.transport_params.ws_C1 = 20; L3ok.transport_params.ws_C2 = 1.1; 
 write_prov_sidecar(f3, build_provenance('L3', L3ok, struct('level','L2','path',f2), instr, kf));
 J = jsondecode(fileread(sidecar_path(f3)));
 J.external(1).sha256 = repmat('0', 1, 64);                    % as if t_tide.m had been edited since
-fid = fopen(sidecar_path(f3), 'w'); fwrite(fid, jsonencode(J), 'char'); fclose(fid);
+fid = fopen(sidecar_path(f3), 'w'); fwrite(fid, jsonencode(J, 'ConvertInfAndNaN', false), 'char'); fclose(fid);
 rq = req3; rq.ackCodeLevels = {};
 J.code.git_hash = strtrim(evalc('system(''git rev-parse HEAD'');'));
 r = check_prov(rq); total = total + 1; ok = ~r.ok && has(r, ['SOFT: external dependency ' J.external(1).name ' changed']); pass = pass + ok;

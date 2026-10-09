@@ -19,6 +19,15 @@
 %                       records in L4RECS (L4 content-stale against L2, found
 %                       2026-10-07). L1-L3 are not touched.
 %                       xspecDeps = {...} lists the deployments for 'xspec'.
+%   stage = 'combined'  one pass for the 2026-10-09 changes, with REAL provenance on
+%                       every rebuilt file: combinedRecs = {dep, label, levels; ...}
+%                       where levels is 'L3' (L3-only regen: settling velocity,
+%                       per-segment viscosity, per-fraction Rouse) or 'L2L3L4'
+%                       (fillmissing-affected; rebuilt from the current L1) or
+%                       'L3L4'. Deployments whose L4 changed get xspec rebuilt.
+%                       Backups: outputs/_pre_combined_backup_<date>/. Requires a
+%                       provenance sidecar on every input L1 and on any L2 not
+%                       rebuilt (run scripts/backfill_provenance first).
 %   dryRun = true       stop after PREFLIGHT; nothing is backed up or written.
 %
 % Heading changes (config, magnetic deg; old = PUV.rotation.sensor in the L1
@@ -144,6 +153,23 @@ if strcmp(stage, 'L4')
     end
     fprintf('  %d records, L4 backup %.2f GB\n', size(L4RECS,1), totB/1e9);
 end
+if strcmp(stage, 'combined')
+    if ~exist('combinedRecs', 'var') || isempty(combinedRecs), error('PREFLIGHT: set combinedRecs = {dep, label, levels; ...}'); end
+    bkComb = fullfile(outRoot, ['_pre_combined_backup_' char(datetime('today', 'Format', 'yyyy-MM-dd'))]);
+    nMiss = 0;
+    for r = 1:size(combinedRecs,1)
+        [dep, lab, lv] = combinedRecs{r,:};
+        if ~any(strcmp(lv, {'L3','L3L4','L2L3L4'})), error('PREFLIGHT: %s/%s levels "%s" not one of L3, L3L4, L2L3L4', dep, lab, lv); end
+        f1 = l1path(outRoot, dep, lab); f2 = fullfile(outRoot,'L2',dep,[lab '_L2.mat']); f3 = fullfile(outRoot,'L3',dep,[lab '_L3.mat']);
+        for f = {f1, f2, f3}, if ~isfile(f{1}), error('PREFLIGHT: missing %s', f{1}); end, end
+        if isempty(read_prov(f1)), fprintf('  %s/%s: L1 has no provenance sidecar\n', dep, lab); nMiss = nMiss + 1; end
+        if ~contains(lv, 'L2') && isempty(read_prov(f2)), fprintf('  %s/%s: L2 has no provenance sidecar\n', dep, lab); nMiss = nMiss + 1; end
+        fn = reg(dep); c = fn(); if ~any(strcmp({c.instruments.label}, lab)), error('PREFLIGHT: %s not in %s config', lab, dep); end
+    end
+    if nMiss > 0, error('PREFLIGHT: %d input files lack provenance; run scripts/backfill_provenance first', nMiss); end
+    [~, c1d, c2d, shd] = settling_velocity(2.5e-4, 2650, 1025, 1e-6);
+    fprintf('  %d records; settling velocity default %s (C1 %g, C2 %g); backups -> %s\n', size(combinedRecs,1), shd, c1d, c2d, bkComb);
+end
 if strcmp(stage, 'xspec') && exist('xspecDeps', 'var')
     for d = xspecDeps, if ~isfile(fullfile(outRoot,'L4_xspec',d{1},'xspec.mat')), error('PREFLIGHT: no xspec for %s', d{1}); end, end
     fprintf('  xspec deployments: %s\n', strjoin(xspecDeps, ', '));
@@ -171,6 +197,7 @@ end
 
 %% ============================== STAGES =====================================
 if isempty(gcp('nocreate')) && any(strcmp(stage, {'heading','sio24a'})), parpool('Processes'); end
+if strcmp(stage, 'L3'), warning('rerun:L3stage', 'stage L3 predates the 2026-10-09 L3 changes; use stage combined'); end
 summary = {};
 switch stage
 case 'heading'
@@ -200,6 +227,18 @@ case 'L4'
         % otherwise stall every record after it.
         delete(gcp('nocreate')); parpool('Processes');
         summary{end+1} = rebuild_L4_only(L4RECS{r,1}, L4RECS{r,2}, outRoot, bkRoot, L4WANT); %#ok<SAGROW>
+    end
+case 'combined'
+    xDeps = {};
+    for r = 1:size(combinedRecs,1)
+        [dep, lab, lv] = combinedRecs{r,:};
+        if contains(lv, 'L4'), delete(gcp('nocreate')); parpool('Processes'); end
+        [summary{end+1}, okRec] = rebuild_combined(reg, dep, lab, lv, outRoot, bkComb, L4WANT); %#ok<SAGROW>
+        if okRec && contains(lv, 'L4') && isfile(fullfile(outRoot,'L4_xspec',dep,'xspec.mat')), xDeps{end+1} = dep; end %#ok<SAGROW>
+    end
+    xDeps = unique(xDeps);
+    for k = 1:numel(xDeps)   % (for d = unique({}) would iterate once over a 0x1 cell)
+        summary{end+1} = rebuild_xspec_prov(xDeps{k}, outRoot, bkComb); %#ok<SAGROW>
     end
 case 'L3'
     for r = 1:size(LIST,1)
@@ -329,9 +368,8 @@ function [L2, L3, L4] = build_L2_L4(PUV, instr, P, bkL2, bkL3)
     L3 = PUV_L3_transport(L3, L2); L3 = PUV_L3_currents(L3, L2);
     if nargin >= 5 && ~isempty(bkL3)
         q = load(bkL3, 'L3');
-        if ~isequaln(L3.mop, q.L3.mop) || ~isequaln(L3.events, q.L3.events)
-            error('L3 storm reference (mop/events) differs from backup (CDIP fetch failed?) -- L3 not saved');
-        end
+        [okRef, why] = same_storm_reference(L3, q.L3);
+        if ~okRef, error('L3 storm reference differs from backup (%s) -- L3 not saved', why); end
     end
     save(P{3}, 'L3', '-v7.3');
     L4 = build_L4(PUV, L2); save(P{4}, 'L4', '-v7.3');
@@ -482,6 +520,142 @@ function s = rebuild_xspec(dep, outRoot, bkRoot)
         fprintf(2, '  FAIL: %s\n', ME.message);
     end
 end
+
+function [s, okRec] = rebuild_combined(reg, dep, lab, lv, outRoot, bk, L4WANT)
+% One record of the combined pass, all-or-nothing: every level is built and
+% checked in memory first; only if all pass are they saved (parents first),
+% stamped (embedded prov + sidecar with file_sha256) and reloaded.
+    fprintf('\n[combined %s] %s/%s\n', lv, dep, lab); okRec = false;
+    try
+        fn = reg(dep); cfg = fn(); instr = cfg.instruments(strcmp({cfg.instruments.label}, lab));
+        Tvalid = l1_qc_opts(cfg).Tvalid;
+        f1 = fullfile(outRoot,'L1',dep,[lab '_processed.mat']); f2 = fullfile(outRoot,'L2',dep,[lab '_L2.mat']);
+        f3 = fullfile(outRoot,'L3',dep,[lab '_L3.mat']);        f4 = fullfile(outRoot,'L4',dep,[lab '_L4.mat']);
+        todo = {f3}; if contains(lv,'L2'), todo{end+1} = f2; end; if contains(lv,'L4'), todo{end+1} = f4; end
+        backup_files(todo, outRoot, bk);
+        q = load(f2,'L2'); L2old = q.L2; q = load(f3,'L3'); L3old = q.L3; clear q
+        PUV = [];
+        if contains(lv,'L2') || contains(lv,'L4'), q = load(f1,'PUV'); PUV = q.PUV; clear q, end
+        msgs = {};
+
+        % ---- L2 (fillmissing-affected records) ----
+        if contains(lv,'L2')
+            L2 = PUV_L2_spectral(PUV, instr, struct());
+            if ~isequal(L2.time, L2old.time), error('L2 time grid changed: not saved'); end
+            if ~isequaln(L2.shorenormal, L2old.shorenormal), error('L2 shorenormal %.4g vs %.4g (CDIP fetch failed?): not saved', L2.shorenormal, L2old.shorenormal); end
+            v = L2.segValid & L2old.segValid; dHs = abs(L2.Hs(v) - L2old.Hs(v));
+            msgs{end+1} = sprintf('L2 segValid %d->%d, Hs moved on %d segs (max %.3g m)', sum(L2old.segValid), sum(L2.segValid), sum(dHs > 1e-12), max([dHs; 0]));
+        else
+            L2 = L2old;
+        end
+
+        % ---- L3 ----
+        if contains(lv,'L2')
+            L3 = PUV_L3_bands(L2); L3 = PUV_L3_storms(L3, L2);
+            L3 = PUV_L3_transport(L3, L2, struct('Tvalid', Tvalid)); L3 = PUV_L3_currents(L3, L2);
+            [okRef, why] = same_storm_reference(L3, L3old);
+            if ~okRef, error('L3 storm reference differs from before (%s): not saved', why); end
+        else
+            L3 = PUV_L3_transport(rmfield_safe(L3old, 'prov'), L2, struct('Tvalid', Tvalid));
+            [~, bad] = compare_struct(L3old, L3, {'transport_params','rouse','rouse_D16','rouse_D50','rouse_D84', ...
+                'ws','theta_cr','tau_cr','nu','T_used','mobilized','prov'}, '');
+            if ~isempty(bad), error('L3-only regen changed non-transport fields: %s', strjoin(bad, ', ')); end
+        end
+        tp = L3.transport_params; vv = L2.segValid(:) & isfinite(L3.ws(:));
+        wsChk = settling_velocity(tp.D50, tp.rho_s, 1025, L3.nu(:));
+        nuChk = seawater_nu(L3.T_used(:));
+        [~, c1d, c2d] = settling_velocity(2.5e-4, 2650, 1025, 1e-6);
+        e1 = max(abs(L3.ws(vv) - wsChk(vv)) ./ wsChk(vv)); e2 = max(abs(L3.nu(vv) - nuChk(vv)) ./ nuChk(vv));
+        if ~(e1 <= 1e-12 && e2 <= 1e-12 && tp.ws_C1 == c1d && tp.ws_C2 == c2d && all(isfinite(L3.T_used(vv))))
+            error('L3 gate failed: ws closure %.1e, nu closure %.1e, C1 %g C2 %g: not saved', e1, e2, tp.ws_C1, tp.ws_C2);
+        end
+        mobOld = mean(L3old.mobilized(L2.segValid)); mobNew = mean(L3.mobilized(L2.segValid));
+        msgs{end+1} = sprintf('L3 ws %.5f->%.5f (x%.4f), theta_cr %.5f->%.5f, mobilized %.1f%%->%.1f%%, nu med %.3e (T: %d seg, %d fallback), D_source %s', ...
+            L3old.transport_params.ws, tp.ws, tp.ws / L3old.transport_params.ws, L3old.transport_params.theta_cr, tp.theta_cr, ...
+            100*mobOld, 100*mobNew, tp.nu_median, tp.T_source.segment_Tmean, tp.T_source.record_fallback, tp.D_source);
+
+        % ---- L4 ----
+        if contains(lv,'L4')
+            L4 = build_L4(PUV, L2);
+            [l4map, info] = l4_l2_index_map(L2, L4);
+            ok = ~isnan(l4map(:)) & L2.segValid(:);
+            dd = max(abs(L4.eta.depth(l4map(ok)) - L2.depth(ok)));
+            miss = setdiff(L4WANT, fieldnames(L4)); qz = ztest_record_flag(L2.ztest_SS, L2.segValid);
+            if ~info.identity || ~(dd <= 1e-9) || ~isempty(miss) || strcmp(qz.status, 'FLAG')
+                error('L4 gate failed: aligned %d, eta.depth %.1e, missing %s, Z %s: not saved', info.identity, dd, strjoin(miss, ','), qz.status);
+            end
+            msgs{end+1} = sprintf('L4 aligned, eta.depth=L2 (%.0e), Z %s', dd, qz.status);
+        end
+
+        % ---- every level passed its gate: save, parents first, so each stamp
+        %      records its parent's NEW build_id (all-or-nothing per record) ----
+        if contains(lv,'L2'), stamp_save(f2, 'L2', L2, struct('level','L1','path',f1), instr); end
+        stamp_save(f3, 'L3', L3, struct('level','L2','path',f2), instr);
+        if contains(lv,'L4'), stamp_save(f4, 'L4', L4, struct('level','L2','path',f2), instr); end
+        okRec = true;
+        s = sprintf('%-7s %-11s %-6s PASS | %s', dep, lab, lv, strjoin(msgs, ' | '));
+    catch ME
+        s = sprintf('%-7s %-11s %-6s FAILED: %s', dep, lab, lv, ME.message);
+        fprintf(2, '  FAIL: %s\n', ME.message);
+    end
+    fprintf('  %s\n', s);
+end
+
+function stamp_save(f, varName, S, parents, instr)
+% stamp (embedded + sidecar), save, reload-check
+    S = rmfield_safe(S, 'prov');
+    prov = build_provenance(varName, S, parents, instr);
+    S.prov = prov;
+    tmpS.(varName) = S; %#ok<STRNU>
+    save(f, '-struct', 'tmpS', '-v7.3');
+    q = load(f, varName);
+    if ~isequaln(q.(varName), S), error('reloaded %s differs from the one saved: %s', varName, f); end
+    write_prov_sidecar(f, prov);
+end
+
+function s = rebuild_xspec_prov(dep, outRoot, bk)
+    fprintf('\n[xspec+prov] %s\n', dep);
+    try
+        xf = fullfile(outRoot,'L4_xspec',dep,'xspec.mat');
+        backup_files({xf}, outRoot, bk);
+        l4 = dir(fullfile(outRoot,'L4',dep,'*_L4.mat'));
+        paths = arrayfun(@(z) fullfile(z.folder,z.name), l4, 'UniformOutput', false);
+        L4xs = PUV_L4_xspec(paths, struct());
+        prov = build_provenance('L4_xspec', L4xs, struct('level', repmat({'L4'},1,numel(paths)), 'path', paths'));
+        L4xs.prov = prov; save(xf, 'L4xs', '-v7.3');
+        q = load(xf, 'L4xs'); if ~isequaln(q.L4xs, L4xs), error('reload mismatch'); end
+        write_prov_sidecar(xf, prov);
+        s = sprintf('%-7s xspec rebuilt with provenance, %d pairs', dep, numel(L4xs.pairs));
+    catch ME
+        s = sprintf('%-7s xspec FAILED: %s', dep, ME.message);
+        fprintf(2, '  FAIL: %s\n', ME.message);
+    end
+    fprintf('  %s\n', s);
+end
+
+function [ok, why] = same_storm_reference(N, O)
+% The CDIP storm reference and the storm events must carry the same DATA as
+% before (a silent CDIP fallback drops L3.mop). Compared field by field on the
+% data, so a field added by newer code (e.g. mop.source) is not a difference.
+    ok = true; why = '';
+    if isfield(O, 'mop') && ~isfield(N, 'mop'), ok = false; why = 'reference missing (CDIP fetch failed?)'; return, end
+    if isfield(O, 'mop')
+        for f = {'time','Hs','Tp','Dp','station','depth'}
+            if isfield(O.mop, f{1}) && (~isfield(N.mop, f{1}) || ~isequaln(N.mop.(f{1}), O.mop.(f{1})))
+                ok = false; why = ['mop.' f{1} ' differs']; return
+            end
+        end
+    end
+    if numel(N.events) ~= numel(O.events), ok = false; why = sprintf('%d events, was %d', numel(N.events), numel(O.events)); return, end
+    if ~isempty(O.events)
+        for f = fieldnames(O.events)'
+            if ~isequaln({N.events.(f{1})}, {O.events.(f{1})}), ok = false; why = ['events.' f{1} ' differs']; return, end
+        end
+    end
+end
+
+function S = rmfield_safe(S, f), if isfield(S, f), S = rmfield(S, f); end, end
+function v = getf(s, f, d), if isstruct(s) && isfield(s, f), v = s.(f); else, v = d; end, end
 
 function LIST = stale_L3_list(reg, outRoot, HDG, SIO)
 % Registered records whose L3 ws is the smooth-sphere value for its own D50.

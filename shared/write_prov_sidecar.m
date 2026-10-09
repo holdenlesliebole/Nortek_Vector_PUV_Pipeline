@@ -22,6 +22,8 @@ function sc = write_prov_sidecar(matPath, prov, opts)
     tmp = [sc '.part'];
     fid = fopen(tmp, 'w');
     if fid < 0, error('write_prov_sidecar:open', 'cannot write %s', tmp); end
-    fwrite(fid, jsonencode(prov, 'PrettyPrint', true), 'char'); fclose(fid);
+    % ConvertInfAndNaN false: the default writes Inf/NaN as null, which decodes to
+    % [] and would no longer compare equal (e.g. qc.opts.maxJump = Inf)
+    fwrite(fid, jsonencode(prov, 'PrettyPrint', true, 'ConvertInfAndNaN', false), 'char'); fclose(fid);
     movefile(tmp, sc);
 end

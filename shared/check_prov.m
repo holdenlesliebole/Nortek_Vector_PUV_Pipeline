@@ -227,7 +227,8 @@ function tf = values_equal(a, b)
         for k = 1:numel(fa), tf = tf && values_equal(a.(fa{k}), b.(fa{k})); end
     elseif (isnumeric(a) || islogical(a)) && (isnumeric(b) || islogical(b))
         a = double(a(:)); b = double(b(:));
-        tf = numel(a) == numel(b) && all((isnan(a) & isnan(b)) | abs(a - b) <= 1e-9 * max(1, abs(b)));
+        % a == b first: Inf - Inf is NaN, so the tolerance test alone rejects equal infinities
+        tf = numel(a) == numel(b) && all(a == b | (isnan(a) & isnan(b)) | abs(a - b) <= 1e-9 * max(1, abs(b)));
     elseif (ischar(a) || isstring(a)) && (ischar(b) || isstring(b))
         tf = strcmp(char(a), char(b));
     else
