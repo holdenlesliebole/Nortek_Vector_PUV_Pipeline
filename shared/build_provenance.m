@@ -18,7 +18,8 @@ function prov = build_provenance(level, S, parents, instr, opts)
 %
 % Fields (schema 1): schema, build_id, level, builtAt (UTC), code.git_hash,
 % code.dirty, code.repo_root, code.branch, code.matlab, code.resolved, parents,
-% applied (prov_applied), fallbacks. The sidecar adds file_sha256 when written
+% external (out-of-repo files with sha256, shared/external_deps), applied
+% (prov_applied), fallbacks. The sidecar adds file_sha256 when written
 % (write_prov_sidecar), because an embedded block cannot contain its own hash.
 %
 % WHY: on 2026-10-07/08, 29 L4 files had been built from superseded L2s, a QC
@@ -72,6 +73,13 @@ function prov = build_provenance(level, S, parents, instr, opts)
         P(end+1) = struct('level', parents(k).level, 'path', parents(k).path, 'build_id', bid); %#ok<AGROW>
     end
     prov.parents = P;
+
+    % out-of-repo files this level used, as resolved now (shared/external_deps)
+    prov.external = external_deps(level);
+    if any(strcmp({prov.external.sha256}, 'missing'))
+        error('build_provenance:external', 'external dependency not found on the path: %s', ...
+            strjoin({prov.external(strcmp({prov.external.sha256}, 'missing')).name}, ', '));
+    end
 
     [prov.applied, prov.fallbacks] = prov_applied(level, S, instr);
 end

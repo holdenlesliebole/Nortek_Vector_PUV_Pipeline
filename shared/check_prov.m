@@ -32,6 +32,7 @@ function res = check_prov(req)
 %     superseded parent -- the 29 stale L4s of 2026-10-07 would refuse here)
 % SOFT refusals clear when a pending change entry acknowledges them:
 %   - the level's code changed since the build commit
+%   - an external (out-of-repo) dependency's bytes changed since the build
 %   - the build recorded a fallback
 %   - built from uncommitted code (dirty)
 %
@@ -80,6 +81,19 @@ function res = check_prov(req)
             if st2 ~= 0 && ~any(strcmp(req.ackCodeLevels, req.level))
                 res.refusals{end+1} = sprintf('SOFT: %s code changed since build commit %s, not acknowledged by a change entry', ...
                     req.level, h(1:12));
+            end
+        end
+    end
+
+    % --- external (out-of-repo) dependencies: same files, same bytes? ---
+    if ~backfilled && isfield(P, 'external') && ~isempty(P.external) && ~any(strcmp(req.ackCodeLevels, req.level))
+        E = P.external; if iscell(E), E = [E{:}]; end
+        for k = 1:numel(E)
+            now = which(E(k).name); nowSha = 'missing';
+            if ~isempty(now) && isfile(now), nowSha = file_sha256(now); end
+            if ~strcmp(nowSha, E(k).sha256)
+                res.refusals{end+1} = sprintf('SOFT: external dependency %s changed since the build (recorded %s at %s, now %s at %s), not acknowledged', ...
+                    E(k).name, short(E(k).sha256), E(k).path, short(nowSha), now);
             end
         end
     end

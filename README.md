@@ -37,7 +37,8 @@ L2. See `docs/pipeline_levels.md` for full per-level detail.
 - **MATLAB** (developed on R2023b+). Required toolboxes:
   - **Signal Processing Toolbox** — DPSS multi-taper spectra, Welch fallback (L2)
   - **Aerospace Toolbox** — `igrfmagm` for magnetic declination / IGRF (L1 heading)
-  - **t_tide** (on the path, external) — tidal harmonic analysis in L3 only
+  - **t_tide** (on the path, external) — tidal harmonic analysis in L3 only;
+    see *External dependencies* below
   - *Mapping Toolbox is **not** required* (`igrfmagm` is an Aerospace Toolbox
     function; `decyear` was replaced by an inline calc — see PIPELINE_NOTES.md)
   - *Statistics and Machine Learning Toolbox is **not** required by the L1–L4
@@ -54,6 +55,25 @@ L2. See `docs/pipeline_levels.md` for full per-level detail.
   Either form works: the ExploreV ASCII export (`.dat`/`.sen`/`.hdr`) or the raw
   recorder binary (`.VEC`/`.vec`/`.049`), which the pipeline decodes itself — so
   **Nortek ExploreV is not required**, and neither is Windows.
+
+### External dependencies (not in this repository)
+
+L1, L2 and L4 need nothing outside this repository. **L3 needs 12 files from
+the MATLAB path** (found by a `matlab.codetools.requiredFilesAndProducts` scan of
+the L3 entry functions, 2026-10-09; the list lives in `shared/external_deps.m`):
+
+| file(s) | from | used by |
+|---|---|---|
+| `t_tide.m`, `t_predic.m`, `t_astron.m`, `t_getconsts.m`, `t_vuf.m`, `t_constituents.mat`, `t_equilib.dat`, `tide3.dat` | **t_tide Version 1.3** (header revision 29/9/14), R. Pawlowicz, B. Beardsley and S. Lentz (2002), *Computers & Geosciences* 28, 929-937; distributed by the author (UBC EOAS, "T_TIDE harmonic analysis toolbox") | `PUV_L3_currents` tidal fit |
+| `getztide2.m`, `read_MOPline2.m` | the SIO Coastal Processes lab MATLAB `toolbox/` (not public) | tide prediction; CDIP MOP reader behind `cdip_station_reference` (`PUV_L3_storms`) |
+| `get_k.m`, `xyRotate.m` | helpers those two toolbox functions call | |
+
+t_tide is not redistributed here because its licence is informal; install it
+yourself and put it on the path. Every L3 file's provenance sidecar records the
+path and SHA-256 of each of these files as used, and `scripts/copy_to_server.m`
+refuses (SOFT) an L3 whose recorded hashes differ from the files found now,
+unless a change entry acknowledges it. Without the lab toolbox, L3's storm
+reference and tide prediction are unavailable (the build records the fallback).
 
 > **Running your own deployment (any site, including non-California / reef
 > deployments with no CDIP MOP)?** Start with **`docs/NEW_DEPLOYMENT.md`** and the

@@ -14,6 +14,7 @@
 %   7 L3 carrying the smooth-sphere ws for its D50              HARD ws mismatch
 %   8 sidecar describes the file (file_sha256 present, equal)   ok via read_prov
 %   9 a file with no provenance                                 HARD no provenance
+%   10 L3 records its 12 external deps; a changed one SOFT-refuses unless acknowledged
 % Prints n/N; errors unless all pass.
 %
 % Run from PUV_Pipeline/:  >> run validation/test_provenance
@@ -113,6 +114,24 @@ write_prov_sidecar(f3, build_provenance('L3', L3, struct('level','L2','path',f2)
 req3 = base; req3.matPath = f3; req3.level = 'L3'; req3.parents = struct('level','L2','path',f2);
 r = check_prov(req3); total = total + 1; ok = ~r.ok && has(r, 'HARD: config/applied mismatch on ws'); pass = pass + ok;
 fprintf('  7 stale settling velocity refused             %d\n', ok);
+
+% 10 external (out-of-repo) dependency recorded, then changed
+J = jsondecode(fileread(sidecar_path(f3)));
+nExt = numel(J.external);
+total = total + 1; ok = nExt == 12 && all(cellfun(@(h) numel(h) == 64, {J.external.sha256})); pass = pass + ok;
+fprintf('  10a L3 stamp records 12 external deps with hashes %d\n', ok);
+L3ok = L3; L3ok.transport_params.ws_C1 = 20; L3ok.transport_params.ws_C2 = 1.1; L3 = L3ok; save(f3, 'L3', '-v7.3');
+write_prov_sidecar(f3, build_provenance('L3', L3ok, struct('level','L2','path',f2), instr, kf));
+J = jsondecode(fileread(sidecar_path(f3)));
+J.external(1).sha256 = repmat('0', 1, 64);                    % as if t_tide.m had been edited since
+fid = fopen(sidecar_path(f3), 'w'); fwrite(fid, jsonencode(J), 'char'); fclose(fid);
+rq = req3; rq.ackCodeLevels = {};
+J.code.git_hash = strtrim(evalc('system(''git rev-parse HEAD'');'));
+r = check_prov(rq); total = total + 1; ok = ~r.ok && has(r, ['SOFT: external dependency ' J.external(1).name ' changed']); pass = pass + ok;
+fprintf('  10b changed external dependency refused      %d\n', ok);
+rq.ackCodeLevels = {'L3'}; r = check_prov(rq); total = total + 1;
+ok = ~has(r, 'SOFT: external dependency'); pass = pass + ok;
+fprintf('  10c acknowledged external change passes     %d\n', ok);
 
 % 9 no provenance at all
 f9 = mk('L4', 'NOPROV_L4.mat'); x = 1; save(f9, 'x');   %#ok<NASGU>
