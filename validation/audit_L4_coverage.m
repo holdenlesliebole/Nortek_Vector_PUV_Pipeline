@@ -25,10 +25,9 @@
 %   of L2.depth (PUV_L4_eta.m), so on a content-current record the two agree
 %   EXACTLY. The check takes max |L4.eta.depth - L2.depth| over time-matched
 %   segments (via l4_l2_index_map) and calls a record stale above 1e-9 m, or
-%   where the NaN pattern differs. A second, independent signal: L4.builtAt
-%   earlier than the L2 file's mtime. L2 carries no build stamp of its own, and
-%   an mtime can move without the content moving, so this one is a lead, not
-%   a verdict; the content check is the verdict.
+%   where the NaN pattern differs. It also prints one informational count of
+%   L4s whose builtAt is older than the L2 file's mtime. L2 carries no build
+%   stamp and bulk re-saves move the mtime, so that count is not a verdict.
 %
 %   Run from PUV_Pipeline/:
 %     >> run validation/audit_L4_coverage
@@ -166,9 +165,11 @@ fprintf('\nCONTENT: %d/%d content-current (L4.eta.depth == L2.depth to %g m)\n',
 fprintf('content-stale records (%d):\n', numel(contList));
 for i = 1:numel(contList), fprintf('  %s\n', contList{i}); end
 if isempty(contList), fprintf('  none\n'); end
-fprintf('\nL4 built before its L2 file was last written (%d; a lead, not a verdict):\n', numel(stampList));
-for i = 1:numel(stampList), fprintf('  %s\n', stampList{i}); end
-if isempty(stampList), fprintf('  none\n'); end
+% Informational only. L2 carries no build stamp, and bulk L2 re-saves move the
+% mtime without moving the content: on 2026-10-08 this fired on 20 live records
+% and 9 backups, with the content check confirming 1 of 29. Not a verdict.
+fprintf('\n(info) L4 builtAt older than its L2 file mtime: %d/%d records; see content check for staleness\n', ...
+    numel(stampList), nRec);
 
 function [isCur, note] = l4_content_current(L2, L4, tol)
 % L4.eta.depth is copied verbatim from L2.depth at build time, so any
