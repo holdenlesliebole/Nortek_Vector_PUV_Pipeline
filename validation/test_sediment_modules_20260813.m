@@ -5,12 +5,13 @@
 %   Covers PUV_Pipeline/shared/{settling_velocity, rouse_number, wave_current_stress}
 %   after the 2026-08-13 sediment-module audit (see docs/audit.md).
 %
-%   THE TEST THAT MATTERS MOST is the first one. settling_velocity's default C2
-%   is 1.0, the Ferguson & Church NATURAL-GRAIN value. It was 0.4 (smooth
-%   spheres) until 2026-08-13, which was simply wrong for Torrey sand and
-%   understated Bailard q_s by 16-26% at the measured grain sizes. ws feeds q_s
-%   inversely, so if this assertion ever fails someone has changed the default
-%   and every transport number has silently moved with it.
+%   THE TEST THAT MATTERS MOST is the first one. settling_velocity's default is
+%   'natural_nominal' (Ferguson & Church C1 = 20, C2 = 1.1) since 2026-10-09; it
+%   was natural_sieve (18/1.0) from 2026-08-13 and smooth spheres (0.4) before,
+%   which understated Bailard q_s by 16-26%. ws feeds q_s inversely, so if this
+%   assertion ever fails someone has changed the default and every transport
+%   number has silently moved with it. Expected values below are written out
+%   from the formula, not taken from the function.
 %
 %   Test 11 guards the other historic failure: Paper_1/DataCodes/PUV holds a
 %   duplicate settling_velocity that shadowed the canonical one on the saved
@@ -19,26 +20,28 @@
 %
 % Author: Holden Leslie-Bole, 2026-08-13
 
-addpath('/Users/holden/Documents/Scripps/Research/PUV_Pipeline/shared');
+addpath(fullfile(fileparts(fileparts(mfilename('fullpath'))), 'shared'));   % THIS repo's shared/, not a fixed checkout
 ok = true;
 chk = @(c,msg) fprintf('%-58s %s\n', msg, char(9989*c + 10060*~c));
 
-% 1. settling_velocity default MUST be unchanged (Paper 1 depends on it)
-ws = settling_velocity(246e-6, 2650, 1025, 1e-6);
-D=246e-6; R=2650/1025-1; gg=9.81; C1=18; C2=1.0; nu=1e-6;   % C2=1.0 = natural grains
-ref = (R*gg*D^2)/(C1*nu + sqrt(0.75*C2*R*gg*D^3));
-c1 = abs(ws - ref) < 1e-12; ok = ok & c1;
-chk(c1, sprintf('settling_velocity default = natural grains (%.7f vs ref %.7f)', ws, ref));
+% 1. settling_velocity default MUST be natural_nominal (Paper 1 depends on it)
+[ws, c1used, c2used] = settling_velocity(246e-6, 2650, 1025, 1e-6);
+D=246e-6; R=2650/1025-1; gg=9.81; C1=20; C2=1.1; nu=1e-6;   % F&C nominal-diameter natural grains
+ref = (R*gg*D^2)/(C1*nu + sqrt(0.75*C2*R*gg*D^3));          % = 0.0278283 by hand
+c1 = abs(ws - ref) < 1e-12 && abs(ref - 0.0278283) < 5e-8 && c1used == 20 && c2used == 1.1; ok = ok & c1;
+chk(c1, sprintf('settling_velocity default = natural_nominal (%.7f vs ref %.7f; C1 %g C2 %g)', ws, ref, c1used, c2used));
 
 % 2. legacy 4-arg call still works with vector input
 wsv = settling_velocity([100 200 300]*1e-6, 2650, 1025, 1e-6);
 c2 = numel(wsv)==3 && all(diff(wsv)>0); ok = ok & c2;
 chk(c2, 'settling_velocity vector input, monotonic in D');
 
-% 3. explicit 'sphere' option recovers the old (wrong) value, ~18% higher
+% 3. explicit 'sphere' option recovers the pre-2026-08-13 value; 'natural' is
+%    still natural_sieve (18/1.0). Ratios to the default written out by hand.
 wsph = settling_velocity(246e-6, 2650, 1025, 1e-6, 'shape','sphere');
-c3 = abs(wsph/ws - 1.1846) < 0.01; ok = ok & c3;
-chk(c3, sprintf('C2 option: sphere/natural = %.3f (legacy was %.5f)', wsph/ws, wsph));
+wsnat = settling_velocity(246e-6, 2650, 1025, 1e-6, 'shape','natural');
+c3 = abs(wsph/ws - 1.2843) < 0.001 && abs(wsnat/ws - 1.0848) < 0.001; ok = ok & c3;
+chk(c3, sprintf('shape options: sphere/default = %.4f (1.2843), natural/default = %.4f (1.0848)', wsph/ws, wsnat/ws));
 
 % 4. rouse_number legacy 3-arg call unchanged
 P = rouse_number(0.036, 1.0, 1025);

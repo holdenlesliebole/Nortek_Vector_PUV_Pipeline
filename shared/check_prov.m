@@ -166,10 +166,20 @@ function R = config_refusals(req, P)
             end
         end
     case 'L3'
-        if isnumeric(field(A,'D50')) && isnumeric(field(A,'rho_s')) && isnumeric(field(A,'ws'))
-            [wsNow, c2Now] = settling_velocity(A.D50, A.rho_s, 1025, 1e-6);
-            R = [R chk('ws (settling_velocity now)', A.ws, wsNow)];
-            if isnumeric(field(A,'ws_C2')), R = [R chk('ws_C2', A.ws_C2, c2Now)]; end
+        % ws depends on the per-segment viscosity, so the comparable facts are the
+        % settling-velocity CONSTANTS: those recorded must equal today's default.
+        % A file with no recorded constants (built before 2026-10-07) is refused.
+        [~, c1Now, c2Now] = settling_velocity(2.5e-4, 2650, 1025, 1e-6);
+        c1 = field(A,'ws_C1'); c2 = field(A,'ws_C2');
+        if ischar(c2) && strcmp(c2, 'not recorded')
+            R{end+1} = 'HARD: config/applied mismatch on ws constants: not recorded (built before 2026-10-07)';
+        else
+            R = [R chk('ws_C2', c2, c2Now)];
+            if ischar(c1) && strcmp(c1, 'not recorded')
+                R{end+1} = sprintf('HARD: config/applied mismatch on ws_C1: not recorded, now %g', c1Now);
+            else
+                R = [R chk('ws_C1', c1, c1Now)];
+            end
         end
         if ischar(field(A,'D50_source')) && startsWith(A.D50_source, 'site_grain_size')
             try, gs = site_grain_size(I.label); R = [R chk('D50', A.D50, gs.D50)]; catch, end

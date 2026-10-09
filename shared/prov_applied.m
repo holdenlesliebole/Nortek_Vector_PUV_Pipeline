@@ -46,18 +46,18 @@ function [applied, fallbacks] = prov_applied(level, S, instr)
         applied.heading_deg        = getf(r, 'sensor', NR);
         applied.declination_deg    = getf(r, 'mag', NR);
         applied.declinationApplied = getf(r, 'declinationApplied', NR);
-        if hasInstr && strcmp(applied.coordSystem, 'ENU')
+        if ischar(applied.coordSystem) && strcmp(applied.coordSystem, 'ENU')
             applied.heading_source = 'n/a (ENU: rotated on board)';
         elseif hasInstr && isfield(instr, 'heading') && isfinite(instr.heading)
             applied.heading_source = 'config';
-        elseif hasInstr
+        elseif hasInstr && isfield(instr, 'heading')
             applied.heading_source = 'compass median (config heading NaN)';
         else
-            applied.heading_source = NR;
+            applied.heading_source = NR;   % backfill passes no build-time config
         end
         q = getf(S, 'qc', struct());
         applied.qc_opts = getf(q, 'opts', NR);
-        if hasInstr
+        if hasInstr && isfield(instr, 'doffp')   % a full build-time config, not the backfill's stub
             applied.rawFormat        = getf(instr, 'rawFormat', '');
             applied.clockSource      = getf(instr, 'clockSource', '');
             applied.clockOffsetHours = getf(instr, 'clockOffsetHours', []);
@@ -67,7 +67,7 @@ function [applied, fallbacks] = prov_applied(level, S, instr)
         applied.shorenormal = getf(S, 'shorenormal', NR);
         if hasInstr && isfield(instr, 'shorenormal') && ~isempty(instr.shorenormal) && isfinite(instr.shorenormal)
             applied.shorenormal_source = 'manual config';
-        elseif ~isempty(mopSt)
+        elseif ~isempty(mopSt) && isfield(instr, 'doffp')
             applied.shorenormal_source = ['CDIP ' mopSt ' metaShoreNormal'];
         else
             applied.shorenormal_source = NR;
@@ -88,7 +88,8 @@ function [applied, fallbacks] = prov_applied(level, S, instr)
 
     case 'L3'
         tp = getf(S, 'transport_params', struct());
-        for f = {'D50','D50_source','rho_s','theta_cr','ws','ws_C2','Dstar','Cd_current','rouse_stress','code_version'}
+        for f = {'D50','D50_source','rho_s','theta_cr','ws','ws_C1','ws_C2','ws_shape','ws_basis','nu_model', ...
+                 'nu_median','T_source','Tvalid','Dstar','D16_D50_D84','D_source','Cd_current','rouse_stress','code_version'}
             applied.(f{1}) = getf(tp, f{1}, NR);
         end
         applied.storm_reference = ternary(isfield(S, 'mop'), 'loaded', 'absent');
