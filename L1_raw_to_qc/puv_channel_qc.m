@@ -21,12 +21,14 @@ function qc = puv_channel_qc(DAT, SEN, fs, pMed, cfg, qcOpts, label)
 %   fs     sampling rate (Hz)
 %   pMed   pressure reference (dBar), from the healthy first-burst window (PUV_raw_process)
 %   cfg    deployment config; only cfg.soundSpeedRef is read here (optional scalar c, m/s)
-%   qcOpts struct of thresholds (corrMin, Tvalid, TmaxDev, TrefHours, cFactorTol)
+%   qcOpts struct of thresholds (corrMin, Tvalid, TmaxDev, TrefHours, cFactorTol,
+%          offBedDbar)
 %   label  instrument label, for warning text
 %
 % OUTPUT qc, a struct of per-sample (N x 1) fields and scalars:
 %   .valid_corr   min beam correlation >= corrMin
-%   .valid_p      pressure within [pMed/2, 2*pMed]
+%   .valid_p      pressure within [pMed/2, 2*pMed] and the sensor not moving vertically
+%                 (10-s mean within offBedDbar of the 30-min median, +-60 s)
 %   .valid_tilt   NOT flagged by the tilt-variability / absolute-tilt QC
 %   .valid_T      thermistor usable (see below)
 %   .present      the instrument actually wrote this row (U,V not NaN)
@@ -82,6 +84,18 @@ tilt_trusted = valid_T;
 %% --- per-channel masks ---
 valid_corr = min(DAT(:,12:14), [], 2) >= qcOpts.corrMin;
 valid_p    = DAT(:,15) >= pMed/2 & DAT(:,15) <= pMed*2;
+% Off-bed pressure: descent at deployment, ascent at recovery, a frame knocked loose.
+% The [pMed/2, 2*pMed] bounds pass a descent once it is half-way down (SIO24A's first
+% ~60 s, 3.1 -> 6.2 dBar at a 6.2 dBar site). A 10-s mean (averages most wave motion)
+% that departs from the 30-min running median (follows the tide) by more than
+% qcOpts.offBedDbar means the sensor itself is moving vertically. Dilated by 60 s each
+% side to cover the start and end of the transit. Off when offBedDbar is Inf or absent.
+if isfield(qcOpts, 'offBedDbar') && isfinite(qcOpts.offBedDbar)
+    p   = DAT(:,15);
+    dev = abs(movmean(p, round(10*fs), 'omitnan') - movmedian(p, round(1800*fs), 'omitnan'));
+    offBed = movmax(double(dev > qcOpts.offBedDbar), 2*round(60*fs) + 1) > 0;
+    valid_p = valid_p & ~offBed;
+end
 valid_tilt = ~(bad_tilt_var | bad_tilt_abs);
 present    = ~isnan(DAT(:,3)) & ~isnan(DAT(:,4));
 
