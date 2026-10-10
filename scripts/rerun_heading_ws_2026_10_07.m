@@ -593,6 +593,12 @@ function [s, okRec] = rebuild_combined(reg, dep, lab, lv, outRoot, bk, L4WANT)
                 'ws','theta_cr','tau_cr','nu','T_used','mobilized','prov'}, '');
             if ~isempty(bad), error('L3-only regen changed non-transport fields: %s', strjoin(bad, ', ')); end
         end
+        % the tidal depth fit must come from the NOAA predictions (as in every
+        % existing L3 but TOR24W/MOP586_10m); 't_tide' means the download failed
+        if ~isfield(L3, 'tidal') || ~isfield(L3.tidal, 'depth_source') || ~strcmp(L3.tidal.depth_source, 'NOAA')
+            error('L3 tidal depth_source is %s, not NOAA (download failed?): not saved', ...
+                char(string(getf(getf(L3,'tidal',struct()),'depth_source','absent'))));
+        end
         tp = L3.transport_params; vv = L2.segValid(:) & isfinite(L3.ws(:));
         wsChk = settling_velocity(tp.D50, tp.rho_s, 1025, L3.nu(:));
         nuChk = seawater_nu(L3.T_used(:));

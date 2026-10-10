@@ -93,6 +93,12 @@ function [applied, fallbacks] = prov_applied(level, S, instr)
             applied.(f{1}) = getf(tp, f{1}, NR);
         end
         applied.storm_reference = ternary(isfield(S, 'mop'), 'loaded', 'absent');
+        td = getf(S, 'tidal', struct());
+        applied.tidal_depth_source = getf(td, 'depth_source', NR);   % 'NOAA' expected; 't_tide' = NOAA fetch failed
+        applied.tidal_ttide_rng    = getf(td, 'ttide_rng', NR);
+        if ischar(applied.tidal_depth_source) && strcmp(applied.tidal_depth_source, 't_tide')
+            fallbacks{end+1} = 'L3 tidal depth: NOAA prediction download failed, t_tide fit used';
+        end
         if ~isempty(mopSt) && ~isfield(S, 'mop')
             fallbacks{end+1} = sprintf('L3 storm reference: CDIP %s load failed, storms from PUV only', mopSt);
         end

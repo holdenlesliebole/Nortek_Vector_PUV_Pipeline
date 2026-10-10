@@ -283,6 +283,7 @@ L3.subtidal.v(validIdx) = vMean(validIdx) - L3.tidal.v(validIdx);
 L3.tidal.vel_constituents = tidestruc_vel;
 L3.tidal.depth_constituents = tidestruc_depth;
 L3.tidal.mean_depth = d_mean;
+L3.tidal.ttide_rng = 'rng(0,''twister'') set before and restored after each t_tide call (ttide_seeded)';   % stamped in L3 provenance
 
 nReliable = sum(L3.tidal.reliable(validIdx));
 nValid = sum(validIdx);
