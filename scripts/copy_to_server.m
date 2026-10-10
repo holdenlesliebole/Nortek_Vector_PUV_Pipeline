@@ -1,17 +1,61 @@
 % copy_to_server.m
 % Author: Holden Leslie-Bole, 2026
-% Copy L2 and L3 processed .mat files to the group server, organized
-% deployment-first under Processed_HLB. Generates README.md and
-% manifest.csv. Idempotent — re-running refreshes all artifacts.
+% Copy L1-L4 and L4_xspec processed .mat files, with their provenance sidecars,
+% to the group server, organized deployment-first under Processed_HLB.
+% Generates README.md, manifest.csv and CHANGELOG.md. Idempotent.
+%
+% Optional workspace variables:
+%   dryRun        true: copy nothing and write nothing; report what WOULD be
+%                 pushed and every refusal (default false)
+%   sidecarRoot   (dry runs only) read provenance sidecars from this parallel
+%                 tree instead of beside each .mat
+%   srcRoot       outputs tree to publish (default: this repo's outputs/)
+%   destRoot      (dry runs only) a stand-in for the server tree, for testing
+%   forceReasons  containers.Map, '<level>/<deployment>/<file>' -> reason. A
+%                 refused file listed here is pushed anyway and the reason is
+%                 written into CHANGELOG.md verbatim.
+%
+% PROVENANCE GATE (2026-10-09). Every file is checked by shared/check_prov
+% against its sidecar, the current code, the current config and its current
+% parent files, and is REFUSED (not copied) when:
+%   HARD  no provenance; bytes differ from the sidecar's file_sha256
+%         ("modified outside the pipeline": outputs/ is written only by this
+%         pipeline, see docs/catalog_changes/README.md); config or derived
+%         value differs from what was applied; built from a superseded parent
+%   SOFT  level code changed since the build, a recorded fallback, or
+%         uncommitted code, unless a PENDING change entry acknowledges it
+%   CHANGE  its sha256 differs from the server manifest's and no pending
+%         change entry (docs/catalog_changes/*.md) names it
+% A refused file that already has a copy on the server is left there and
+% inventoried from the previous manifest, so manifest.csv keeps describing the
+% server. Catalog version 'YYYY-MM-DD.N'; manifest.csv gains size_bytes,
+% sha256, build_id, git_hash, backfilled, catalog_version_first; the previous
+% manifest is kept as manifests/manifest_<version>.csv.
 
 repo_root = fileparts(fileparts(mfilename('fullpath')));
 src_root  = fullfile(repo_root, 'outputs');
+if exist('srcRoot', 'var') && ~isempty(srcRoot), src_root = srcRoot; end   % e.g. run from a worktree
+% resolve symlinks (outputs/ is a symlink to ~/LocalData): dir() reports the
+% resolved folders, and relative paths must be taken against the same root
+src_root = char(java.io.File(src_root).getCanonicalPath());
 dest_root = '/Volumes/group/PUV_data/Vector/Processed_HLB';
+if ~exist('dryRun', 'var'), dryRun = false; end
+if exist('destRoot', 'var') && ~isempty(destRoot)       % testing only: a stand-in server tree
+    if ~dryRun, error('copy_to_server: destRoot override is allowed in dry runs only'); end
+    dest_root = destRoot;
+end
+if ~exist('forceReasons', 'var'), forceReasons = containers.Map(); end
+provOpts = struct();
+if exist('sidecarRoot', 'var') && ~isempty(sidecarRoot)
+    if ~dryRun, error('copy_to_server: sidecarRoot is allowed in dry runs only'); end
+    provOpts.sidecarRoot = sidecarRoot; provOpts.outRoot = src_root;
+end
+if dryRun, fprintf('\n*** DRY RUN: nothing will be copied or written ***\n\n'); end
 
 if ~isfolder(fileparts(dest_root))
     error('Server not mounted: %s', fileparts(dest_root));
 end
-if ~exist(dest_root, 'dir'); mkdir(dest_root); end
+if ~exist(dest_root, 'dir') && ~dryRun; mkdir(dest_root); end
 
 [~, git_hash] = system(sprintf('cd %s && git rev-parse --short HEAD', repo_root));
 git_hash = strtrim(git_hash);
@@ -40,12 +84,14 @@ all_files = [arrayfun(@(s) struct('level','L1',       'd', s), L1_files); ...
 % canonical ones to a dir() glob, so without this filter they would land on
 % the server and in manifest.csv indistinguishable from validated records.
 registeredNames = containers.Map('KeyType', 'char', 'ValueType', 'logical');
+cfgByName = struct();
 reg = deployment_registry();
 regKeys = keys(reg);
 for k = 1:numel(regKeys)
     try
         fn = reg(regKeys{k}); cfg = fn();
         registeredNames(cfg.name) = true;
+        cfgByName.(matlab.lang.makeValidName(cfg.name)) = cfg;
     catch
         % a config that fails to load cannot vouch for its outputs either
     end
@@ -115,6 +161,88 @@ if any(skipIncomplete)
     % absent from its own inventory (which is what happened on 2026-07-27).
 end
 
+%% Previous manifest, pending change entries, catalog version
+prevPath = fullfile(dest_root, 'manifest.csv');
+prevRows = containers.Map();
+baseline = true;
+if isfile(prevPath)
+    prevT = readtable(prevPath, 'TextType', 'string', 'Delimiter', ',');
+    baseline = ~ismember('sha256', prevT.Properties.VariableNames);
+    if ~baseline
+        for r = 1:height(prevT)
+            prevRows(char(prevT.deployment(r) + "|" + prevT.level(r) + "|" + prevT.instrument(r))) = prevT(r, :);
+        end
+    end
+end
+CE = read_change_entries(fullfile(repo_root, 'docs', 'catalog_changes'));
+catVersion = next_catalog_version(dest_root);
+fprintf('Catalog version %s | %d pending change entr%s | %s\n', catVersion, numel(CE), ...
+    ternary(numel(CE) == 1, 'y', 'ies'), ternary(baseline, ...
+    'BASELINE: server manifest has no sha256 yet, so no change-entry requirement this push', ...
+    'changed files must be named by a pending change entry'));
+
+%% Provenance gate (shared/check_prov), per file, before anything is copied
+gate = repmat(struct('rel', '', 'sha', '', 'prov', [], 'refusals', {{}}, 'notes', {{}}, ...
+                     'forced', '', 'entries', {{}}, 'changed', false), numel(all_files), 1);
+fprintf('Checking provenance of %d files (sha256 is computed locally)...\n', numel(all_files));
+for k = 1:numel(all_files)
+    level = all_files(k).level; d = all_files(k).d;
+    [~, dep] = fileparts(d.folder);
+    rel = [level '/' dep '/' d.name];
+    gate(k).rel = rel;
+    if skipIncomplete(k), continue, end
+    p = fullfile(d.folder, d.name);
+    gate(k).sha = file_sha256(p);
+    [ackCode, ackFb, ents] = entries_for(CE, rel);
+    gate(k).entries = ents;
+    req = struct('matPath', p, 'level', level, 'fileSha', gate(k).sha, 'opts', provOpts, ...
+                 'repoRoot', repo_root, 'ackCodeLevels', {ackCode}, 'ackFallback', ackFb, ...
+                 'instr', [], 'cfg', [], 'parents', struct('level', {}, 'path', {}));
+    lab = regexprep(d.name, '(_processed|_L[1-4])\.mat$', '');
+    cfgKey = matlab.lang.makeValidName(dep);
+    if isfield(cfgByName, cfgKey)
+        cfg = cfgByName.(cfgKey); req.cfg = cfg;
+        ii = find(strcmp({cfg.instruments.label}, lab), 1);
+        if ~isempty(ii), req.instr = cfg.instruments(ii); end
+    end
+    switch level
+        case 'L2',         req.parents = struct('level', 'L1', 'path', fullfile(src_root, 'L1', dep, [lab '_processed.mat']));
+        case {'L3','L4'},  req.parents = struct('level', 'L2', 'path', fullfile(src_root, 'L2', dep, [lab '_L2.mat']));
+        case 'L4_xspec'
+            m = dir(fullfile(src_root, 'L4', dep, '*_L4.mat'));
+            req.parents = struct('level', repmat({'L4'}, 1, numel(m)), ...
+                                 'path', arrayfun(@(z) fullfile(z.folder, z.name), m, 'UniformOutput', false)');
+    end
+    res = check_prov(req);
+    gate(k).prov = res.prov; gate(k).refusals = res.refusals; gate(k).notes = res.notes;
+    instrName = ternary(strcmp(level, 'L4_xspec'), 'xspec', lab);
+    key = [dep '|' level '|' instrName];
+    gate(k).changed = ~baseline && (~isKey(prevRows, key) || ~strcmp(prevRows(key).sha256, gate(k).sha));
+    if gate(k).changed && isempty(ents)
+        gate(k).refusals{end+1} = 'CHANGE: sha256 differs from the server manifest and no pending change entry names this file';
+    end
+    if ~isempty(gate(k).refusals) && isKey(forceReasons, rel)
+        gate(k).forced = forceReasons(rel);
+    end
+end
+refused = arrayfun(@(g) ~isempty(g.refusals) && isempty(g.forced), gate);
+nForced = sum(arrayfun(@(g) ~isempty(g.forced), gate));
+fprintf('\nProvenance gate: %d of %d files refused, %d forced.\n', sum(refused), sum(~skipIncomplete), nForced);
+reasonsAll = {};
+for k = find(refused)'
+    fprintf(2, '  REFUSED %s\n', gate(k).rel);
+    for r = 1:numel(gate(k).refusals)
+        fprintf(2, '      %s\n', gate(k).refusals{r});
+        reasonsAll{end+1} = regexprep(gate(k).refusals{r}, ':.*$', ''); %#ok<SAGROW>
+        reasonsAll{end} = [reasonsAll{end} ': ' regexprep(extractAfter(gate(k).refusals{r}, ': '), '\<[0-9a-f]{8,}\>|(?<![A-Za-z_])[-+]?[0-9][0-9.]*(e[-+]?[0-9]+)?', '#')];
+    end
+end
+if any(refused)
+    [u, ~, j] = unique(reasonsAll); c = accumarray(j(:), 1);
+    fprintf('\nRefusal reasons (count):\n');
+    for r = 1:numel(u), fprintf('  %4d  %s\n', c(r), u{r}); end
+end
+
 % Per-level destination subfolder name
 destSubFor = containers.Map( ...
     {'L1','L2','L3','L4','L4_xspec'}, ...
@@ -128,8 +256,32 @@ for k = 1:numel(all_files)
 
     src_path = fullfile(d.folder, d.name);
     dest_dir = fullfile(dest_root, deployment, destSubFor(level));
-    if ~exist(dest_dir, 'dir'); mkdir(dest_dir); end
+    if ~exist(dest_dir, 'dir') && ~dryRun; mkdir(dest_dir); end
     dest_path = fullfile(dest_dir, d.name);
+    g = gate(k);
+    instrKey = ternary(strcmp(level, 'L4_xspec'), 'xspec', regexprep(d.name, '(_processed|_L[1-4])\.mat$', ''));
+    prevKey = [deployment '|' level '|' instrKey];
+
+    % A file refused by the provenance gate is not pushed. A copy already on
+    % the server stays and is inventoried from the previous manifest row.
+    if refused(k)
+        if isKey(prevRows, prevKey)
+            pr = prevRows(prevKey);
+            rows(end+1, :) = {deployment, level, instrKey, pr.depth_m, string(pr.time_start), string(pr.time_end), ...
+                pr.n_segments, pr.n_valid, pr.size_MB, pr.size_bytes, string(pr.sha256), string(pr.build_id), ...
+                string(pr.git_hash), pr.backfilled, string(pr.catalog_version_first)}; %#ok<SAGROW>
+            fprintf('[%3d/%3d] %s REFUSED; server copy left in place and inventoried\n', k, numel(all_files), g.rel);
+        elseif isfile(dest_path)
+            % baseline push (old manifest has no provenance columns): still inventory the server copy
+            dd = dir(dest_path);
+            rows(end+1, :) = {deployment, level, instrKey, NaN, "", "", NaN, NaN, round(dd.bytes/1e6, 1), ...
+                dd.bytes, "", "", "", NaN, ""}; %#ok<SAGROW>
+            fprintf('[%3d/%3d] %s REFUSED; server copy left in place and inventoried (size only)\n', k, numel(all_files), g.rel);
+        else
+            fprintf('[%3d/%3d] %s REFUSED; nothing on the server\n', k, numel(all_files), g.rel);
+        end
+        continue
+    end
 
     % An incomplete local file is never pushed. If a (good) copy is already on
     % the server, inventory THAT one so the manifest still describes the server;
@@ -215,24 +367,63 @@ for k = 1:numel(all_files)
         fprintf('SKIPPED as incomplete; inventoried server copy (%.1f MB)\n', d.bytes/1e6);
     elseif skipCopy
         fprintf('skip (%.1f MB, already synced)\n', d.bytes/1e6);
+    elseif dryRun
+        fprintf('would copy (%.1f MB)\n', d.bytes/1e6);
     else
         t0 = tic;
         copyfile(src_path, dest_path);
         fprintf('%.1fs (%.1f MB)\n', toc(t0), d.bytes/1e6);
     end
+    % the provenance sidecar travels with the file (it is small; always refreshed)
+    sc = sidecar_path(src_path, provOpts);
+    if ~skipIncomplete(k) && isfile(sc) && ~dryRun
+        copyfile(sc, [dest_path '.prov.json']);
+    end
 
+    % manifest provenance columns
+    shaK = g.sha; bid = ""; gh = ""; bf = 0; first = string(catVersion);
+    if skipIncomplete(k) && isKey(prevRows, prevKey)
+        pr = prevRows(prevKey); shaK = char(pr.sha256); bid = string(pr.build_id); gh = string(pr.git_hash);
+        bf = pr.backfilled; first = string(pr.catalog_version_first);
+    elseif ~isempty(g.prov)
+        bid = string(g.prov.build_id); gh = string(g.prov.code.git_hash);
+        bf = double(isfield(g.prov, 'backfilled') && ~isempty(g.prov.backfilled));
+        if isKey(prevRows, prevKey) && strcmp(prevRows(prevKey).sha256, shaK)
+            first = string(prevRows(prevKey).catalog_version_first);
+        end
+    end
     rows(end+1, :) = {deployment, level, instr, depth_m, ...
                       string(t_start), string(t_end), n_seg, n_valid, ...
-                      round(d.bytes/1e6, 1)};                              %#ok<SAGROW>
+                      round(d.bytes/1e6, 1), d.bytes, string(shaK), bid, gh, bf, first};   %#ok<SAGROW>
 end
 
 %% Manifest
+if isempty(rows), error('copy_to_server: no files to inventory under %s', src_root); end
 T = cell2table(rows, 'VariableNames', ...
     {'deployment','level','instrument','depth_m', ...
-     'time_start','time_end','n_segments','n_valid','size_MB'});
+     'time_start','time_end','n_segments','n_valid','size_MB', ...
+     'size_bytes','sha256','build_id','git_hash','backfilled','catalog_version_first'});
 T = sortrows(T, {'deployment','level','instrument'});
+
+%% CHANGELOG.md section for this version
+changelog_section = build_changelog_section(catVersion, git_hash, gate, refused, CE, prevRows, T, baseline, dest_root);
+if dryRun
+    fprintf('\n----- CHANGELOG section that WOULD be written -----\n%s\n', changelog_section);
+    fprintf('DRY RUN complete: %d files would be inventoried; nothing was copied or written.\n', height(T));
+    return
+end
+if ~exist(fullfile(dest_root, 'manifests'), 'dir'), mkdir(fullfile(dest_root, 'manifests')); end
+if isfile(prevPath), copyfile(prevPath, fullfile(dest_root, 'manifests', ['manifest_before_' catVersion '.csv'])); end
 writetable(T, fullfile(dest_root, 'manifest.csv'));
-fprintf('\nWrote manifest.csv (%d rows)\n', height(T));
+writetable(T, fullfile(dest_root, 'manifests', ['manifest_' catVersion '.csv']));
+fprintf('\nWrote manifest.csv (%d rows), catalog version %s\n', height(T), catVersion);
+clPath = fullfile(dest_root, 'CHANGELOG.md'); old = '';
+if isfile(clPath), old = fileread(clPath); old = regexprep(old, '^# PUV catalog changelog\s*', ''); end
+fid = fopen(clPath, 'w');
+fprintf(fid, '# PUV catalog changelog\n\n%s\n%s', changelog_header(), changelog_section);
+fprintf(fid, '%s', old); fclose(fid);
+fprintf('Wrote CHANGELOG.md\n');
+mark_entries_published(CE, catVersion);
 
 %% README.md
 readme = sprintf([ ...
@@ -279,7 +470,11 @@ readme = sprintf([ ...
     '```\n' ...
     'Processed_HLB/\n' ...
     '  README.md\n' ...
-    '  manifest.csv      — per-file index (deployment, instrument, depth, time range, sizes)\n' ...
+    '  manifest.csv      — per-file index (deployment, instrument, depth, time range, sizes,\n' ...
+    '                      sha256, build_id, git_hash, backfilled, catalog_version_first)\n' ...
+    '  CHANGELOG.md      — what changed in each catalog version, and how to tell old from new\n' ...
+    '  manifests/        — every previous manifest.csv\n' ...
+    '  <file>.prov.json  — beside every .mat: how it was built (code, applied choices, parents)\n' ...
     '  <deployment>/\n' ...
     '    Level1_QC/      — *_processed.mat (raw QC''d 2 Hz timeseries)\n' ...
     '    Level2_QC/      — *_L2.mat\n' ...
@@ -334,3 +529,147 @@ total_bytes = sum(T.size_MB);
 fprintf('\nDone. %d files, %.1f MB total, %d deployments.\n', ...
     height(T), total_bytes, numel(unique(T.deployment)));
 fprintf('Destination: %s\n', dest_root);
+
+
+%% ---------------------------------------------------------------- helpers
+function s = ternary(c, a, b), if c, s = a; else, s = b; end, end
+
+function CE = read_change_entries(dirPath)
+% Pending change entries: docs/catalog_changes/*.md with a fenced block
+%   ```catalog-change
+%   status: pending
+%   files:
+%     - L4/TBR23/*
+%   code_ack:
+%     - L3: why the L3 code change does not invalidate these files
+%   fallback_ack: false
+%   ```
+    CE = struct('path', {}, 'title', {}, 'body', {}, 'files', {}, 'code_ack', {}, 'fallback_ack', {});
+    F = dir(fullfile(dirPath, '*.md'));
+    for k = 1:numel(F)
+        if strcmpi(F(k).name, 'README.md'), continue, end
+        txt = fileread(fullfile(F(k).folder, F(k).name));
+        blk = regexp(txt, '```catalog-change\s*\n(.*?)```', 'tokens', 'once');
+        if isempty(blk), continue, end
+        b = blk{1};
+        st = regexp(b, 'status:\s*(\S+)', 'tokens', 'once');
+        if isempty(st) || ~strcmpi(st{1}, 'pending'), continue, end
+        e.path = fullfile(F(k).folder, F(k).name);
+        t = regexp(txt, '^#\s*(.+?)\s*$', 'tokens', 'once', 'lineanchors'); e.title = ternary(isempty(t), F(k).name, t{1});
+        e.body = strtrim(regexprep(txt, '```catalog-change.*?```', '', 'once'));
+        e.files = list_items(b, 'files');
+        ca = list_items(b, 'code_ack');
+        e.code_ack = regexprep(ca, ':.*$', '');
+        fa = regexp(b, 'fallback_ack:\s*(\S+)', 'tokens', 'once');
+        e.fallback_ack = ~isempty(fa) && strcmpi(fa{1}, 'true');
+        CE(end+1) = e; %#ok<AGROW>
+    end
+end
+
+function items = list_items(b, key)
+    items = {};
+    seg = regexp(b, [key ':\s*\n((?:\s*-\s*[^\n]*\n?)*)'], 'tokens', 'once');
+    if isempty(seg), return, end
+    it = regexp(seg{1}, '-\s*([^\n]+)', 'tokens');
+    items = cellfun(@(c) strtrim(c{1}), it, 'UniformOutput', false);
+end
+
+function [ackCode, ackFb, ents] = entries_for(CE, rel)
+% pending entries whose file patterns match '<level>/<deployment>/<file>'
+    ackCode = {}; ackFb = false; ents = {};
+    for k = 1:numel(CE)
+        hit = false;
+        for f = 1:numel(CE(k).files)
+            rx = ['^' regexprep(regexptranslate('escape', CE(k).files{f}), '\\\*', '[^/]*') '$'];
+            if ~isempty(regexp(rel, rx, 'once')), hit = true; break, end
+        end
+        if hit
+            ents{end+1} = CE(k).title; %#ok<AGROW>
+            ackCode = union(ackCode, CE(k).code_ack);
+            ackFb = ackFb || CE(k).fallback_ack;
+        end
+    end
+end
+
+function v = next_catalog_version(dest_root)
+    today = char(datetime('today', 'Format', 'yyyy-MM-dd'));
+    n = 1; cl = fullfile(dest_root, 'CHANGELOG.md');
+    if isfile(cl)
+        t = regexp(fileread(cl), ['## ' today '\.(\d+)'], 'tokens');
+        if ~isempty(t), n = max(cellfun(@(c) str2double(c{1}), t)) + 1; end
+    end
+    v = sprintf('%s.%d', today, n);
+end
+
+function h = changelog_header()
+    h = sprintf(['Newest first. Each version lists the files whose bytes changed (by sha256\n' ...
+        'against the previous manifest), the change entries that explain them, the\n' ...
+        'applied choices that differ (from the provenance sidecars), files still\n' ...
+        'carrying a backfilled "pre-stamp" provenance, and any forced pushes.\n\n' ...
+        'HOW TO TELL AN OLD COPY FROM A NEW ONE: compute the sha256 of your copy and\n' ...
+        'look it up in manifest.csv (current) or manifests/manifest_<version>.csv. The\n' ...
+        'row gives catalog_version_first, the build_id and the git_hash; the file''s\n' ...
+        '<file>.prov.json gives the same build_id and what was applied.\n\n']);
+end
+
+function sec = build_changelog_section(v, git_hash, gate, refused, CE, prevRows, T, baseline, dest_root)
+    L = {sprintf('## %s  (%s, pipeline commit %s)\n', v, char(datetime('today', 'Format', 'yyyy-MM-dd')), git_hash)};
+    if baseline
+        L{end+1} = sprintf(['BASELINE: first manifest with sha256 and provenance columns. Files are\n' ...
+                            'recorded as they stand; no earlier hashes exist to compare against.\n\n']);
+    end
+    ch = find(arrayfun(@(g) g.changed, gate) & ~refused);
+    L{end+1} = sprintf('Changed or added files published: %d\n', numel(ch));
+    for e = 1:numel(CE)
+        mine = ch(arrayfun(@(k) any(strcmp(gate(k).entries, CE(e).title)), ch));
+        if isempty(mine), continue, end
+        L{end+1} = sprintf('\n### %s  (%d files; entry %s)\n\n%s\n', CE(e).title, numel(mine), ...
+            erase(CE(e).path, [fileparts(fileparts(CE(e).path)) filesep]), CE(e).body); %#ok<AGROW>
+        diffs = applied_diffs(gate(mine), dest_root);
+        if ~isempty(diffs), L{end+1} = sprintf('\nApplied choices that changed: %s\n', strjoin(diffs, '; ')); end %#ok<AGROW>
+    end
+    pre = arrayfun(@(g) any(strcmp(g.notes, 'pre-stamp (backfilled)')), gate) & ~refused;
+    if any(pre), L{end+1} = sprintf('\nPre-stamp (backfilled provenance, built before stamping): %d files\n', sum(pre)); end
+    fz = find(arrayfun(@(g) ~isempty(g.forced), gate));
+    for k = fz', L{end+1} = sprintf('\nFORCED %s despite: %s\n  reason: %s\n', gate(k).rel, strjoin(gate(k).refusals, ' | '), gate(k).forced); end %#ok<AGROW>
+    if any(refused)
+        L{end+1} = sprintf('\nRefused (not published; any earlier server copy kept): %d files\n', sum(refused));
+        for k = find(refused)', L{end+1} = sprintf('  - %s: %s\n', gate(k).rel, strjoin(gate(k).refusals, ' | ')); end %#ok<AGROW>
+    end
+    if ~isempty(prevRows)
+        cur = strcat(T.deployment, "|", T.level, "|", T.instrument);
+        gone = setdiff(string(keys(prevRows)), cur);
+        if ~isempty(gone), L{end+1} = sprintf('\nRemoved from the manifest: %s\n', strjoin(gone, ', ')); end
+    end
+    sec = [strjoin(L, '') newline];
+end
+
+function D = applied_diffs(G, dest_root)
+% fields of `applied` that differ between the server's current sidecar and the new one
+    D = {};
+    for k = 1:numel(G)
+        if isempty(G(k).prov), continue, end
+        parts = split(G(k).rel, '/');
+        sub = containers.Map({'L1','L2','L3','L4','L4_xspec'}, {'Level1_QC','Level2_QC','Level3_QC','Level4_QC','Level4_xspec'});
+        old = fullfile(dest_root, parts{2}, sub(parts{1}), [parts{3} '.prov.json']);
+        if ~isfile(old), continue, end
+        o = jsondecode(fileread(old));
+        if ~isfield(o, 'applied'), continue, end
+        f = union(fieldnames(o.applied), fieldnames(G(k).prov.applied));
+        for j = 1:numel(f)
+            a = []; b = [];
+            if isfield(o.applied, f{j}), a = o.applied.(f{j}); end
+            if isfield(G(k).prov.applied, f{j}), b = G(k).prov.applied.(f{j}); end
+            if ~isequaln(a, b), D{end+1} = f{j}; end %#ok<AGROW>
+        end
+    end
+    D = unique(D);
+end
+
+function mark_entries_published(CE, v)
+    for k = 1:numel(CE)
+        t = fileread(CE(k).path);
+        t = regexprep(t, '(```catalog-change\s*\n(?:.*?\n)?\s*status:\s*)pending', ['$1published ' v], 'once');
+        fid = fopen(CE(k).path, 'w'); fwrite(fid, t, 'char'); fclose(fid);
+    end
+end

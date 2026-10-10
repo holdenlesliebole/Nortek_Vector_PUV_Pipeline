@@ -153,6 +153,38 @@ if strcmp(stage, 'L4')
     end
     fprintf('  %d records, L4 backup %.2f GB\n', size(L4RECS,1), totB/1e9);
 end
+if strcmp(stage, 'combined') && exist('combL2L3L4', 'var')
+    % Build combinedRecs from the two lists ('DEP' for a single-instrument
+    % deployment, 'DEP/label' otherwise); every other registered record is L3-only.
+    combinedRecs = cell(0, 3); seen = {};
+    for pair = {{combL2L3L4, 'L2L3L4'}, {combL3L4, 'L3L4'}}
+        lst = pair{1}{1}; lv = pair{1}{2};
+        for k = 1:numel(lst)
+            [dep, lab] = expand_rec(reg, lst{k});
+            key = [dep '/' lab];
+            if any(strcmp(seen, key)), error('PREFLIGHT: %s listed twice', key); end
+            seen{end+1} = key; combinedRecs(end+1,:) = {dep, lab, lv}; %#ok<AGROW>
+        end
+    end
+    ks = reg.keys; l3only = {};
+    for i = 1:numel(ks)
+        fn = reg(ks{i}); c = fn(); if ~strcmp(c.name, ks{i}), continue, end
+        for j = 1:numel(c.instruments)
+            key = [c.name '/' c.instruments(j).label];
+            if any(strcmp(seen, key)) || ~isfile(fullfile(outRoot,'L3',c.name,[c.instruments(j).label '_L3.mat'])), continue, end
+            combinedRecs(end+1,:) = {c.name, c.instruments(j).label, 'L3'}; l3only{end+1} = key; %#ok<AGROW>
+        end
+    end
+    fprintf('  combined: %d L2L3L4, %d L3L4, %d L3-only = %d records\n', numel(combL2L3L4), numel(combL3L4), numel(l3only), size(combinedRecs,1));
+    fprintf('  L3-only set: %s\n', strjoin(l3only, ', '));
+    if exist('expectL3only', 'var') && ~isempty(setxor(l3only, expectL3only))
+        error('PREFLIGHT: derived L3-only set differs from the expected one: extra {%s}, missing {%s}', ...
+            strjoin(setdiff(l3only, expectL3only), ', '), strjoin(setdiff(expectL3only, l3only), ', '));
+    end
+    if exist('expectTotal', 'var') && size(combinedRecs,1) ~= expectTotal
+        error('PREFLIGHT: %d records, expected %d', size(combinedRecs,1), expectTotal);
+    end
+end
 if strcmp(stage, 'combined')
     if ~exist('combinedRecs', 'var') || isempty(combinedRecs), error('PREFLIGHT: set combinedRecs = {dep, label, levels; ...}'); end
     bkComb = fullfile(outRoot, ['_pre_combined_backup_' char(datetime('today', 'Format', 'yyyy-MM-dd'))]);
@@ -651,6 +683,21 @@ function [ok, why] = same_storm_reference(N, O)
         for f = fieldnames(O.events)'
             if ~isequaln({N.events.(f{1})}, {O.events.(f{1})}), ok = false; why = ['events.' f{1} ' differs']; return, end
         end
+    end
+end
+
+function [dep, lab] = expand_rec(reg, item)
+% 'DEP' (single-instrument deployment) or 'DEP/label' -> registered record
+    parts = split(item, '/'); dep = parts{1};
+    if ~isKey(reg, dep), error('PREFLIGHT: %s is not registered', dep); end
+    fn = reg(dep); c = fn(); labels = {c.instruments.label};
+    if numel(parts) == 2
+        lab = parts{2};
+        if ~any(strcmp(labels, lab)), error('PREFLIGHT: %s not in %s', lab, dep); end
+    elseif numel(labels) == 1
+        lab = labels{1};
+    else
+        error('PREFLIGHT: %s has %d instruments; name one (%s)', dep, numel(labels), strjoin(labels, ', '));
     end
 end
 
