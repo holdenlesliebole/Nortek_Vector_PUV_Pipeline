@@ -21,8 +21,9 @@
 %                       xspecDeps = {...} lists the deployments for 'xspec'.
 %   stage = 'combined'  one pass for the 2026-10-09 changes, with REAL provenance on
 %                       every rebuilt file: combinedRecs = {dep, label, levels; ...}
-%                       where levels is 'L3' (L3-only regen: settling velocity,
-%                       per-segment viscosity, per-fraction Rouse) or 'L2L3L4'
+%                       where levels is 'L3' (full L3 rebuild from the current L2:
+%                       settling velocity, per-segment viscosity, per-fraction
+%                       Rouse, seeded t_tide; bands/storms must not move) or 'L2L3L4'
 %                       (fillmissing-affected; rebuilt from the current L1) or
 %                       'L3L4'. Deployments whose L4 changed get xspec rebuilt.
 %                       Backups: outputs/_pre_combined_backup_<date>/. Requires a
@@ -581,17 +582,22 @@ function [s, okRec] = rebuild_combined(reg, dep, lab, lv, outRoot, bk, L4WANT)
             L2 = L2old;
         end
 
-        % ---- L3 ----
-        if contains(lv,'L2')
-            L3 = PUV_L3_bands(L2); L3 = PUV_L3_storms(L3, L2);
-            L3 = PUV_L3_transport(L3, L2, struct('Tvalid', Tvalid)); L3 = PUV_L3_currents(L3, L2);
-            [okRef, why] = same_storm_reference(L3, L3old);
-            if ~okRef, error('L3 storm reference differs from before (%s): not saved', why); end
-        else
-            L3 = PUV_L3_transport(rmfield_safe(L3old, 'prov'), L2, struct('Tvalid', Tvalid));
+        % ---- L3: ALWAYS a full rebuild (bands, storms, transport, currents), so every
+        %      catalog L3 comes from one code version with seeded t_tide and NOAA depth ----
+        L3 = PUV_L3_bands(L2); L3 = PUV_L3_storms(L3, L2);
+        L3 = PUV_L3_transport(L3, L2, struct('Tvalid', Tvalid)); L3 = PUV_L3_currents(L3, L2);
+        [okRef, why] = same_storm_reference(L3, L3old);
+        if ~okRef, error('L3 storm reference differs from before (%s): not saved', why); end
+        if ~contains(lv,'L2')
+            % L2 unchanged, so bands, storms and the L2-derived transport fields
+            % (Fb, shields, tau_*, Ub, uMean, vMean, Fb_cum) must not move. Allowed to
+            % change: the settling-velocity-dependent transport fields, and the
+            % tidal/subtidal fits (t_tide is seeded from 2026-10-09).
             [~, bad] = compare_struct(L3old, L3, {'transport_params','rouse','rouse_D16','rouse_D50','rouse_D84', ...
-                'ws','theta_cr','tau_cr','nu','T_used','mobilized','prov'}, '');
-            if ~isempty(bad), error('L3-only regen changed non-transport fields: %s', strjoin(bad, ', ')); end
+                'ws','theta_cr','tau_cr','nu','T_used','mobilized','tidal','subtidal','mop','events','prov'}, '');
+            if ~isempty(bad), error('L3 fields that must not move did (bands/storms/L2-derived): %s: not saved', strjoin(bad, ', ')); end
+            dT = max(abs(L3.tidal.depth_pred(:) - L3old.tidal.depth_pred(:)), [], 'omitnan');
+            msgs{end+1} = sprintf('bands/storms unchanged; tidal.depth_pred max change %.3g m (seeded t_tide)', dT);
         end
         % the tidal depth fit must come from the NOAA predictions (as in every
         % existing L3 but TOR24W/MOP586_10m); 't_tide' means the download failed
