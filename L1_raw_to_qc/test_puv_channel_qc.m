@@ -148,6 +148,8 @@ end
 
 % ---------------- helpers ----------------
 function o = default_qcopts()
+% offBedDbar is set explicitly here (l1_qc_opts defaults it to Inf, i.e. off) so the
+% off-bed detector stays exercised by scenario E.
 o = struct('corrMin',70,'Tvalid',[-2 40],'maxJump',Inf,'cFactorTol',0.002, ...
     'tiltStdMax',2,'tiltAbsMax',30,'tiltWindow',120,'offBedDbar',1.0);
 end
