@@ -19,6 +19,15 @@ function L3 = PUV_L3_currents(L3, L2)
 %   REQUIRES
 %     t_tide.m on the MATLAB path
 %
+%   DETERMINISM (2026-10-09)
+%     t_tide's default confidence intervals ('error','cboot') are Monte Carlo, and
+%     its prediction keeps only constituents above the SNR threshold, so the
+%     output depended on the caller's RNG state: two runs of the same record
+%     differed by 0.0027-0.0065 m/s against a tidal rms of 0.003-0.012 m/s. Each
+%     t_tide call (velocity and depth) now runs with rng(0,'twister'); the
+%     caller's RNG state is saved before and restored after, even on error.
+%     Method unchanged: 'cboot'. Seed: 0, twister. See test_l3_currents_determinism.
+%
 %   NOTE
 %     t_tide needs the t_tide toolbox directory on the path. If not found,
 %     this function will attempt to add it from a known location.
@@ -84,9 +93,9 @@ d_reg = interp1(t(validIdx), depth(validIdx), t_reg, 'linear', NaN);
 
 % Fill NaN gaps with linear interpolation for t_tide
 % (t_tide can handle some gaps but performs better with continuous data)
-u_filled = fillmissing(u_reg', 'linear');
-v_filled = fillmissing(v_reg', 'linear');
-d_filled = fillmissing(d_reg', 'linear');
+u_filled = fillmissing(u_reg', 'linear', 'EndValues', 'nearest');
+v_filled = fillmissing(v_reg', 'linear', 'EndValues', 'nearest');
+d_filled = fillmissing(d_reg', 'linear', 'EndValues', 'nearest');
 
 % Start time for t_tide
 t0 = t_reg(1);
@@ -96,28 +105,45 @@ else
     startVec = datevec(t0);
 end
 
-fprintf('  Running t_tide on currents (%d points, dt=%.2f hr)...\n', nReg, dt_hr);
+% Fit the tidal current only where velocity exists. The grid spans the
+% PRESSURE-valid segments, and a segment can carry pressure with dead velocity
+% (uMean NaN), so the grid can start or end in a long velocity gap. Any fill
+% there invents data (linear extrapolation a ramp, 'nearest' a constant), and
+% both bias the harmonic fit. Interior gaps inside the span are still filled
+% linearly. Predictions outside the span are NaN.
+vIdx = find(isfinite(u_reg) & isfinite(v_reg));
+if isempty(vIdx), vSpan = []; else, vSpan = vIdx(1):vIdx(end); end
+u_tidal_reg = NaN(nReg, 1);
+v_tidal_reg = NaN(nReg, 1);
+if ~isempty(vSpan)
+    tv0 = t_reg(vSpan(1));
+    if ~isempty(tv0.TimeZone), tv0 = datetime(tv0, 'TimeZone', ''); end
+    startVecV = datevec(tv0);
+end
+
+fprintf('  Running t_tide on currents (%d of %d points, dt=%.2f hr)...\n', numel(vSpan), nReg, dt_hr);
 
 %% Run t_tide on velocities (complex input: u + iv)
 try
+    if isempty(vSpan), error('no finite velocity on the grid'); end
     % Complex velocity for tidal analysis
-    z_vel = u_filled + 1i * v_filled;
+    z_vel = u_filled(vSpan) + 1i * v_filled(vSpan);
 
-    [tidestruc_vel, vel_pred] = t_tide(z_vel, ...
+    [tidestruc_vel, vel_pred] = ttide_seeded(z_vel, ...
         'interval', dt_hr, ...
-        'start time', startVec, ...
+        'start time', startVecV, ...
         'output', 'none');  % suppress text output
 
-    u_tidal_reg = real(vel_pred);
-    v_tidal_reg = imag(vel_pred);
+    u_tidal_reg(vSpan) = real(vel_pred);
+    v_tidal_reg(vSpan) = imag(vel_pred);
 
     fprintf('    Velocity: %d constituents resolved\n', length(tidestruc_vel.freq));
 
 catch ME
     warning('PUV_L3_currents:ttideFailed', ...
         't_tide velocity analysis failed: %s', ME.message);
-    u_tidal_reg = zeros(nReg, 1);
-    v_tidal_reg = zeros(nReg, 1);
+    u_tidal_reg(vSpan) = 0;
+    v_tidal_reg(vSpan) = 0;
     tidestruc_vel = struct();
 end
 
@@ -127,7 +153,7 @@ try
     d_mean = mean(d_filled, 'omitnan');
     d_anom = d_filled - d_mean;
 
-    [tidestruc_depth, d_pred] = t_tide(d_anom, ...
+    [tidestruc_depth, d_pred] = ttide_seeded(d_anom, ...
         'interval', dt_hr, ...
         'start time', startVec, ...
         'output', 'none');
@@ -214,6 +240,9 @@ for j = 1:nReg
             inGap = false;
         end
     end
+end
+if inGap && (nReg + 1 - gapStart) >= gapMinSamples      % a gap that runs to the end
+    gap_flag(max(1, gapStart - gapMinSamples):nReg) = true;
 end
 
 %% Interpolate tidal predictions back to actual segment times
@@ -321,4 +350,15 @@ fprintf('    Subtidal v: mean = %+.4f m/s (alongshore residual)\n', ...
 fprintf('    Tidal depth range: %.2f m\n', ...
     max(L3.tidal.depth_pred, [], 'omitnan') - min(L3.tidal.depth_pred, [], 'omitnan'));
 
+end
+
+
+function [ts, pred] = ttide_seeded(varargin)
+% t_tide with a fixed RNG stream (seed 0, twister) so its Monte Carlo error
+% estimate, and hence the SNR-selected prediction, is reproducible. The caller's
+% RNG state is restored on exit, including when t_tide throws.
+saved = rng;
+restore = onCleanup(@() rng(saved));
+rng(0, 'twister');
+[ts, pred] = t_tide(varargin{:});
 end

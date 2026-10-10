@@ -23,9 +23,21 @@ function [isDisputed, reason, TBL] = heading_disputed_records(deployment, label)
 % configs are unchanged; each config line carries the logged value as a
 % sourced comment. Evidence: outputs/validation/heading_audit_2026-10-07/.
 %
-% Denominator (2026-10-07): 62 catalog XYZ records; 9 switched to the logged
-% heading; of the other 53, 46 have a usable logged value and 14 of those are
-% listed here. Borderline, NOT listed (|diff| = 9.7-10.0): SOL23/MOP654_7m,
+% Denominator (2026-10-09): 62 catalog XYZ records; 9 switched to the logged
+% heading; of the other 53, 45 have a usable logged value and 12 of those are
+% listed here. Two records left the list on 2026-10-09:
+%   LPL23/LPL_8m: NO USABLE LOG VALUE. DeploymentNotes2023-2024.xls 'All Data'
+%     row 75 (S/N 15032) repeats Solana MOP651 5m row 64 (S/N 17045) in two
+%     cells, "88cm sand to PUV pressure port on deployment." and "+X onshore,
+%     96.7deg. magnetic."; its own rows 76/77 read 78 and 87 cm. Probably a
+%     template copy, so 96.7 is not a measurement. Compass 82.0 kept.
+%   TOR25S/MOP586_10m: NOT DISPUTED. Its only log value (2024-25 row 36,
+%     "+X onshore, 286.6deg magnetic using new compass on 6/5/2025", taken at
+%     recovery) contradicts the wave field, judged WITHOUT MOP: theta_PUV minus
+%     the shore-normal is -6.4 deg on the compass (235.9; every hour within
+%     +-90), +44.3 on 286.6, and -135.7 on its reciprocal 106.6. At 10 m depth
+%     refraction keeps incidence small, so the compass stands.
+% Borderline, NOT listed (|diff| = 9.7-10.0): SOL23/MOP654_7m,
 % CAT21A/CAT_isl, LPL25B/LPL_8m. TBR23/MOP580_5m differs by 179.8 deg only
 % because its compass is the documented 180 deg flip; the log agrees with the
 % applied heading to 0.3 deg, so it is not listed.
@@ -39,10 +51,6 @@ function [isDisputed, reason, TBL] = heading_disputed_records(deployment, label)
 % Author: Holden Leslie-Bole, 2026
 
 E = {
-  'TOR25S', 'MOP586_10m', 286.6, 235.9, ...
-  ['DeploymentNotes2024-2025.xls ''All Data'' row 36, S/N 16737: "+X onshore, 286.6deg ' ...
-   'magnetic using new compass on 6/5/2025." Neither value points +x onshore at face ' ...
-   'value (onshore is ~73 deg magnetic at MOP586: shore-normal 84.5 true minus 11.1 declination).']
   'TOR17D', 'MOP591_9m', 66.7, 100.3, ...
   ['SoCal_instruments_2017-2018.xls ''All Data'' row 36, S/N V0806: ''""'' (inherits ' ...
    'row 33: "66.7 deg (mag)"). Steady tilt ~(5, 12-15) deg, so the drift rule does not apply.']
@@ -59,9 +67,6 @@ E = {
   'SoCal_instruments_2015.xls ''All Data'' row 55, S/N V1181: "75 deg (63.6mag)".'
   'CDF15C', 'MOP677_9m', 62.2, 47.4, ...
   'SoCal_instruments_2015.xls ''All Data'' row 52, S/N V1053: "74 deg (62.2mag)".'
-  'LPL23',  'LPL_8m',    96.7, 82.0, ...
-  ['DeploymentNotes2023-2024.xls ''All Data'' row 75, S/N 15032: "+X onshore, 96.7deg. ' ...
-   'magnetic." The same 96.7 appears for Solana MOP651 5m (row 64); a copy error is possible.']
   'CDF15A', 'MOP677_9m', 62.2, 47.6, ...
   'SoCal_instruments_2015.xls ''All Data'' row 49, S/N V1049: "74 deg (62.2mag)".'
   'TOR24W', 'MOP586_10m', 59.5, 71.9, ...

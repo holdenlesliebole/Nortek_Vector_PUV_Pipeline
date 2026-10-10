@@ -44,9 +44,9 @@ function cfg = LPL_config(deployment_name)
             cfg.instruments(k).depth_nominal  = 8;
             cfg.instruments(k).serialNum      = 15032;
             cfg.instruments(k).latlon         = lpl_latlon;
-            cfg.instruments(k).heading        = NaN;   % auto-compute (XYZ). DISPUTED (|log - compass| > 10 deg; value left on the compass median; reported via shared/heading_disputed_records.m): DeploymentNotes2023-2024.xls 'All Data' row 75, "LosPen 8m Offshore PUV Vector" S/N 15032: "+X onshore, 96.7deg. magnetic."; compass median 82.0
+            cfg.instruments(k).heading        = NaN;   % auto-compute (XYZ); compass median 82.0. NO USABLE LOG VALUE: DeploymentNotes2023-2024.xls 'All Data' row 75, "LosPen 8m Offshore PUV Vector" S/N 15032: "+X onshore, 96.7deg. magnetic." repeats Solana 5m row 64; probable template copy (see shared/heading_disputed_records.m)
             cfg.instruments(k).clockDrift     = NaN;
-            cfg.instruments(k).doffp          = 0.88;      % meters (88 cm from notes)
+            cfg.instruments(k).doffp          = 0.88;      % meters (88 cm from notes). CAVEAT: DeploymentNotes2023-2024.xls 'All Data' row 75 (S/N 15032) "88cm sand to PUV pressure port on deployment." is identical to Solana 5m row 64 in this cell and the heading cell, so it may be a template copy; plausible against the record's own 78 cm (01/18/2024 inspection, row 76) and 87 cm (recovery, row 77), but unconfirmed
 
         case 'LPL24'
             cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector/LPL20241211-20250221';

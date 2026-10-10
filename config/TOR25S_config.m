@@ -51,7 +51,7 @@ function cfg = TOR25S_config()
     cfg.instruments(k).depth_nominal  = 10;
     cfg.instruments(k).serialNum      = 16737;
     cfg.instruments(k).latlon         = [32.93035, -117.26572];   % surveyed; DeploymentNotes2024-2025.xls 'All Data' "Torrey Pines 10m MOP586 PUV Vector" -- same jetted pipe reused, was [32.930 -117.266] (47 m off)
-    cfg.instruments(k).heading        = NaN;   % auto-compute. DISPUTED (|log - compass| > 10 deg; value left on the compass median; reported via shared/heading_disputed_records.m): DeploymentNotes2024-2025.xls 'All Data' row 36, S/N 16737: "+X onshore, 286.6deg magnetic using new compass on 6/5/2025."; compass median 235.9 (neither points onshore at face value)
+    cfg.instruments(k).heading        = NaN;   % auto-compute. compass median 235.9 kept. NOT DISPUTED: the only log value, DeploymentNotes2024-2025.xls 'All Data' row 36, S/N 16737: "+X onshore, 286.6deg magnetic using new compass on 6/5/2025.", puts waves 44 deg off the shore-normal (compass: 6.4 deg; reciprocal: from shore). PUV-only check, see shared/heading_disputed_records.m
     cfg.instruments(k).clockDrift     = NaN;
     cfg.instruments(k).doffp          = 0.86;      % meters (86 cm, redeploy 3/5/2025)
 

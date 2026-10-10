@@ -28,7 +28,15 @@ function qcOpts = l1_qc_opts(cfg)
         'cFactorTol',  0.002, ...   % below this, no sound-speed rescale is applied
         'tiltStdMax',  2, ...       % deg, rolling-std tilt-variability threshold
         'tiltAbsMax',  30, ...      % deg, absolute tilt = toppled; ALWAYS gates velocity
-        'tiltWindow',  120);        % samples for the rolling std (60 s at 2 Hz)
+        'tiltWindow',  120, ...     % samples for the rolling std (60 s at 2 Hz)
+        'offBedDbar',  Inf);        % dBar; |10-s mean - 30-min median| above this = the
+                                    % sensor is in vertical transit (descent/ascent); those
+                                    % samples, +-60 s, fail valid_p. OFF (Inf) by default:
+                                    % set 1.0 at the next deliberate L1 rebuild. Switching it
+                                    % on now would make every existing L1's stored qc.opts
+                                    % disagree with its config while changing no L2 segment
+                                    % (0 found catalog-wide, 2026-10-09). Tested at 1.0 in
+                                    % test_puv_channel_qc scenario E.
     % TmaxDev / TrefHours (deviation-from-median test, first-48h reference) are REMOVED:
     % they conflated genuine seasonal range with sensor failure and corrupted good velocity
     % at the seasonal tails. See docs/OUTSTANDING_channel_decoupling.md and puv_channel_qc.m.
