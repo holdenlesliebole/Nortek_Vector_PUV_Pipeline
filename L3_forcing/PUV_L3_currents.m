@@ -19,6 +19,15 @@ function L3 = PUV_L3_currents(L3, L2)
 %   REQUIRES
 %     t_tide.m on the MATLAB path
 %
+%   DETERMINISM (2026-10-09)
+%     t_tide's default confidence intervals ('error','cboot') are Monte Carlo, and
+%     its prediction keeps only constituents above the SNR threshold, so the
+%     output depended on the caller's RNG state: two runs of the same record
+%     differed by 0.0027-0.0065 m/s against a tidal rms of 0.003-0.012 m/s. Each
+%     t_tide call (velocity and depth) now runs with rng(0,'twister'); the
+%     caller's RNG state is saved before and restored after, even on error.
+%     Method unchanged: 'cboot'. Seed: 0, twister. See test_l3_currents_determinism.
+%
 %   NOTE
 %     t_tide needs the t_tide toolbox directory on the path. If not found,
 %     this function will attempt to add it from a known location.
@@ -120,7 +129,7 @@ try
     % Complex velocity for tidal analysis
     z_vel = u_filled(vSpan) + 1i * v_filled(vSpan);
 
-    [tidestruc_vel, vel_pred] = t_tide(z_vel, ...
+    [tidestruc_vel, vel_pred] = ttide_seeded(z_vel, ...
         'interval', dt_hr, ...
         'start time', startVecV, ...
         'output', 'none');  % suppress text output
@@ -144,7 +153,7 @@ try
     d_mean = mean(d_filled, 'omitnan');
     d_anom = d_filled - d_mean;
 
-    [tidestruc_depth, d_pred] = t_tide(d_anom, ...
+    [tidestruc_depth, d_pred] = ttide_seeded(d_anom, ...
         'interval', dt_hr, ...
         'start time', startVec, ...
         'output', 'none');
@@ -341,4 +350,15 @@ fprintf('    Subtidal v: mean = %+.4f m/s (alongshore residual)\n', ...
 fprintf('    Tidal depth range: %.2f m\n', ...
     max(L3.tidal.depth_pred, [], 'omitnan') - min(L3.tidal.depth_pred, [], 'omitnan'));
 
+end
+
+
+function [ts, pred] = ttide_seeded(varargin)
+% t_tide with a fixed RNG stream (seed 0, twister) so its Monte Carlo error
+% estimate, and hence the SNR-selected prediction, is reproducible. The caller's
+% RNG state is restored on exit, including when t_tide throws.
+saved = rng;
+restore = onCleanup(@() rng(saved));
+rng(0, 'twister');
+[ts, pred] = t_tide(varargin{:});
 end
