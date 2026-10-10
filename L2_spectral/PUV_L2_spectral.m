@@ -372,7 +372,7 @@ for i = 1:nSeg
     % Velocity-only branch: the Doppler is usable but the pressure channel is not.
     % Compute exactly the products that never needed pressure, and nothing else.
     if L2.segValid_vel(i) && ~L2.segValid_p(i)
-        uS = fillmissing(uSeg,'linear'); vS = fillmissing(vSeg,'linear'); wS = fillmissing(wSeg,'linear');
+        uS = fillmissing(uSeg, 'linear', 'EndValues', 'nearest'); vS = fillmissing(vSeg, 'linear', 'EndValues', 'nearest'); wS = fillmissing(wSeg, 'linear', 'EndValues', 'nearest');
         L2.uMean(i) = mean(uSeg,'omitnan');
         L2.vMean(i) = mean(vSeg,'omitnan');
         L2.wMean(i) = mean(wSeg,'omitnan');
@@ -404,7 +404,7 @@ for i = 1:nSeg
     % Hs_IG, Tp, Tm02 and Ef from S_eta and f alone, so it is called with NaN velocity spectra
     % and only the velocity-free fields are stored.
     if L2.segValid_p(i) && ~L2.segValid_vel(i)
-        pS = fillmissing(pSeg, 'linear');
+        pS = fillmissing(pSeg, 'linear', 'EndValues', 'nearest');
         pMean = mean(pSeg, 'omitnan');
         h_above = pMean * 1e4 / (opts.rho * opts.g);
         H = h_above + PUV.doffp;
@@ -463,10 +463,10 @@ for i = 1:nSeg
     L2.depth(i) = H;
 
     % --- Interpolate small NaN gaps ---
-    pSeg = fillmissing(pSeg, 'linear');
-    uSeg = fillmissing(uSeg, 'linear');
-    vSeg = fillmissing(vSeg, 'linear');
-    wSeg = fillmissing(wSeg, 'linear');
+    pSeg = fillmissing(pSeg, 'linear', 'EndValues', 'nearest');
+    uSeg = fillmissing(uSeg, 'linear', 'EndValues', 'nearest');
+    vSeg = fillmissing(vSeg, 'linear', 'EndValues', 'nearest');
+    wSeg = fillmissing(wSeg, 'linear', 'EndValues', 'nearest');
 
     % --- Convert pressure to meters of water ---
     pSeg_m = pSeg * 1e4 / (opts.rho * opts.g);

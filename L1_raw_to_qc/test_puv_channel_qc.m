@@ -19,6 +19,8 @@ function test_puv_channel_qc()
 %   S  genuine >8 C seasonal sweep, all sensors healthy (F6: must NOT rescale)
 %   D  on-deck warm-up before submersion               (F1/Tref: must not poison Tref)
 %   W  whole-record dead thermistor                    (F2: static-tilt must not silently no-op-and-flag)
+%   E  descent and ascent through the water column     (off-bed pressure must fail valid_p;
+%                                                        tide + waves in between must not)
 %
 % Run:  >> startup_puv;  test_puv_channel_qc
 %
@@ -123,14 +125,33 @@ else
     ok = rep('W1  no static-tilt substitution claimed when none is computable', true, 0) && ok;
 end
 
+%% ---------- E: descent at the start, ascent at the end (off-bed pressure) ----------
+% SIO24A: the first ~60 s rise 3.1 -> 6.2 dBar and pass the [pMed/2, 2*pMed] bounds once
+% half-way down. Here: 40 s descent 5.0 -> 9.4 dBar (all within the old bounds), a 1.6 dBar
+% semidiurnal tide and +-0.5 dBar 12-s waves in the middle, and a 30 s ascent at the end.
+[DAT,SEN] = synth(N, fs, 'T',15, 'corr',95, 'pitch',1.3, 'roll',-0.2, 'p',9.4, cOfT);
+t = (0:N-1)'/fs;
+pp = 9.4 + 0.8*sin(2*pi*t/(12.42*3600)) + 0.5*sin(2*pi*t/12);
+dsc = 1:round(40*fs);   asc = N-round(30*fs)+1:N;
+pp(dsc) = linspace(5.0, pp(dsc(end)+1), numel(dsc));
+pp(asc) = linspace(pp(asc(1)-1), 5.0, numel(asc));
+DAT(:,15) = pp;
+q = puv_channel_qc(DAT, SEN, fs, 9.4, cfg, qcOpts, 'E');
+mid = round(fs*600):N-round(fs*600);
+ok = rep('E1  descent samples fail valid_p',  ~any(q.valid_p(dsc)), sum(q.valid_p(dsc))) && ok;
+ok = rep('E2  ascent samples fail valid_p',   ~any(q.valid_p(asc)), sum(q.valid_p(asc))) && ok;
+ok = rep('E3  tide + waves keep valid_p (no false off-bed)', all(q.valid_p(mid)), mean(q.valid_p(mid))) && ok;
+
 fprintf('\n%s\n', repmat('-',1,68));
 if ok, fprintf('ALL PASS\n'); else, fprintf('SOME FAILED (expected against pre-fix code)\n'); end
 end
 
 % ---------------- helpers ----------------
 function o = default_qcopts()
+% offBedDbar is set explicitly here (l1_qc_opts defaults it to Inf, i.e. off) so the
+% off-bed detector stays exercised by scenario E.
 o = struct('corrMin',70,'Tvalid',[-2 40],'maxJump',Inf,'cFactorTol',0.002, ...
-    'tiltStdMax',2,'tiltAbsMax',30,'tiltWindow',120);
+    'tiltStdMax',2,'tiltAbsMax',30,'tiltWindow',120,'offBedDbar',1.0);
 end
 
 function [DAT,SEN] = synth(N, fs, varargin) %#ok<INUSL>

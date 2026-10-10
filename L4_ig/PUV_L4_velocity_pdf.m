@@ -75,7 +75,7 @@ for i = 1:nSeg
     if opts.detrend
         % linearly fill NaNs so detrend doesn't propagate them, then
         % re-mask so the filled samples are not counted in the histograms
-        seg = fillmissing(seg, 'linear');
+        seg = fillmissing(seg, 'linear', 'EndValues', 'nearest');
         seg = detrend(seg);
         seg(nanMask) = NaN;
     end

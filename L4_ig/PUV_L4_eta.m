@@ -101,7 +101,7 @@ for i = 1:nSeg
     if nanFrac > opts.nanMaxFrac
         continue
     end
-    pSeg = fillmissing(pSeg, 'linear');
+    pSeg = fillmissing(pSeg, 'linear', 'EndValues', 'nearest');
 
     % dBar → meters of water
     pSeg = pSeg * 1e4 / (opts.rho * opts.g);
