@@ -38,7 +38,7 @@ if ~exist('t_tide', 'file')
     % Try known locations
     ttidePaths = {
         fullfile(getenv('HOME'), 'Documents', 'Scripps', 'Research', ...
-            'summer 2021 Maldives research', 'old code', 't_tide_v1')
+            'toolbox', 't_tide_v1.3')
     };
     found = false;
     for p = 1:length(ttidePaths)
