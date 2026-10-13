@@ -586,8 +586,9 @@ function [s, okRec] = rebuild_combined(reg, dep, lab, lv, outRoot, bk, L4WANT)
         %      catalog L3 comes from one code version with seeded t_tide and NOAA depth ----
         L3 = PUV_L3_bands(L2); L3 = PUV_L3_storms(L3, L2);
         L3 = PUV_L3_transport(L3, L2, struct('Tvalid', Tvalid)); L3 = PUV_L3_currents(L3, L2);
-        [okRef, why] = same_storm_reference(L3, L3old);
+        [okRef, why, evMsg] = same_storm_reference(L3, L3old, contains(lv,'L2'));
         if ~okRef, error('L3 storm reference differs from before (%s): not saved', why); end
+        if ~isempty(evMsg), msgs{end+1} = evMsg; end
         if ~contains(lv,'L2')
             % L2 unchanged, so bands, storms and the L2-derived transport fields
             % (Fb, shields, tau_*, Ub, uMean, vMean, Fb_cum) must not move. Allowed to
@@ -625,7 +626,12 @@ function [s, okRec] = rebuild_combined(reg, dep, lab, lv, outRoot, bk, L4WANT)
             ok = ~isnan(l4map(:)) & L2.segValid(:);
             dd = max(abs(L4.eta.depth(l4map(ok)) - L2.depth(ok)));
             miss = setdiff(L4WANT, fieldnames(L4)); qz = ztest_record_flag(L2.ztest_SS, L2.segValid);
-            if ~info.identity || ~(dd <= 1e-9) || ~isempty(miss) || strcmp(qz.status, 'FLAG')
+            % Fail on a NEW Z flag only: a record already flagged before this run
+            % (e.g. RUBY22/MOP582_30m, dead transducer, in excluded_records) stays
+            % flagged. (Approved by HLB 2026-10-13.)
+            qzOld = ztest_record_flag(L2old.ztest_SS, L2old.segValid);
+            zNew = strcmp(qz.status, 'FLAG') && ~strcmp(qzOld.status, 'FLAG');
+            if ~info.identity || ~(dd <= 1e-9) || ~isempty(miss) || zNew
                 error('L4 gate failed: aligned %d, eta.depth %.1e, missing %s, Z %s: not saved', info.identity, dd, strjoin(miss, ','), qz.status);
             end
             msgs{end+1} = sprintf('L4 aligned, eta.depth=L2 (%.0e), Z %s', dd, qz.status);
@@ -677,11 +683,16 @@ function s = rebuild_xspec_prov(dep, outRoot, bk)
     fprintf('  %s\n', s);
 end
 
-function [ok, why] = same_storm_reference(N, O)
-% The CDIP storm reference and the storm events must carry the same DATA as
-% before (a silent CDIP fallback drops L3.mop). Compared field by field on the
-% data, so a field added by newer code (e.g. mop.source) is not a difference.
-    ok = true; why = '';
+function [ok, why, evMsg] = same_storm_reference(N, O, l2Rebuilt)
+% The CDIP storm reference must carry the same DATA as before (a silent CDIP
+% fallback drops or changes L3.mop). Compared field by field on the data, so a
+% field added by newer code (e.g. mop.source) is not a difference.
+% The storm EVENTS are computed from L2.Hs. When L2 was rebuilt (l2Rebuilt) they
+% may legitimately change (2026-10-13: the edge-gap fill fix moves Hs at storm
+% peaks), so they are reported, not gated; the reference data stays a hard gate.
+% When L2 was not rebuilt, the events must be identical. (Approved by HLB 2026-10-13.)
+    if nargin < 3, l2Rebuilt = false; end
+    ok = true; why = ''; evMsg = '';
     if isfield(O, 'mop') && ~isfield(N, 'mop'), ok = false; why = 'reference missing (CDIP fetch failed?)'; return, end
     if isfield(O, 'mop')
         for f = {'time','Hs','Tp','Dp','station','depth'}
@@ -689,6 +700,14 @@ function [ok, why] = same_storm_reference(N, O)
                 ok = false; why = ['mop.' f{1} ' differs']; return
             end
         end
+    end
+    if l2Rebuilt
+        evMsg = sprintf('storm events %d -> %d (recomputed from rebuilt L2)', numel(O.events), numel(N.events));
+        if numel(N.events) == numel(O.events) && ~isempty(O.events) && isfield(O.events, 'peak_Hs')
+            d = abs([N.events.peak_Hs] - [O.events.peak_Hs]);
+            evMsg = sprintf('%s, peak_Hs changed on %d (max %.3g m)', evMsg, sum(d > 1e-12), max([d 0]));
+        end
+        return
     end
     if numel(N.events) ~= numel(O.events), ok = false; why = sprintf('%d events, was %d', numel(N.events), numel(O.events)); return, end
     if ~isempty(O.events)
