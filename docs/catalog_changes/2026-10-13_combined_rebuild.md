@@ -1,7 +1,7 @@
 # Combined rebuild: edge-gap fills, settling velocity and viscosity, seeded tides, provenance
 
 ```catalog-change
-status: pending
+status: published 2026-10-14.1
 files:
   - L2/*/*
   - L3/*/*

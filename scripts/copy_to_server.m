@@ -618,8 +618,16 @@ function sec = build_changelog_section(v, git_hash, gate, refused, CE, prevRows,
         L{end+1} = sprintf(['BASELINE: first manifest with sha256 and provenance columns. Files are\n' ...
                             'recorded as they stand; no earlier hashes exist to compare against.\n\n']);
     end
-    ch = find(arrayfun(@(g) g.changed, gate) & ~refused);
-    L{end+1} = sprintf('Changed or added files published: %d\n', numel(ch));
+    if baseline
+        % No earlier hashes, so "changed" is unknowable; attribute every published
+        % file that a pending entry's patterns cover, so the entry text is not lost
+        % (2026-10-14: the first baseline push omitted its entry entirely).
+        ch = find(~refused & arrayfun(@(g) ~isempty(g.entries), gate));
+        L{end+1} = sprintf('Published files covered by change entries: %d (baseline: changed-vs-previous unknown)\n', numel(ch));
+    else
+        ch = find(arrayfun(@(g) g.changed, gate) & ~refused);
+        L{end+1} = sprintf('Changed or added files published: %d\n', numel(ch));
+    end
     for e = 1:numel(CE)
         mine = ch(arrayfun(@(k) any(strcmp(gate(k).entries, CE(e).title)), ch));
         if isempty(mine), continue, end
