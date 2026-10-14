@@ -18,8 +18,9 @@ fallback_ack: false
 
 All 65 catalog records were rebuilt on 2026-10-12/13 from one code version, and
 every rebuilt file now carries a provenance stamp (`<file>.prov.json`, plus an
-embedded `prov` field). Rebuilt: L2-L4 for 45 records, L3-L4 for 12, a full L3
-for all 65, and all 9 `L4_xspec` files. L1 was not rebuilt; its stamps are
+embedded `prov` field). Rebuilt: L2-L4 for all 65 records (45 on 10-12/13,
+the remaining 20 on 10-13/14, whose L2 the fill fix moved by less than 1%)
+and all 9 `L4_xspec` files. L1 was not rebuilt; its stamps are
 backfilled and say so.
 
 **Edge-gap fills.** Gap filling extrapolated a straight line past a segment
