@@ -11,6 +11,7 @@ code_ack:
   - L1: off-bed (vertical-transit) pressure QC added, OFF unless a config sets qcOpts.offBedDbar; no L1 rebuilt
   - L2: gap fills no longer extrapolate past segment edges (fillmissing EndValues 'nearest', 8 sites)
   - L3: F&C 2004 nominal-diameter settling velocity (C1 20, C2 1.1); per-segment viscosity seawater_nu(T); per-fraction Rouse; t_tide seeded (rng 0, cboot); NOAA tidal depth required; edge-gap fill fix in currents
+  - L3: (after the rebuild) t_tide fallback path moved to Research/toolbox/t_tide_v1.3 (6e70e8b); identical bytes (12/12 external-dep sha256 match the L3 stamps), no output change
   - L4: edge-gap fill fix in eta, boundwave, reflection, reflection_free, velocity_pdf
 fallback_ack: false
 ```
