@@ -13,7 +13,11 @@ function D = external_deps(level)
 %     PUV_L3_currents for the tidal fit: t_tide, t_predic, t_astron, t_getconsts,
 %     t_vuf and its data files t_constituents.mat, t_equilib.dat, tide3.dat.
 %     NOT redistributed here (its licence is informal). See README.md,
-%     "External dependencies", for the version and where to get it.
+%     "External dependencies", for the version and where to get it. Lab copy:
+%     Research/toolbox/t_tide_v1.3/ (moved 2026-10-12 from
+%     "summer 2021 Maldives research/old code/t_tide_v1/", bytes unchanged,
+%     so stamps made at the old path still pass check_prov, which compares
+%     SHA-256 only).
 %   - Research/toolbox: getztide2 (tide prediction) and read_MOPline2 (CDIP MOP
 %     reader, used by PUV_L3_storms through cdip_station_reference), which in
 %     turn need get_k and xyRotate.

@@ -69,7 +69,9 @@ the L3 entry functions, 2026-10-09; the list lives in `shared/external_deps.m`):
 | `get_k.m`, `xyRotate.m` | helpers those two toolbox functions call | |
 
 t_tide is not redistributed here because its licence is informal; install it
-yourself and put it on the path. Every L3 file's provenance sidecar records the
+yourself and put it on the path (`PUV_L3_currents` also looks in
+`~/Documents/Scripps/Research/toolbox/t_tide_v1.3/`, the lab copy, if it is
+not). Every L3 file's provenance sidecar records the
 path and SHA-256 of each of these files as used, and `scripts/copy_to_server.m`
 refuses (SOFT) an L3 whose recorded hashes differ from the files found now,
 unless a change entry acknowledges it. Without the lab toolbox, L3's storm
