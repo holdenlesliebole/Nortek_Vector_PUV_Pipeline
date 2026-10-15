@@ -2,8 +2,25 @@
 %     PUV_Pipeline_Guide.pdf). This file is retained as source material / deep reference;
 %     its L1 quality-control description predates the 2026-07 per-channel QC rework.
 %     Start newcomers on the guide.
-% PUV Pipeline — Validation Results Section
-% Drop into your paper's results section.
+% PUV Pipeline: results section, \input by compile_sections.tex.
+% HISTORICAL RECORD (status set 2026-10-15). Analyses run April-July 2026 on the
+% catalog as it then stood; none recomputed. Retracted and superseded passages
+% are marked with visible \statusnote boxes rather than deleted. Audit:
+% docs/doc_audit_2026-10-15/audit_compile_sections.md.
+\label{sec:results-status}
+
+\statusnote{\textbf{Historical results, not recomputed.} Everything in this
+section was computed between April and July 2026 on the catalog as it then stood:
+33 to 38 instruments for most subsections, 17-minute segments for the earliest
+(bulk agreement, spectral bias, Ruby2D, L3, TBR23 recovery), 61 records for the
+July hypothesis tests. Since then the catalog has been rebuilt several times:
+heading corrections (2026-05-14, 2026-07-27, 2026-10-07), \texttt{doffp},
+coordinate and clock corrections (2026-07-27/28), the edge-gap fill fix and new
+sediment physics (2026-10-09), and the full L2 to L4 rebuild for catalog
+2026-10-14.1. Treat every number below as a record of what was found at the time.
+Current versions of the model-comparison results are maintained in the
+\texttt{Wave\_model\_validation\_paper} repository, where a reconciliation
+against catalog 2026-10-14.1 was in progress on 2026-10-15.}
 
 \subsection{PUV--MOP validation}
 
@@ -13,7 +30,7 @@ Of 40 instruments across 20 deployments, 33 were processed successfully
 (82.5\%), with 7 failures attributable to hardware issues (burial, bent
 pipes, dead batteries). PUV-derived wave parameters showed strong
 agreement with the MOP wave model across all four TBR23 instruments
-(Table~\ref{tab:validation}). For instruments unaffected by biofouling,
+(the summary table planned here was never drafted). For instruments unaffected by biofouling,
 $H_s$ correlations exceeded $R^2 = 0.83$ with RMSE $<
 \SI{0.06}{\meter}$ and biases of \SIrange{+0.002}{+0.008}{\meter}. One
 instrument (MOP580 5m) exhibited lower agreement ($R^2 = 0.66$, bias $=
@@ -33,7 +50,7 @@ $S_\eta^\text{PUV}(f) / S_\eta^\text{MOP,shoaled}(f)$, averaged across
 all matched hours, revealed that the positive $H_s$ bias was concentrated
 at the swell spectral peak (\SIrange{0.04}{0.08}{\hertz}), where the
 pressure transfer function $K_p > 0.9$ and the correction is minimal
-(Table~\ref{tab:spectral_ratio}). The mid-swell band
+(table planned, never drafted). The mid-swell band
 (\SIrange{0.08}{0.14}{\hertz}) showed near-unity ratios ($0.99$--$1.03$),
 and the high-swell band (\SIrange{0.14}{0.25}{\hertz}), where the
 pressure correction is most aggressive ($K_p$ as low as $0.24$), also
@@ -43,10 +60,15 @@ increased with decreasing depth, from a band-averaged ratio of $1.17$ at
 energy relative to the shoaled MOP spectrum was \SI{4.5}{\percent} at
 \SI{8.3}{\meter} depth and \SI{8.7}{\percent} at \SI{5.5}{\meter}.
 
-The concentration of excess energy at the spectral peak---where the
-pressure correction factor is close to unity---indicates that the bias
+The concentration of excess energy at the spectral peak, where the
+pressure correction factor is close to unity, indicates that the bias
 does not originate from the pressure-to-surface-elevation transfer
 function.
+
+\statusnote{Superseded 2026-07. The apparent concentration of excess at the peak
+came from comparing spectra on mismatched frequency grids (see the retraction
+under ``MOP spectral peak broadening'' below). On the model's own frequency bins
+the excess sits near the second harmonic, $f/f_p \approx 2$.}
 
 % TODO: Insert Table \ref{tab:spectral_ratio} with band-averaged ratios
 % and Kp ranges for each instrument
@@ -62,8 +84,21 @@ function.
 % ../PUV_paper/docs/findings_hypothesis_elimination_2026-07-27.md
 \subsubsection{Hypothesis testing}
 
+\statusnote{Rewritten 2026-07-27; values partly superseded 2026-07-28. This
+subsection replaced an April version that ruled out the first three mechanisms in
+favor of the fourth. The values are from \texttt{validation/redo\_hypothesis\_elimination.m}
+as run on 2026-07-27 (72,948 hours, 61 records). After the 2026-07-28 catalog
+refresh, \texttt{Wave\_model\_validation\_paper/docs/findings\_refresh\_2026-07-28.md}
+records these values as moved (not recomputed here): $\rho(\mathit{Ur}, \nu)$
+$+0.332 \to +0.347$; $\nu$ in the most linear $H_s/h$ bin $1.000 \to 1.003$;
+the ratio at $f/f_p = 2.1$ for $H_s/h > 0.12$, $1.338 \to 1.332$; bicoherence
+ordering $-0.008 \to +0.017$ (lowest band) and $+0.285 \to +0.304$ (highest);
+$\sigma_1$ ratio $1.156 \to 1.157$; matched-grid $Q_p$ ratio $1.008 \to 1.009$.
+The verdicts did not change on that refresh. None of these has been recomputed
+on catalog 2026-10-14.1.}
+
 Four candidate mechanisms for the systematic positive bias were evaluated
-(Table~\ref{tab:hypotheses}).
+(summary table planned, never drafted).
 
 \paragraph{Nonlinear shoaling.}
 Triad interactions during shoaling transfer energy from the spectral peak to its
@@ -71,7 +106,7 @@ super-harmonic near $2f_p$. The PUV/model energy ratio, formed on the model's
 own frequency bins and binned by $f/f_p$, shows that transfer directly: a trough
 of $0.94$--$0.95$ at $f/f_p = 1.3$--$1.5$ and a maximum of $1.34$ at
 $f/f_p = 2.1$ for hours with $H_s/h > 0.12$, against $1.10$ for hours below it.
-The discrepancy is organised by the Ursell number
+The discrepancy is organized by the Ursell number
 ($\rho = +0.332$, $N = \num{72948}$ hours across 61 records) rather than by
 depth, which drops to $\rho = -0.114$ once $H_s/h$ is held fixed. Binned by
 $H_s/h$, the spectral-width ratio $\nu^\text{PUV}/\nu^\text{MOP}$ rises
@@ -79,7 +114,7 @@ monotonically from $1.000$ below $H_s/h = 0.04$ to $1.100$ above $0.20$: the
 model and the observations agree to three decimal places when the waves are
 linear, and diverge as they cease to be. Bicoherence at the swell
 self-interaction orders the harmonic excess \emph{within} fixed $H_s/h$ bands,
-from $\rho = -0.008$ below $H_s/h = 0.06$ to $\rho = +0.285$ above $0.20$ ---
+from $\rho = -0.008$ below $H_s/h = 0.06$ to $\rho = +0.285$ above $0.20$:
 flat where triad coupling cannot operate, strengthening where it can.
 
 An earlier version of this analysis correlated the Ursell number against the
@@ -182,7 +217,19 @@ concentration at the peak was itself the grid artifact described below.
 % answer wrong -- it eliminated the correct one.
 % =====================================================================
 
+\statusnote{\textbf{Retracted 2026-07-24.} The result in the next two paragraphs
+is an artifact of the comparison method, not a property of the MOP model. It was
+computed after interpolating the model's roughly 20 frequency bins onto the PUV
+grid (\texttt{validation/archive/analyze\_spectral\_shape.m}), which manufactures a
+broad, smooth peak and lowers $\int S^2\,df$. Comparing a PUV spectrum with a
+degraded copy of itself through the same path gives a $Q_p$ ratio of 1.225 and
+68\% apparent narrowing (TBR23/MOP586\_7m, 1382 segments), more than the whole
+effect reported here. On a resolution-matched grid the effect is absent; see
+``Cross-deployment confirmation'' below. The paragraphs are kept as the record of
+what was claimed. Quote nothing from them.}
+
 \paragraph{MOP spectral peak broadening.}
+
 The Goda peakedness parameter $Q_p$ was systematically higher for PUV
 spectra than for shoaled MOP spectra (median $Q_p = 1.88$ vs.\ $1.75$,
 ratio $1.07$). The PUV half-power spectral bandwidth was
@@ -200,11 +247,14 @@ initialization depth (\SI{10}{\meter}) to the instrument depth. The
 in-situ PUV measurement captures the true, narrower spectral peak shape,
 resulting in higher peak energy density and thus higher $H_s$ for a
 given total variance. This spectral broadening is a recognized property
-of discretized spectral wave models \citep[e.g.,][]{rogers2002,booij1999}
+of discretized spectral wave models (cited in the April draft by key only: \texttt{rogers2002}, \texttt{booij1999})
 and has not been previously quantified using co-located PUV observations
 in this depth range.
 
 \subsubsection{Cross-deployment confirmation}
+
+\statusnote{Rewritten after the 2026-07-24 retraction. The April version of this
+subsection reported the broadening pattern as reproduced across 11 instruments.}
 
 % RETRACTED 2026-07-25 along with the paragraph above -- see that banner.
 % Two separate problems with this subsection:
@@ -236,14 +286,27 @@ matched depths is what a shared upstream error produces.
 \subsubsection{Pipeline cross-validation: Ruby2D head-to-head}
 \label{sec:ruby2d-validation}
 
+\statusnote{April 2026, 17-minute segments. The new-pipeline side of this
+comparison used 2048-sample segments ($\Delta f = \SI{9.77e-4}{\hertz}$) and the
+L2 code of that date. The later, isolated test of each legacy fault
+(\texttt{docs/legacy\_pipeline\_defects.pdf}, 3,713 segments, 10 records) finds
+the band-averaged spread error reaching \SI{17}{\degree} at the 95th percentile
+and the $b_2$ moment, which radiation stress is built from, unreliable. The
+\SI{1}{\degree} median spread offset reported here is consistent with that, but
+the conclusion that prior Ruby2D statistics need no revision applies to $H_s$,
+$T_p$ and mean direction only. The legacy source as it now stands sets \texttt{nfft} = 2400 for both auto-
+and cross-spectra, with comments recording a change from 7200. The archived
+Ruby2D L2 reports $T_p$ at 1200, 1800 and \SI{3600}{\second}, the first three
+bins of a \SI{2.78e-4}{\hertz} grid, so it was built before that edit.}
+
 To verify that the multi-taper L2 implementation does not introduce
 biases relative to an established processing pipeline, we reprocessed
 the Ruby2D MOP582\_6m record (Torrey Pines, October 2021 to February 2022,
 $\sim$3,100 hours) and compared it segment-by-segment against the
 archived L2 product produced by an independent prior pipeline
 (\texttt{beachpeeps/PUV\_Processing}). The prior
-pipeline uses a single-periodogram estimator (Hanning window, full
-60-minute segments, $\Delta f = 0.000278$~\si{\hertz}) and applies a
+pipeline uses a single-periodogram estimator (Hann window, full
+60-minute segments, $\Delta f = \SI{2.78e-4}{\hertz}$) and applies a
 fixed cap of $K_p^2 \le 10$ to the pressure transfer function. The legacy
 record has 3,095 60-min segments; the new pipeline produces 10,903 17-min
 segments over the same record. Segments were matched on midpoint
@@ -252,7 +315,7 @@ pairs (75\%). The remaining 25\% are hours that the new pipeline rejects
 under the segment-validity criterion (\texttt{nanMaxFrac} = 0.10) but
 that the prior pipeline retains by zero-padding small NaN gaps.
 
-\begin{table}[h]
+\begin{table}[htbp]
   \centering
   \caption{Ruby2D MOP582\_6m: bulk wave parameter agreement between
     the new multi-taper pipeline and the legacy archived L2. $T_p$ statistics
@@ -285,7 +348,7 @@ scatter. The new $T_p$ shows the discrete quantization bands expected from
 $\Delta f = 0.000976$~\si{\hertz} versus the prior pipeline's
 $0.000278$~\si{\hertz}, but no systematic bias.
 
-\begin{figure}[h]
+\begin{figure}[htbp]
   \centering
   \includegraphics[width=0.85\textwidth]{Ruby2D/ruby2d_582_6m_scatter.png}
   \caption{Bulk parameter agreement between the new multi-taper pipeline
@@ -305,7 +368,7 @@ characteristic of a single-periodogram estimator in the prior pipeline,
 versus the variance reduction provided by averaging $K = 7$ DPSS tapers
 in the new pipeline. The underlying peak shapes and locations agree.
 
-\begin{figure}[h]
+\begin{figure}[htbp]
   \centering
   \includegraphics[width=0.95\textwidth]{Ruby2D/ruby2d_582_6m_spectra.png}
   \caption{Representative surface elevation spectra for Ruby2D
@@ -326,7 +389,7 @@ Second, the consistency-of-windows fix in the new cross-spectral
 calculations (auto- and cross-spectra both use the same DPSS tapers,
 unlike the prior pipeline which mixed Hanning and Hamming) does not
 produce the order-20\% directional errors that the bug analysis
-suggested were possible at this site --- the practical impact at
+suggested were possible at this site: the median impact at
 Ruby2D MOP582\_6m is approximately $1^\circ$ in spread.
 
 \subsubsection{Site-specific amplification at SIO Pier}
@@ -335,7 +398,7 @@ The SIO Pier instruments (MOP 511, ~7m depth) exhibited dramatically
 larger PUV-to-MOP spectral amplification than all other sites. The
 peak spectral density ratio ranged from 2.0 to 2.7 across four
 deployment periods (SIO24A through SIO25E), with corresponding $H_s$
-amplification of 29--36\% --- far exceeding the 1--11\% observed at
+amplification of 29--36\%, far exceeding the 1--11\% observed at
 Torrey Pines, Solana Beach, and Los Pe\~nasquitos sites at comparable
 depths.
 
@@ -348,12 +411,19 @@ predicted by the shoaled MOP spectrum.
 
 The SIO Pier PUV is located near the head of Scripps Submarine Canyon,
 where canyon-edge refraction is known to create wave energy focusing
-\citep[e.g.,][]{munk1948,shepard1950}. The canyon bifurcates nearshore,
+(the April draft cites these by bibliography key only, \texttt{munk1948} and
+\texttt{shepard1950}; the references were not identified or checked in the 2026-10
+revision). The canyon bifurcates nearshore,
 and wave focusing at the canyon head has been documented at Black's
 Beach on the adjacent fork. The MOP model, which propagates spectra
 along a relatively coarse alongshore grid, does not resolve this
 fine-scale bathymetric focusing. The PUV measurements capture the true,
 focused wave field, resulting in the observed amplification.
+
+\statusnote{The comparison with ``universal spectral peak broadening'' in the next
+paragraph refers to the result retracted on 2026-07-24. The SIO amplification
+itself was measured on the then-current spectra; whether it survives the
+resolution-matched comparison was not checked in this document.}
 
 This site-specific effect is distinct from the universal spectral peak
 broadening described above. While broadening produces a modest
@@ -362,6 +432,16 @@ canyon focusing at SIO produces an order-of-magnitude larger
 amplification that is unique to that location.
 
 \subsection{L3 wave forcing characterization}
+
+\statusnote{April 2026, 33 instruments, 17-minute segments. The Rouse numbers
+below were computed from the oscillatory wave-stress amplitude, which overstated
+suspension; since 2026-08-13 the Rouse number uses the mean combined
+wave--current stress, and the corrected values are larger (median 41.5 against
+4.8 at TBR23 MOP580\_5m). The bedload conclusion is unchanged in sign, but the
+quoted range is obsolete. Shields values used $D_{50} = \SI{0.25}{\milli\meter}$
+everywhere; TBR23 now uses measured grain sizes. The ``UTC clock convention''
+was confirmed for the instruments tested here; the pre-2019 file-name clocks
+were later found to be Pacific local time.}
 
 \subsubsection{Energy band decomposition}
 
@@ -411,6 +491,17 @@ with continuous records, confirming the UTC clock convention and
 validating the pressure-to-depth conversion.
 
 \subsection{TBR23 post-storm recovery dynamics}
+
+\statusnote{April 2026. This analysis moved to the Paper\_1 repository, which
+holds the current numbers. Note for the MOP580\_5m exclusion below: on
+2026-05-14 that record's L1 heading was found to be \SI{180}{\degree} wrong (a
+field-sheet entry of \SI{270.74}{\degree} for \SI{90.74}{\degree}) and was
+corrected. A \SI{180}{\degree} heading error reverses the sign of $u$, which by
+itself produces negative velocity skewness and anti-correlation of
+$\overline{u}$ with neighboring instruments, the two symptoms attributed here to
+kelp fouling. The fouling attribution of those symptoms is therefore doubtful.
+The low valid-segment rate (49\%) does not depend on heading and was not
+re-examined.}
 
 \subsubsection{Observed morphological change}
 
@@ -473,6 +564,14 @@ instruments and with wave theory.
 \subsection{Mean cross-shore flow validation}
 \label{sec:mean_flow_results}
 
+\statusnote{May 2026 (run of 2026-05-05). This run predates the 2026-05-14
+heading corrections: TOR24S/MOP586\_7m entered it with its velocity sign
+reversed, and TBR23/MOP580\_5m was excluded as kelp-fouled for symptoms a
+reversed heading also produces (see the note on the TBR23 recovery section). It
+also predates the 2026-07 and 2026-10 heading changes and the 2026-10 edge-gap
+fill fix. The fractions of instruments with the predicted sign of $\alpha$ are
+the numbers most exposed. Not rerun since.}
+
 The validation framework defined in
 Section~\ref{sec:mean_flow_validation} was applied across the
 2023+ catalog (33 instruments at four sites: 19 at Torrey Pines,
@@ -486,7 +585,9 @@ SIO25C partial deployment ($N = 61$ segments, $R^2 = 0.001$).
 
 \subsubsection{Cross-deployment headline}
 The results decisively favor the real-Stokes-return-flow hypothesis
-(Table~\ref{tab:mean_flow_headline}). The intercept distribution
+(headline table planned, never drafted; values are in
+\texttt{docs/mean\_flow\_validation\_plan.md}, which is kept out of the public
+repository). The intercept distribution
 is centered on zero across both segmentations (median $|\beta| =
 \SI{0.6}{\milli\meter\per\second}$ at 17-min,
 $\SI{2.8}{\milli\meter\per\second}$ at 1-hour), and 100\,\% of
@@ -546,7 +647,7 @@ $\overline{u}$ at all four TBR23 instruments
 
 \subsubsection{Wave-direction discrimination}
 The extended alongshore model
-(Eq.~\ref{eq:wave_dir_check}) was decisive against the
+(Eq.~\eqref{eq:wave_dir_check}) was decisive against the
 shore-normal-rotation-error hypothesis. Across 30 instruments at
 1-hour segmentation, the wave-direction-dependent coefficient
 $\alpha_{v1}$ dominated the wave-direction-independent coefficient
@@ -554,7 +655,7 @@ $\alpha_{v0}$ in magnitude in 90\,\% of records, with the 95\,\%
 confidence interval on $\alpha_{v1}$ excluding zero in 83\,\% of
 records. The sign of $\alpha_{v1}$ was positive in 80\,\% of cases,
 corresponding to NW swells driving southward longshore current and
-S swells driving northward longshore current---the classical
+S swells driving northward longshore current, the classical
 radiation-stress signature for the WNW-facing San Diego County
 coast. Reading $\alpha_{v0}/\alpha_u$ as an upper-bound implied
 shore-normal angle error places that bound at a few degrees,

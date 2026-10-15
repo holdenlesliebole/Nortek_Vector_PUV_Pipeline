@@ -7,10 +7,16 @@
 \usepackage[margin=1in]{geometry}
 \usepackage{hyperref}
 \hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue}
+\setlength{\emergencystretch}{3em}\sloppy
+
+\newcommand{\statusnote}[1]{%
+  \par\smallskip\noindent
+  \fbox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule\relax}{\small #1}}%
+  \par\smallskip}
 
 \title{Quantifying the defects in the legacy PUV processing code}
 \author{Holden Leslie-Bole\\Scripps Institution of Oceanography, UC San Diego}
-\date{27 July 2026}
+\date{27 July 2026; status note and corrections 15 October 2026}
 
 \begin{document}
 \maketitle
@@ -23,7 +29,8 @@ parameters, so that results produced with that code can be judged individually
 rather than dismissed or trusted wholesale. Each legacy choice was implemented as
 an isolated switch applied to identical input, making every difference
 attributable to one fault. Across 3{,}713 hourly segments from ten instrument
-records spanning 5.5--11.7\,m depth, five sites, and $H_s$ to 4.7\,m: significant
+records (record-median depths 5.5--11.7\,m, four sites, segment $H_s$ up to
+4.6\,m): significant
 wave height and mean wave direction are usable, with stateable offsets; peak
 period differs by definition rather than by error and is the largest single
 discrepancy between the pipelines; and the directional second moments, from which
@@ -33,6 +40,27 @@ the code, and one diagnostic in an earlier version of this comparison overstated
 a fault by a factor of three.
 \end{abstract}
 
+\statusnote{\textbf{Who this is for.} Anyone deciding whether a number produced
+by the legacy code (\texttt{beachpeeps/PUV\_Processing}, used for earlier lab
+work including Ruby2D) can be reused. The summary table in
+Section~\ref{sec:summary} is the short answer. For the current pipeline, read
+\texttt{README.md} and \texttt{docs/pipeline\_levels.md}; the code reading that
+first identified the faults is \texttt{docs/pipeline\_comparison\_legacy.md}.
+
+\textbf{Status, October 2026.} The numbers were computed on 2026-07-27 from the
+L1 and L2 files of that date and were not rerun on catalog 2026-10-14.1. Each
+statistic is a difference between two estimators applied to the same input
+segment, so the later input corrections (headings, \texttt{doffp}, clocks, the
+edge-gap fill) are expected to move them little, but that has not been checked.
+All tabulated values were reproduced on 2026-10-15 from the saved result file
+(\texttt{outputs/validation/legacy\_defect\_isolation.mat}). Three statements in
+the July text did not match it and are corrected below: the number of sites
+(four, not five), the largest sampled $H_s$ (4.59\,m, from a record whose maximum
+is 4.66 to 4.67\,m), and the claim that no valid segment had a pressure gap above 1\,\%
+(five did). One record, RUBY22/MOP579\_6m, is now excluded from reported catalog
+statistics (\texttt{shared/excluded\_records.m}); it contributes 166 of the
+3{,}713 segments here.}
+
 \section{Why isolate rather than compare pipelines}
 
 Running both pipelines end to end and differencing the outputs confounds all five
@@ -41,7 +69,7 @@ shows \emph{that} the pipelines disagree but cannot attribute the disagreement,
 and the attribution is the practical question: a result built on $H_s$ may be
 sound while one built on radiation stress is not.
 
-Each legacy behaviour was therefore reimplemented from the legacy source as a
+Each legacy behavior was therefore reimplemented from the legacy source as a
 switch applied to the same input segments, with everything else held at the
 current pipeline's settings. The faults follow the numbering in
 \texttt{docs/pipeline\_comparison\_legacy.md}.
@@ -67,8 +95,9 @@ Legacy caps $K_p^2$ at 10; the current pipeline zeros frequencies where
 $K_p < 0.1$.
 
 \paragraph{Design differences.} The swell band runs to 0.20\,Hz rather than
-0.25\,Hz, and peak period is an energy-weighted centroid rather than the argmax
-of $S_\eta$. Neither is a fault.
+0.25\,Hz, and peak period is an energy-weighted centroid rather than the
+frequency of the spectral maximum. Neither is a fault. In this comparison both
+period definitions are evaluated on the same multitaper pressure spectrum.
 
 \paragraph{Not quantified.} D2 (frequency-grid mismatch between \texttt{fm} and
 \texttt{f\_co}) and D5 (\texttt{Suv} indexed at line 49, computed at line 107)
@@ -78,12 +107,18 @@ history rather than on the data.
 
 \section{Data}
 
-Ten instrument-records, 3{,}713 hourly segments. Two records (TOR19W and TOR20W,
+Ten instrument-records, 3{,}713 hourly segments: up to 400 valid segments per
+record, evenly spaced through the record, with segments more than half NaN
+skipped. The records are at four sites: Torrey Pines (TBR23, TOR19W, TOR20W,
+TOR23W, RUBY22 and the offshore MOP591 station, TOR14B and TOR15B), Imperial Beach
+(IB18W), Coronado (COR16B) and SIO Pier (SIO25E). Two records (TOR19W and TOR20W,
 MOP582, 10--11\,m, 2019--2021) match the station, depth and period of published
 work using this code, so the deltas there transfer directly. Five records were
-added specifically to reach conditions the first pass could not: $H_s$ to 4.7\,m
-(TOR15B), and pressure-gap fractions of 11\,\%, 35\,\% and 85\,\% (TOR14B,
-TOR23W/MOP586\_10m, RUBY22/MOP579\_6m).
+added specifically to reach conditions the first pass could not: large waves
+(TOR15B, record maximum $H_s$ 4.67\,m in the July L2 and 4.66\,m in catalog
+2026-10-14.1; COR16B, 4.19\,m, which also has 24\,\% of
+its velocity missing), and whole-record pressure-gap fractions of 11\,\%, 35\,\%
+and 85\,\% (TOR14B, TOR23W/MOP586\_10m, RUBY22/MOP579\_6m).
 
 \section{D1: the estimator mismatch}
 
@@ -173,16 +208,18 @@ estimator difference matters more.
 This fault could not be made to act as documented, and the reason is more useful
 than the number would have been.
 
-Records were selected specifically for pressure gaps --- 11\,\%, 35\,\% and
-85\,\% NaN in the raw pressure. After the standard validity gate, essentially
-every surviving segment has a pressure-gap fraction below 1\,\%. The segments in
+Records were selected specifically for pressure gaps: 11\,\%, 35\,\% and
+85\,\% NaN in the raw pressure. After the standard validity gate, 3{,}708 of
+the 3{,}713 sampled segments (99.9\,\%) have a pressure-gap fraction below
+1\,\%. The segments in
 which zeroing would matter do not reach the spectral estimator, because the
 existing quality control rejects them first.
 
 Where small gaps do survive, the fractional change in $H_s$ is erratic rather
 than a deficit: the median is zero, the interquartile range reaches $+0.19$, and
-gap fraction does not predict the change ($\rho = -0.06$, $n = 1152$). The
-predicted mechanism --- variance removed in proportion to the gap --- competes
+gap fraction barely predicts the change (Spearman $\rho = -0.06$, $p = 0.04$,
+$n = 1152$ segments with any pressure gap). The predicted mechanism, variance
+removed in proportion to the gap, competes
 with a second effect in the opposite direction, since zeroing a segment of an
 oscillating record introduces step discontinuities that inject broadband energy.
 
@@ -190,7 +227,7 @@ The gaps in these records are overwhelmingly in \emph{velocity}, not pressure:
 8.8\,\% NaN in $U$ and $V$ on TOR19W against $2\times10^{-5}$ in pressure, and
 24\,\% on COR16B. So the fault does not act on $H_s$ at all. It zeros roughly one
 velocity sample in eleven before the FFT, which removes velocity variance and
-therefore acts on the directional coefficients and on $U_b$ --- compounding D1 on
+therefore acts on the directional coefficients and on $U_b$, compounding D1 on
 exactly the quantities D1 already damages. The original write-up attributed this
 fault to the wrong variable.
 
@@ -243,6 +280,7 @@ compared against a model $T_p$, or against a value from another study, is a
 comparison of definitions unless the centroid is stated explicitly.
 
 \section{Summary}
+\label{sec:summary}
 
 \begin{longtable}{@{}p{0.24\textwidth}p{0.30\textwidth}p{0.38\textwidth}@{}}
   \toprule
@@ -270,8 +308,9 @@ comparison of definitions unless the centroid is stated explicitly.
 
 Each fault was emulated from the legacy source rather than by executing that
 pipeline end to end, so interactions between faults would not appear here. Ten
-records at five sites is a narrow span: only 28 segments exceed $H_s = 3$\,m, and
-no valid segment carries a pressure-gap fraction above 1\,\%, so the two regimes
+records at four sites is a narrow span: only 28 segments exceed $H_s = 3$\,m, and
+only five sampled segments carry a pressure-gap fraction above 1\,\% (the largest
+41\,\%), so the two regimes
 this note set out to probe are covered thinly at one end and not at all at the
 other. D2 and D5 remain unquantified.
 
@@ -282,9 +321,13 @@ of this comparison.
 \vspace{1em}
 \noindent\rule{\textwidth}{0.4pt}\\
 \small
-Reproduce with \texttt{validation/legacy\_defect\_isolation.m}; results in
-\texttt{outputs/validation/legacy\_defect\_isolation.mat}. Legacy source:
-\texttt{Beach\_Change\_Observation/Vector/PUVs/PUV\_Processing-main/Level2\_QC/}.
+Script: \texttt{validation/archive/legacy\_defect\_isolation.m} (moved there on
+2026-07-30). It locates the repository as two folders above itself, so from the
+archive folder it must be copied back to \texttt{validation/} before it will find
+\texttt{outputs/}. Result file:
+\texttt{outputs/validation/legacy\_defect\_isolation.mat} (local, not in the
+repository). Legacy source, outside this repository:
+\texttt{Research/Beach\_Change\_Observation/Vector/PUVs/PUV\_Processing-main/Level2\_QC/}.
 Prepared as internal documentation of why the legacy codes are deprecated.
 
 \end{document}

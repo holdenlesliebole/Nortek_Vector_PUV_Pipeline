@@ -1,52 +1,84 @@
-% >>> The current consolidated user guide is docs/PUV_Pipeline_Guide.tex (built to
-%     PUV_Pipeline_Guide.pdf). This file is retained as source material / deep reference;
-%     its L1 quality-control description predates the 2026-07 per-channel QC rework.
-%     Start newcomers on the guide.
-% PUV Pipeline — L1 and L2 Methods Section
-% Drop into your paper's methods section. Adjust \subsection depth as needed.
-% Requires: amsmath, siunitx (optional, for units)
+% PUV Pipeline: methods section, \input by compile_sections.tex.
+% Methods text checked against the code on 2026-10-15 (catalog version
+% 2026-10-14.1). Paragraphs changed in that pass carry a visible
+% "Changed 2026-10" note. The audit behind each change is in
+% docs/doc_audit_2026-10-15/audit_compile_sections.md.
+% Requires the \statusnote macro defined in compile_sections.tex.
 
 \subsection{Nearshore wave measurements}
 
-Nearshore wave and current dynamics were measured using bottom-mounted
-Nortek Vector acoustic Doppler velocimeters (ADVs) configured in
-pressure--velocity (PUV) mode, sampling continuously at \SI{2}{\hertz}.
-Instruments were deployed along MOP (Monitoring and Prediction) transect
-lines at nominal depths of \SIrange{5}{7}{\meter}, with two cross-shore
-positions per transect. Deployment metadata---including instrument heading,
-clock drift, and pressure sensor height above the bed ($z_s$, typically
-\SIrange{0.75}{0.77}{\meter})---were obtained from field deployment notes.
+Waves and currents were measured with bottom-mounted Nortek Vector acoustic
+Doppler velocimeters (ADVs) recording pressure and velocity (PUV) continuously at
+\SI{2}{\hertz}. The catalog holds 65 instrument-records from 46 deployments on the
+San Diego County coast and at Catalina Island, 2014--2026, at nominal depths of
+\SIrange{5}{30}{\meter} (median \SI{7.5}{\meter} over the 72 configured records).
+Deployment metadata (instrument heading, clock drift, surveyed position, and the
+pressure-port height above the bed, $z_s$, called \texttt{doffp} in the code)
+come from the field deployment notes. Across the 72 configured records $z_s$
+ranges from \SIrange{0.38}{1.09}{\meter}.
+
+\statusnote{Changed 2026-10. The April draft described the TBR23 array only
+(nominal depths \SIrange{5}{7}{\meter}, $z_s = $ \SIrange{0.75}{0.77}{\meter}).
+The ranges above are read from the deployment configs through
+\texttt{config/deployment\_registry.m}.}
 
 \subsection{Level 1: Quality control and coordinate rotation}
 
-Raw burst files (.dat/.sen/.hdr) were merged into continuous time series
-at the \SI{2}{\hertz} sampling rate. Clock drift corrections were applied
-linearly over each deployment based on measured drift at recovery. A
-battery cutoff detection algorithm identified intermittent sampling
-caused by battery depletion by flagging gaps exceeding \SI{1}{\second}
-between consecutive sensor records; all data following the first such
-gap were discarded.
+Raw data are read either from the Nortek ExploreV ASCII export
+(\texttt{.dat}/\texttt{.sen}/\texttt{.hdr}) or from the recorder binary
+(\texttt{.VEC}) by \texttt{L1\_raw\_to\_qc/read\_VEC.m}. Each recorder file is
+treated as one burst. Clock drift measured at recovery is removed linearly over
+the deployment. For the pre-2019 recorders, whose internal clock ran from a wrong
+epoch, time is recovered from the \texttt{MMDDHHMM} file names; that clock was
+Pacific local time, so a fixed \texttt{instr.clockOffsetHours} is added to
+reach UTC (7 h for the 2014 records, 8 h for the later ones; each checked against
+the tide with \texttt{scripts/audit\_clock\_lag.m}). A gap between consecutive sensor records longer than
+\texttt{cutoffGapSec} (\SI{1}{\second} by default, \SI{60}{\second} for the
+pre-2019 recorders) marks battery depletion, and all data after the first such
+gap are discarded. The gap test runs within each burst, so a seam between files
+is not read as a cutoff.
 
-Quality control filters removed samples where: (1) pitch or roll exceeded
-$\pm\SI{5}{\degree}$; (2) pressure fell outside the range
-$[\overline{P}/2,\; 2\overline{P}]$, where $\overline{P}$ is the deployment median
-pressure; or (3) the minimum beam correlation dropped below 70\%, following
-Nortek recommendations. Flagged samples were set to NaN.
+Quality control is applied per channel (\texttt{L1\_raw\_to\_qc/puv\_channel\_qc.m},
+thresholds from \texttt{l1\_qc\_opts.m}), so a failed thermistor or pressure
+sensor does not discard good velocity:
+\begin{itemize}
+  \item \emph{Velocity} fails where the minimum beam correlation is below 70\%,
+    where the frame is toppled ($|\text{pitch}|$ or $|\text{roll}| \ge
+    \SI{30}{\degree}$), or where the tilt is unstable: the standard deviation of
+    pitch or roll over a \SI{60}{\second} (120-sample) moving window exceeds
+    \SI{2}{\degree}.
+  \item \emph{Pressure} fails outside $[p_\text{ref}/2,\; 2p_\text{ref}]$, where
+    $p_\text{ref}$ is the median of the in-water samples ($p > \SI{0.5}{dbar}$) in
+    the first 10\% of the record (at least 1000 samples). A reference taken from
+    the start of the record survives a sensor that saturates later in the
+    deployment, which a whole-record median does not.
+  \item \emph{Temperature} fails outside the site's plausible range
+    \texttt{cfg.qcOpts.Tvalid}, set to \SIrange{9}{26}{\celsius} in every catalog
+    config (the code default, \SIrange{-2}{40}{\celsius}, only catches gross
+    failure). Where the thermistor is valid and the instrument's sound speed
+    differs from the one implied by the measured temperature by more than 0.2\%,
+    velocity is rescaled and the segment is marked suspect downstream.
+\end{itemize}
+Failed samples are set to NaN in their own channel only.
 
-A variability-based tilt quality control was applied rather than a fixed
-angular threshold. The rolling standard deviation of pitch and roll was
-computed over 60-second windows; samples where the variability exceeded
-\SI{2}{\degree} were flagged as unstable. An absolute tilt cap of
-\SI{30}{\degree} was retained for severely compromised instruments.
-Samples with stable but non-zero tilt (e.g., from pipes bent during storm
-events) were retained and corrected via a sample-by-sample
-three-dimensional rotation using the measured pitch ($\phi$) and roll
-($\theta$) angles:
+\statusnote{Changed 2026-10. The April draft described a fixed
+$\pm\SI{5}{\degree}$ pitch and roll limit, a whole-deployment median pressure
+reference, and row-level NaN-ing of every channel. The per-channel QC and the
+first-window pressure reference replaced those in July 2026
+(\texttt{PIPELINE\_NOTES.md}, \texttt{docs/OUTSTANDING\_channel\_decoupling.md}).
+A vertical-transit (off-bed) pressure test exists in \texttt{puv\_channel\_qc.m}
+but is off in every config.}
+
+Samples with a stable but non-zero tilt (for example from a pipe bent during a
+storm) are kept and rotated to the local vertical sample by sample, using the
+measured pitch $\phi$ and roll $\theta$, whenever the median tilt exceeds
+\SI{1}{\degree}. The code applies roll first and then pitch,
 %
 \begin{equation}
   \mathbf{v}_\text{corrected} =
-  \mathbf{R}_\text{roll}(\theta)\;\mathbf{R}_\text{pitch}(\phi)\;
+  \mathbf{R}_\text{pitch}(\phi)\;\mathbf{R}_\text{roll}(\theta)\;
   \mathbf{v}_\text{raw},
+  \label{eq:tilt}
 \end{equation}
 %
 where
@@ -62,301 +94,345 @@ where
     -\sin\phi & 0 & \cos\phi
   \end{bmatrix}.
 \]
-This tilt correction was applied before the heading rotation to buoy
-coordinates, ensuring that the velocity vector was first returned to the
-local vertical frame before projection onto the geographic coordinate
-system.
 
-Velocity components were rotated from the instrument XYZ frame to a
-geographic buoy coordinate system ($+x$ west, $+y$ north, $+z$ up;
-left-handed, consistent with the MOP convention) using the magnetic
-heading from deployment notes and the magnetic declination computed via
-the International Geomagnetic Reference Field (IGRF-13) model at the
-deployment location and epoch.
+\statusnote{Corrected 2026-10. Earlier versions of this section, and the
+comment above the loop in \texttt{PUV\_raw\_process.m}, write the product as
+$\mathbf{R}_\text{roll}\mathbf{R}_\text{pitch}$. The expanded components in that
+loop are those of $\mathbf{R}_\text{pitch}\mathbf{R}_\text{roll}$, which
+\eqref{eq:tilt} now states. Whether that order matches Nortek's pitch and roll
+convention has not been checked here.}
+
+The tilt-corrected velocity is rotated to a geographic buoy frame ($+x$ west,
+$+y$ north, $+z$ up, the left-handed frame used by CDIP MOP). For records in
+instrument (XYZ) coordinates the rotation uses the heading, either the median of
+the onboard compass or, where the compass drifts or steps at constant tilt, the
+mount heading logged in the field, plus the magnetic declination from the
+International Geomagnetic Reference Field (\texttt{igrfmagm}, IGRF-14 where the
+installed release supports it, otherwise IGRF-13 capped at 2025.0) at the
+deployment position and start date. Records stored in Nortek ENU coordinates,
+which are magnetic, have the same declination added
+(\texttt{enu\_to\_buoy\_frame.m}).
+
+\statusnote{Changed 2026-10. The declination for ENU records was added on
+2026-10-07 (about \SI{11.07}{\degree} at San Diego; SOL24, LPL24, LPL25A
+rebuilt). The rule for preferring the logged heading dates from the same day.
+Twelve records whose logged and compass headings differ by more than
+\SI{10}{\degree} keep the compass value and are listed in
+\texttt{shared/heading\_disputed\_records.m}; their directional products carry
+at least that uncertainty.}
 
 \subsection{Level 2: Spectral analysis}
 
 \subsubsection{Segmentation and preprocessing}
 
-The continuous L1 time series were divided into non-overlapping
-\SI{1}{\hour} segments of 7200 samples at \SI{2}{\hertz}. The 1-hour
-segment length matches the cadence of the regional CDIP MOP wave
-hindcast and gives the longer averaging window that segment-mean
-velocity diagnostics benefit from (random Doppler error in
-ū decreases as $1/\sqrt{N}$, so the 7200-sample segment-mean noise
-floor is approximately $1.87\times$ smaller than the legacy
-2048-sample 17-minute alternative). A within-hour stationarity audit
-on the existing record confirmed that bulk wave parameters
-($H_s$, $T_p$, $T_{m02}$) are stable on the 1-hour scale at the
-sites and depths considered here. Segments in which more than 10\%
-of pressure or velocity samples were flagged as NaN were discarded;
-for segments with $\leq$10\% NaN, gaps were filled by linear
-interpolation before further processing. Prior to spectral analysis,
-velocities were rotated to a shore-normal coordinate frame
-($+x$ onshore, $+y$ alongshore north) using the shore-normal angle
-retrieved from the CDIP THREDDS server for the corresponding MOP station.
+The L1 time series is divided into non-overlapping \SI{1}{\hour} segments of 7200
+samples, starting at the first UTC top of the hour, which matches the hourly
+cadence of the CDIP MOP hindcast. Random Doppler error in a segment-mean velocity
+falls as $1/\sqrt{N}$, so the 7200-sample mean has a noise floor
+$\sqrt{7200/2048} \approx 1.87$ times lower than the 2048-sample (17-minute)
+segments used before May 2026. Velocity and pressure products are validated
+separately: a segment's velocity products are kept when no more than 10\% of its
+velocity samples are NaN (\texttt{segValid\_vel}), and likewise for pressure
+(\texttt{segValid\_p}). Remaining gaps are filled by linear interpolation in the
+interior and by holding the nearest valid value at a segment edge. Velocities
+are then rotated to a shore-normal frame ($+x$ onshore, $+y$ alongshore north)
+using either a shore-normal angle set in the config (\texttt{instr.shorenormal})
+or the angle CDIP publishes for the MOP station (\texttt{instr.mopStation}).
 
-For each valid segment, the mean pressure was used to compute the total
-water column depth $H = \overline{P} \times 10^4 / (\rho g) + z_s$, where
-$\overline{P}$ is the segment-mean pressure in dBar, $\rho =
-\SI{1025}{\kilogram\per\meter\cubed}$, $g = \SI{9.81}{\meter\per
-\second\squared}$, and $z_s$ is the pressure sensor height above the bed.
-Mean cross-shore, alongshore, and vertical velocities and temperature
-were recorded for each segment prior to detrending. The pressure time
-series was converted from dBar to meters of water head, and
-all channels (pressure, $u$, $v$, $w$) were linearly detrended.
+\statusnote{Changed 2026-10. Before 2026-10-09 an edge gap was filled by
+extrapolating the interior trend, which inflated infragravity and velocity
+statistics on segments with edge gaps (Hs moved by at most \SI{3.5}{\centi\meter}
+except one segment, $U_b$ and $u_\text{rms}$ by about 4\% median and 25\% at
+the 95th percentile on edge-gap segments; \texttt{docs/catalog\_changes/2026-10-13\_combined\_rebuild.md}).
+Pressure-only and velocity-only validity replaced a single all-channel test in
+July 2026. The April draft also cited a within-hour stationarity audit; that
+audit is not reproduced in this repository.}
+
+For each valid segment the mean pressure gives the total depth
+\begin{equation}
+  H = \frac{\overline{P} \times 10^4}{\rho g} + z_s ,
+  \label{eq:depth}
+\end{equation}
+with $\overline{P}$ the segment-mean pressure in dbar,
+$\rho = \SI{1025}{\kilogram\per\meter\cubed}$ and
+$g = \SI{9.81}{\meter\per\second\squared}$. Segment means of $u$, $v$, $w$ and
+temperature are stored before detrending. Pressure is converted to meters of
+water and all channels are linearly detrended.
 
 \subsubsection{Spectral estimation}
 
-Power spectral densities were estimated using the multi-taper method
-of \citet{thomson1982} with time-bandwidth product $NW = 4$, giving
-$K = 7$ orthogonal Slepian tapers and approximately
-$2K = 14$ degrees of freedom per frequency bin. The
-1-hour segment provides a native frequency resolution of
-$\Delta f \approx \SI{2.78e-4}{\hertz}$ across the full
-0--\SI{1}{\hertz} range. Cross-spectra between pressure and the two
-horizontal velocity components were computed using the same tapers
-for directional analysis. The multi-taper choice was made for its
-optimal bias--variance trade-off relative to the legacy Welch
-estimator: at constant total record length, MTM with $NW=4$ on
-the 1-hour record gives an effective bandwidth and bias comparable
-to Welch with 256-sample sub-segments while preserving fine
-frequency structure that Welch averaging smears \citep{percival1993}.
+Spectra are estimated with the multitaper method of Thomson (1982)
+(\texttt{shared/psd\_multitaper.m}) on the whole 7200-sample segment, with
+time--bandwidth product $NW = 4$. The code keeps the Slepian tapers whose
+concentration eigenvalue exceeds 0.99, which for $NW = 4$ is $K = 6$ (the
+seventh has eigenvalue 0.937), giving about $2K = 12$ degrees of freedom per
+frequency bin. Bins are spaced $\Delta f = f_s/N = \SI{2.78e-4}{\hertz}$; the
+resolution bandwidth is $2NW/T = \SI{2.2e-3}{\hertz}$ for $T = \SI{3600}{\second}$,
+so neighboring bins are not independent. Auto- and cross-spectra among $p$, $u$
+and $v$ use the same tapers, which keeps the directional moments consistent.
+For comparison, the Welch estimator used before April 2026 (Hann window,
+\texttt{nfft} = 256) had bins spaced \SI{7.8e-3}{\hertz}.
+
+\statusnote{Corrected 2026-10. Earlier versions of this document, the multitaper
+note and several repository docs state $K = 7$ tapers and 14 degrees of freedom.
+\texttt{psd\_multitaper.m} has used the eigenvalue $> 0.99$ rule since it was
+written (April 2026), which for $NW = 4$ keeps six tapers (eigenvalues from
+\texttt{dpss(7200,4)}: 1.000, 1.000, 1.000, 1.000, 0.999, 0.993, 0.937, 0.699).
+The April draft also described the resolution of the multitaper estimate as
+comparable to Welch with 256-sample sub-segments; at a 1-hour segment it is
+finer by a factor of about 3.5 in bin spacing.}
 
 \subsubsection{Pressure correction}
 
-The measured pressure spectrum was converted to a surface elevation
-spectrum using the linear wave theory transfer function:
+The pressure spectrum is converted to a surface-elevation spectrum with the
+linear transfer function
 %
 \begin{equation}
-  K_p(f) = \frac{\cosh(k z_s)}{\cosh(k H)}
+  K_p(f) = \frac{\cosh(k z_s)}{\cosh(k H)} ,
+  \qquad S_\eta(f) = \frac{S_p(f)}{K_p^2(f)} ,
+  \label{eq:kp}
 \end{equation}
 %
-where $k(f)$ is the wavenumber obtained by solving the linear dispersion
-relation $\omega^2 = g k \tanh(kH)$ via Newton's method. The surface
-elevation spectrum was computed as $S_\eta(f) = S_p(f) / K_p^2(f)$.
-Frequency bins where $K_p < 0.1$ were set to zero to suppress
-noise amplification at high frequencies; the resulting cutoff frequency
-$f_\text{cut}$ was recorded for each segment.
+where $k(f)$ solves $\omega^2 = g k \tanh(kH)$ by Newton iteration
+(\texttt{shared/get\_wavenumber.m}). Bins with $K_p < 0.1$ are set to zero to
+avoid amplifying noise at high frequency, and the resulting cutoff frequency
+$f_\text{cut}$ is stored per segment.
 
 \subsubsection{Bulk wave parameters}
 
-Significant wave height was computed as $H_s = 4\sqrt{m_0}$, where
-$m_0 = \int S_\eta(f)\,df$ is the zeroth spectral moment, integrated
-separately over the sea--swell band (\SIrange{0.04}{0.25}{\hertz})
-and infragravity band (\SIrange{0.004}{0.04}{\hertz}). Peak period
-$T_p = 1/f_p$ was determined from the frequency of maximum $S_\eta$
-within the sea--swell band, and the mean zero-crossing period was
-computed as $T_{m02} = \sqrt{m_0/m_2}$. The energy-weighted mean wave
-direction was obtained from the first-harmonic directional coefficients
-$a_1$ and $b_1$ derived from the pressure--velocity cross-spectra.
-Total energy flux was computed as
-$F = \rho g \int c_g(f)\, S_\eta(f)\, df$,
-where $c_g$ is the group velocity from linear wave theory.
+Significant wave height $H_s = 4\sqrt{m_0}$, with $m_0 = \int S_\eta\,df$, is
+reported over the total band (\SIrange{0.004}{0.25}{\hertz}), the sea--swell band
+(\SIrange{0.04}{0.25}{\hertz}) and the infragravity band
+(\SIrange{0.004}{0.04}{\hertz}). The peak period $T_p = 1/f_p$ is the frequency of
+maximum $S_\eta$ within the sea--swell band (argmax, not a centroid). The mean
+period $T_{m02} = \sqrt{m_0/m_2}$ and the energy flux
+$F = \rho g \int c_g S_\eta\,df$, with $c_g$ the linear group velocity, are both
+evaluated over the total band. The mean wave direction is
+$\operatorname{atan2}(\bar b_1, \bar a_1)$, where $\bar a_1$ and $\bar b_1$ are the
+first-harmonic directional moments from the pressure--velocity cross-spectra,
+weighted by $S_\eta$ over the sea--swell band (\texttt{shared/compute\_bulk\_params.m}).
 
 \subsubsection{Near-bed velocity and stress}
 
-Near-bed orbital velocities were estimated by scaling the measured
-velocity spectrum at sensor height to the bed using linear wave theory.
-Each frequency bin of the velocity FFT was multiplied by
-$\cosh(kH) / \cosh[k(H - z_s)]$, and the result was inverse-transformed
-to obtain the near-bed velocity time series \citep[e.g.,][]{guza1980}.
-The RMS near-bed orbital velocity $U_b$ and wave orbital excursion $A_w$
-were computed from the bed velocity time series for each segment.
+Near-bed orbital velocity is obtained by scaling each frequency bin of the
+velocity FFT from the sensor height to the bed. Under linear theory
+$u(z) \propto \cosh(kz)/\sinh(kH)$ with $z$ measured up from the bed, so the
+bed-to-sensor ratio is
+\begin{equation}
+  \frac{u_\text{bed}}{u_\text{sensor}} = \frac{1}{\cosh(k z_s)} ,
+  \label{eq:bedvel}
+\end{equation}
+and the scaled spectrum is inverse transformed (\texttt{shared/bed\_velocity\_ifft.m}).
+$U_b$ is the root-mean-square of $\sqrt{u_\text{bed}^2 + v_\text{bed}^2}$ over the
+segment, and $A_w$ is the corresponding orbital excursion.
 
-Wave-induced bed shear stress was estimated using the Swart (1974)
-friction factor formulation with a bed roughness of $k_s = 2.5 D_{50}$,
-where $D_{50} = \SI{0.25}{\milli\meter}$ (to be updated with site-specific
-grain size distributions from laser particle analysis). Reynolds stress
-components ($\overline{u'w'}$, $\overline{v'w'}$, $\overline{u'v'}$)
-and turbulent kinetic energy were computed from the detrended velocity
-fluctuations. Velocity moment statistics including skewness $S_k$ and
-velocity asymmetry $A_s$ (Hilbert form, negative for the forward-pitched
-shoaling wave shape) were computed following
-\citet{elgar1985,hoefel2003} for characterizing wave nonlinearity
-relevant to sediment transport.
+\statusnote{Corrected 2026-10. Earlier versions of this section gave the factor as
+$\cosh(kH)/\cosh[k(H - z_s)]$, which is the form the code's own header records as
+the original, wrong one. Because $k z_s \approx 0.04$ for swell at
+\SI{9}{\meter}, the factor in \eqref{eq:bedvel} differs from 1 by about 0.1\%
+there.}
 
-\subsection{Validation against MOP wave model}
+Wave bed shear stress uses the Swart (1974) friction factor with $T_p$ as the
+wave period. The Nikuradse roughness is $k_s = 2.5 D_{84}$ where a measured
+grain-size distribution exists for the site (\texttt{shared/site\_grain\_size.m});
+otherwise the legacy form $k_s = 10 D_{50}$ is used with the placeholder
+$D_{50} = \SI{0.25}{\milli\meter}$. As of catalog 2026-10-14.1, 19 of 65 records
+use a measured distribution, 4 an assumed site default of \SI{217.4}{\micro\meter}
+and 42 the placeholder. Reynolds stresses ($\overline{u'w'}$, $\overline{v'w'}$,
+$\overline{u'v'}$) and turbulent kinetic energy come from the detrended
+velocities. Velocity skewness $S_k$ and asymmetry $A_s$ (Hilbert form, negative
+for the forward-pitched shoaling wave shape) follow Elgar and Guza (1985) and
+Hoefel and Elgar (2003).
 
-PUV-derived wave parameters were validated against hourly wave data from
-the CDIP Monitoring and Prediction (MOP) system, a spectral wave model
-initialized by offshore CDIP buoy observations. The MOP model provides
-wave energy density spectra $S_\eta(f)$ at \SI{10}{\meter} depth along
-each MOP transect line. MOP spectra were shoaled to the PUV instrument
-depth using linear wave theory energy conservation:
+\statusnote{Corrected 2026-10. The April draft gave $k_s = 2.5 D_{50}$ with a
+single \SI{0.25}{\milli\meter} grain size. The grain-size tally is from the L3
+provenance sidecars, as quoted in \texttt{README.md}.}
+
+\subsection{Validation against the MOP wave model}
+
+\statusnote{Historical method (April 2026). This subsection describes the
+comparison behind the results in Section~\ref{sec:results-status}. The scripts
+that implemented it are in \texttt{validation/archive/} (\texttt{compare\_PUV\_MOP.m},
+\texttt{run\_PUV\_MOP\_validation.m}). The fourth test below, peak broadening
+measured by $Q_p$ on an interpolated grid, produced a result that was retracted on
+2026-07-24 as a resolution artifact. The current comparison reduces both spectra
+to the model's frequency bins first (\texttt{validation/compare\_shape\_matched.m},
+\texttt{shared/shoal\_mop\_to\_site.m}).}
+
+PUV-derived wave parameters were compared with hourly output from the CDIP
+Monitoring and Prediction (MOP) system, a spectral wave model initialized from
+offshore CDIP buoys that provides $S_\eta(f)$ at the \SI{10}{\meter} contour of
+each MOP transect. MOP spectra were shoaled to the PUV depth by conservation of
+energy flux,
 %
 \begin{equation}
-  S_\eta(f, h_\text{PUV}) = S_\eta(f, 10\,\text{m}) \times
-  \frac{c_g(f, 10\,\text{m})}{c_g(f, h_\text{PUV})}
+  S_\eta(f, h_\text{PUV}) = S_\eta(f, \SI{10}{\meter}) \times
+  \frac{c_g(f, \SI{10}{\meter})}{c_g(f, h_\text{PUV})} .
 \end{equation}
 %
-Shoaled MOP wave heights were computed by integrating the shoaled spectrum
-over the sea--swell band using the (non-uniform) MOP frequency bandwidth
-vector. PUV segment values (\SI{17}{\minute} resolution) were interpolated
-to the MOP hourly time grid for comparison. Agreement was quantified using
-$R^2$, RMSE, bias (PUV $-$ MOP), and the Willmott (1981) skill score.
+Shoaled MOP wave heights were integrated over the sea--swell band with the
+non-uniform MOP bandwidth vector. In April 2026 the PUV segments were
+\SI{17}{\minute} long and were interpolated to the MOP hourly grid. Agreement was
+summarized by $R^2$, RMSE, bias (PUV $-$ MOP) and the Willmott (1981) skill
+score.
 
-Frequency-dependent validation was performed by computing the mean
-spectral ratio $S_\eta^\text{PUV}(f) / S_\eta^\text{MOP,shoaled}(f)$
-across all matched hours, binned into low-swell
-(\SIrange{0.04}{0.08}{\hertz}), mid-swell (\SIrange{0.08}{0.14}{\hertz}),
-and high-swell (\SIrange{0.14}{0.25}{\hertz}) bands. This diagnostic
-isolates whether systematic biases originate from the pressure transfer
-function (which amplifies high-frequency energy most aggressively) or
-from other sources.
+The frequency-resolved ratio
+$S_\eta^\text{PUV}(f) / S_\eta^\text{MOP,shoaled}(f)$ was averaged over matched
+hours in three bands: low swell (\SIrange{0.04}{0.08}{\hertz}), mid swell
+(\SIrange{0.08}{0.14}{\hertz}) and high swell (\SIrange{0.14}{0.25}{\hertz}).
 
-To investigate the origin of systematic biases, four candidate
-mechanisms were tested: (1)~nonlinear shoaling via triad interactions,
-assessed by correlating the spectral ratio with the Ursell number
-$\mathit{Ur} = H_s L_p^2 / h^3$; (2)~directional narrowing during
-shoaling, assessed by comparing the first-harmonic directional spread
-$\sigma_1 = \sqrt{2(1 - \sqrt{a_1^2 + b_1^2})}$ between PUV and MOP;
-(3)~bound long wave contamination, tested by examining the scaling of
-low-frequency excess energy with $H_s^2$ and the frequency structure of
-the excess relative to the expected group frequency; and (4)~MOP model
-spectral peak broadening, quantified by comparing the Goda peakedness
-parameter $Q_p = (2/m_0^2) \int f\, S_\eta^2(f)\, df$ and the
-half-power spectral bandwidth between PUV and shoaled MOP spectra.
+Four candidate mechanisms for the systematic difference were tested:
+(1)~nonlinear shoaling, through the correlation of the spectral ratio with the
+Ursell number $\mathit{Ur} = H_s L_p^2 / h^3$; (2)~directional narrowing during
+shoaling, by comparing the first-harmonic spread
+$\sigma_1 = \sqrt{2(1 - \sqrt{a_1^2 + b_1^2})}$ between PUV and MOP; (3)~bound
+long waves, through the scaling of low-frequency excess with $H_s^2$; and
+(4)~spectral peak broadening in the model, through the Goda peakedness
+$Q_p = (2/m_0^2) \int f\, S_\eta^2\, df$ and the half-power bandwidth.
 
 \subsection{Level 3: Wave forcing characterization}
 
 \subsubsection{Frequency-band energy decomposition}
 
-The L2 surface elevation spectrum was integrated over three frequency
-bands to characterize wave energy partitioning: infragravity
-(0.004--0.04~Hz), swell (0.04--0.10~Hz), and sea (0.10--0.25~Hz).
-Band-specific significant wave height, energy flux, and mean period
-were computed for each 17-minute segment. A dominant band flag was
-assigned based on which band carried the largest energy flux.
+The L2 surface-elevation spectrum is integrated over three bands, infragravity
+(\SIrange{0.004}{0.04}{\hertz}), swell (\SIrange{0.04}{0.10}{\hertz}) and sea
+(\SIrange{0.10}{0.25}{\hertz}), giving a band wave height, energy flux and mean
+period for each 1-hour segment, and a flag naming the band with the largest
+energy flux.
 
 \subsubsection{Storm event detection}
 
-Storm events were identified from the $H_s$ time series using a
-threshold-exceedance method with configurable parameters (default:
-$H_s > 1.5$~m sustained for $\geq$6~hours, events separated by
-$<$12~hours merged). To characterize wave forcing during PUV data
-gaps (e.g., from instrument damage during storms), hourly MOP wave
-model data were loaded for a window extending 7~days beyond the PUV
-record. Storm events detected in the MOP record but absent from the
-PUV data were flagged as gap-period storms, providing continuous
-forcing context even when the in-situ instruments were compromised.
+Storm events are taken from the $H_s$ series as exceedances of
+\SI{1.5}{\meter} lasting at least \SI{6}{\hour}, with events closer than
+\SI{12}{\hour} merged. These thresholds are fixed in
+\texttt{L3\_forcing/PUV\_L3\_storms.m}, not read from the config. To describe the
+forcing during PUV data gaps (for example when an instrument was damaged in a
+storm), hourly MOP output is loaded for a window extending \SI{7}{days} beyond
+each end of the record, and storms found in the MOP record but absent from the
+PUV record are flagged as gap-period storms.
 
 \subsubsection{Transport proxies}
 
-Bottom energy flux was computed as the spectral integral of group
-velocity times surface elevation spectral density over the sea--swell
-band. The Shields parameter $\theta = \tau_b / [(\rho_s - \rho) g D_{50}]$
-was computed per segment, with the critical Shields threshold from the
-Soulsby--Whitehouse formula. A mobilization flag indicated segments
-exceeding the critical threshold. Cumulative bottom energy flux was
-integrated over the deployment duration for comparison with
-morphological change between beach surveys. The Rouse number
-$P = w_s / (\kappa u_*)$ classified the dominant transport mode
-(bedload vs.\ suspended load).
+Bottom energy flux $F_b = \rho g \int c_g S_\eta\,df$ is integrated over the
+sea--swell band and accumulated over the deployment for comparison with surveyed
+bed change. The Shields parameter
+$\theta = \tau_b / [(\rho_s - \rho) g D_{50}]$ uses the wave stress amplitude
+$\tau_b$ from L2, with the critical value from Soulsby (1997)
+(Soulsby--Whitehouse), and a segment is flagged as mobilized when
+$\theta$ exceeds it. Kinematic viscosity is computed per segment from the
+segment's mean temperature (\texttt{shared/seawater\_nu.m}), and the settling
+velocity $w_s$ follows Ferguson and Church (2004) with nominal-diameter constants
+$C_1 = 20$, $C_2 = 1.1$. The Rouse number $P = w_s / (\kappa u_*)$ uses the
+friction velocity of the mean combined wave--current stress $\tau_m$
+(Soulsby, 1997), and is also given at $D_{16}$, $D_{50}$ and $D_{84}$ where a
+measured distribution exists.
+
+\statusnote{Changed 2026-08 and 2026-10. Until 2026-08-13 the Rouse number used
+the oscillatory wave stress amplitude, which overstated suspension (median $P$
+4.8 against a corrected 41.5 at TBR23 MOP580\_5m, \texttt{docs/pipeline\_levels.md}).
+Settling velocity used smooth-sphere constants ($C_2 = 0.4$) until 2026-08-13 and
+$C_2 = 1.0$ until 2026-10-09; viscosity was a fixed \SI{1e-6}{\meter\squared\per\second}
+until 2026-10-09. Six settling-velocity formulas could not be distinguished
+against the TBR23 surveys; they spread about $\pm$15\% at \SI{250}{\micro\meter}.}
 
 \subsubsection{Tidal current decomposition}
 
-Tidal harmonic analysis was performed on the segment-mean velocities
-using the \texttt{t\_tide} package, with complex velocity input
-($u + iv$) enabling simultaneous analysis of cross-shore and
-alongshore tidal constituents. The tidal depth signal was obtained
-from NOAA tide predictions for the Scripps Pier gauge (station
-9410230), which provided a smooth, gap-free tidal reference that
-outperformed the \texttt{t\_tide} fit to the noisy PUV pressure
-record ($R = 0.995$ vs.\ $R = 0.987$ for TBR23). PUV instrument
-clocks were confirmed to be in UTC via cross-correlation with the
-NOAA record (optimal lag $= 0.0$~hours). Subtidal residual currents
-(observed minus tidal) captured wave-driven mean flows including
-undertow and longshore currents.
+Tidal harmonic analysis is run on the segment-mean velocities with
+\texttt{t\_tide} (Pawlowicz et al., 2002), using complex input $u + iv$ so the
+cross-shore and alongshore constituents are fit together, and only over the span
+where velocity exists. Each call is seeded (\texttt{rng(0,'twister')}) because the
+bootstrap error estimate decides which constituents enter the prediction. The
+tidal depth reference is the NOAA prediction for La Jolla, Scripps Pier (station
+9410230), fetched through the lab toolbox function \texttt{getztide2}; in the
+catalog build every record has NOAA depth. Subtidal residual currents (observed
+minus tidal) carry the wave-driven mean flows, including undertow and longshore
+currents.
+
+For TBR23 the NOAA prediction matched the PUV depth record better than a
+\texttt{t\_tide} fit to the PUV pressure ($R = 0.995$ against $0.987$), and the
+lag of maximum correlation was 0~h, which confirmed that the TBR23 instrument
+clocks were in UTC. The same test later showed that the file-name clocks of the
+pre-2019 recorders were Pacific local time (see Level 1);
+\texttt{scripts/audit\_clock\_lag.m} repeats it for those records.
+
+\statusnote{Changed 2026-10. The seeding and the velocity-span restriction date
+from 2026-10-09. A change set in progress on 2026-10-15 makes the tide station a
+per-deployment setting and makes a missing \texttt{t\_tide} fatal; until it
+lands, every site uses station 9410230, which is the wrong tide for a site far
+from La Jolla. See \texttt{CHANGELOG.md} for the current behavior. The
+$R$ values for TBR23 are from the April analysis and were not recomputed.}
 
 \subsection{Mean cross-shore flow validation}
 \label{sec:mean_flow_validation}
 
-The segment-mean cross-shore velocity $\overline{u}$ was tested
-against three competing hypotheses---real wave-driven Stokes
-return flow, a constant per-instrument calibration offset, or
-random Doppler noise---using a multi-test framework on every PUV
-deployment in the catalog (38 instruments across Torrey Pines, Los
-Pe\~nasquitos lagoon, Solana Beach, SIO Pier, Catalina Island, and
-the legacy Ruby2D cross-shore array).
+\statusnote{Historical method (May 2026). This is the test design behind the
+mean-flow results in the Results section. It ran on 38 instruments at both 1-hour
+and 17-minute segmentation. The 17-minute archive was deleted from the server on
+2026-07-28, so the segmentation comparison cannot be rerun until a 17-minute L2 is
+regenerated from the current L1 (\texttt{validation/archive/compare\_seglen\_phase2.m}).}
 
-\subsubsection{Linear scaling against $H_s^2$}
-For each instrument, the segment-mean cross-shore velocity was fit
-as a linear function of significant wave height squared:
+The segment-mean cross-shore velocity $\overline{u}$ was tested against three
+hypotheses (wave-driven Stokes return flow, a constant per-instrument calibration
+offset, and random Doppler noise) on every PUV deployment then in the catalog
+(38 instruments at Torrey Pines, Los Pe\~nasquitos lagoon, Solana Beach, SIO Pier,
+Catalina Island, and the Ruby2D cross-shore array).
+
+\subsubsection{\texorpdfstring{Linear scaling against $H_s^2$}{Linear scaling against Hs squared}}
+For each instrument the segment-mean cross-shore velocity was fit as
 %
 \begin{equation}
   \overline{u} = \alpha\, H_s^2 + \beta + \varepsilon,
   \label{eq:mean_flow_fit}
 \end{equation}
 %
-restricted to segments with $H_s \geq \SI{0.2}{\meter}$. The slope
-$\alpha$ and intercept $\beta$ provide the discriminating
-coefficients. Stokes return-flow theory \citep{longuethiggins1953}
-predicts a depth-averaged Eulerian compensation flow
-$\overline{u} \approx -gH_s^2 / (16ch)$ for shallow water with
-$c = \sqrt{gh}$, giving $\alpha_\text{theory} = -g/(16ch)$, which
-ranges from $\approx -0.018$ at $h = \SI{5}{\meter}$ to
-$\approx -0.003$ at $h = \SI{15}{\meter}$ in m/s per
-m\textsuperscript{2}\,of $H_s^2$. The theoretical intercept is
-$\beta_\text{theory} = 0$. The three hypotheses make different
-predictions: real Stokes return flow gives $\alpha$ matching theory
-in sign and within an order-1 factor with $\beta$ centered on zero
-across many instruments; a constant per-instrument offset gives
-$\alpha \approx 0$ with $\beta$ scattering at the offset magnitude;
-random Doppler noise leaves both coefficients unconstrained but
+restricted to segments with $H_s \geq \SI{0.2}{\meter}$. Stokes return-flow theory
+(Longuet-Higgins, 1953) predicts a depth-averaged Eulerian compensation flow
+$\overline{u} \approx -gH_s^2 / (16ch)$ for shallow water with $c = \sqrt{gh}$,
+so $\alpha_\text{theory} = -g/(16ch)$, about $-0.018$ at $h = \SI{5}{\meter}$
+and $-0.003$ at $h = \SI{15}{\meter}$ in \si{\meter\per\second} per
+\si{\meter\squared} of $H_s^2$, with $\beta_\text{theory} = 0$. The hypotheses
+predict different coefficients. Real return flow gives $\alpha$ matching theory
+in sign and within a factor of order one, with $\beta$ centered on zero across
+instruments. A constant offset gives $\alpha \approx 0$ with $\beta$ scattered at
+the offset magnitude. Random noise leaves both coefficients unconstrained but
 shrinking toward zero with longer averaging.
 
 \subsubsection{Three robustness checks}
-Three follow-up fits address potential rebuttals to the
-$H_s^2$-scaling argument. First, the same fit is run on the
-alongshore component $\overline{v}$ to test whether $\alpha$ is
-specific to cross-shore physics or reflects generic storm-coherent
-forcing (wind stress, atmospheric pressure setup, alongshore
-gradients) that also correlates with $H_s$. Second, the fit is
-restricted to $H_s \geq \SI{1}{\meter}$, the wave-forcing-dominant
-regime where Stokes theory applies most cleanly, and the change in
-$R^2$ is reported. Third, an explicit wave-direction-discrimination
-test extends the alongshore model to
+First, the same fit was run on the alongshore component $\overline{v}$, to test
+whether $\alpha$ is specific to cross-shore physics or reflects storm-coherent
+forcing (wind stress, atmospheric setup, alongshore gradients) that also
+correlates with $H_s$. Second, the fit was restricted to
+$H_s \geq \SI{1}{\meter}$ and the change in $R^2$ reported. Third, the alongshore
+model was extended to
 %
 \begin{equation}
   \overline{v} = \alpha_{v0}\, H_s^2 + \alpha_{v1}\, \sin(2\theta_\text{rel})\, H_s^2 + \beta_v,
   \label{eq:wave_dir_check}
 \end{equation}
 %
-where $\theta_\text{rel}$ is the wave incidence angle relative to
-shore normal (taken directly from the L2 mean wave direction, which
-is computed in the rotated frame). A coordinate-rotation error
+where $\theta_\text{rel}$ is the wave incidence angle relative to shore normal,
+taken from the L2 mean direction in the rotated frame. An error
 $\theta_\text{err}$ in the shore-normal angle predicts
-$\alpha_{v0} = \alpha_u \tan(\theta_\text{err})$ with
-$\alpha_{v1} \approx 0$, while a real radiation-stress-driven
-longshore current predicts $\alpha_{v1}$ dominant with the sign
-matching local wave climatology. The implied
-$\theta_\text{err} = \arctan(\alpha_{v0}/\alpha_u)$ provides an
-upper bound on any actual rotation error.
+$\alpha_{v0} = \alpha_u \tan\theta_\text{err}$ with $\alpha_{v1} \approx 0$,
+while a radiation-stress-driven longshore current predicts a dominant
+$\alpha_{v1}$ with the sign of the local wave climate. The implied
+$\theta_\text{err} = \arctan(\alpha_{v0}/\alpha_u)$ is an upper bound on any
+rotation error.
 
 \subsubsection{Auxiliary diagnostics}
-Three additional tests provide independent corroboration. (1)~Tidal
-phase modulation of $\overline{u}$ was computed by binning
-segment-mean velocities into 16 phase bins of band-passed depth
-(\SIrange{0.0019}{0.0093}{\hertz}, $\sim$30~min to 3~hr period),
-stratified by $H_s$. A constant instrumental offset has zero
-modulation amplitude in any $H_s$ stratum. (2)~Cross-instrument
-correlations of $\overline{u}(t)$ between independently-calibrated
-Vectors at common timestamps test whether shared time-varying
-variance exists; independently-calibrated instruments cannot
-produce coincidentally biased records. (3)~The Reynolds-stress
-component $\overline{u'w'}$, derived from the same record via an
-independent processing path (segment-mean of fluctuating velocity
-covariance rather than the segment mean itself), was correlated
-with $\overline{u}$. Independent random noise in either path would
-push the correlation toward zero.
+(1)~Tidal modulation of $\overline{u}$ was measured by binning segment means
+into 16 phase bins of band-passed depth (\SIrange{0.0019}{0.0093}{\hertz}, periods
+of about \SI{30}{\minute} to \SI{3}{\hour}), stratified by $H_s$; a constant
+offset has zero modulation in every stratum. (2)~Time series of $\overline{u}$
+from independently calibrated instruments were correlated at common timestamps.
+(3)~The Reynolds stress $\overline{u'w'}$, a segment mean of fluctuation
+products rather than of the velocity itself, was correlated with
+$\overline{u}$; independent noise in either path would push that correlation
+toward zero.
 
 \subsubsection{Segmentation independence}
-The mean-flow validation is run at both the canonical 1-hour
-segmentation and the legacy 17-minute segmentation. Random
-instrument noise predicts that $\overline{u}$ estimates drift
-toward zero as the averaging window grows; if the signal is real
-wave-driven flow, $\alpha$ is approximately segmentation-
-independent (kinematic relationship) while $|\beta|$ tightens
-slightly toward zero. The segmentation comparison is therefore a
-direct falsification test against the noise hypothesis.
+The validation was run at 1-hour and 17-minute segmentation. Random noise
+predicts that $\overline{u}$ estimates shrink toward zero as the averaging window
+grows. Real wave-driven flow predicts $\alpha$ roughly independent of
+segmentation, since it is a kinematic relation, with $|\beta|$ tightening
+slightly toward zero.

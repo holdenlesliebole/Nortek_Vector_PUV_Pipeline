@@ -1,9 +1,14 @@
-% >>> The current consolidated user guide is docs/PUV_Pipeline_Guide.tex (built to
-%     PUV_Pipeline_Guide.pdf). This file is retained as source material / deep reference;
-%     its L1 quality-control description predates the 2026-07 per-channel QC rework.
-%     Start newcomers on the guide.
-% Standalone wrapper to compile methods and results sections as a single PDF
-% Usage: pdflatex compile_sections.tex
+% Standalone wrapper that builds the methods and results sections as one PDF.
+%   latexmk -pdf compile_sections.tex
+% Inputs: methods_L1_L2.tex, results_validation.tex. Figures are read from
+% ../outputs/validation/Ruby2D/, which is not in the repository (outputs/ is
+% gitignored), so a fresh clone cannot rebuild this PDF; the committed PDF is
+% the reference copy.
+%
+% Status (2026-10-15): the Methods section was checked against the code for
+% catalog version 2026-10-14.1. The Results section is a historical record of
+% analyses run April to July 2026 and was not recomputed. Audit:
+% docs/doc_audit_2026-10-15/audit_compile_sections.md.
 
 \documentclass[11pt]{article}
 \usepackage[margin=1in]{geometry}
@@ -11,56 +16,67 @@
 \usepackage{booktabs}
 \usepackage{graphicx}
 \graphicspath{{../outputs/validation/}}
-\usepackage{hyperref}
 \usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{siunitx}
+\sisetup{range-phrase = --, range-units = single}
+\DeclareSIUnit{\dbar}{dbar}
+\usepackage{hyperref}
+\setlength{\emergencystretch}{3em}
+\sloppy
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue}
 
-% Use siunitx if available, otherwise define stubs.
-% Notes:
-%   - When defining \newcommand inside \IfFileExists arguments, # markers
-%     must be doubled (##) to survive the outer macro scan.
-%   - Math-context-safe: \cubed, \squared, \degree use \ensuremath so they
-%     can appear inside or outside an existing math env without breaking.
-\IfFileExists{siunitx.sty}{%
-  \usepackage{siunitx}
-}{%
-  \newcommand{\SI}[2]{##1~##2}
-  \newcommand{\SIrange}[3]{##1--##2~##3}
-  \newcommand{\si}[1]{##1}
-  \newcommand{\hertz}{Hz}
-  \newcommand{\meter}{m}
-  \newcommand{\second}{s}
-  \newcommand{\minute}{min}
-  \newcommand{\hour}{hr}
-  \newcommand{\degree}{\ensuremath{^{\circ}}}
-  \newcommand{\percent}{\%}
-  \newcommand{\deci}{}
-  \newcommand{\centi}{c}
-  \newcommand{\kilo}{k}
-  \newcommand{\kilogram}{kg}
-  \newcommand{\per}{/}
-  \newcommand{\cubed}{\ensuremath{^{3}}}
-  \newcommand{\squared}{\ensuremath{^{2}}}
-  \newcommand{\milli}{m}
-}
+% Visible status note: a boxed paragraph that marks a change, a correction,
+% or a historical/retracted passage, so the marker survives into the PDF.
+\newcommand{\statusnote}[1]{%
+  \par\smallskip\noindent
+  \fbox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule\relax}{\small #1}}%
+  \par\smallskip}
 
-% Stub out natbib/citation commands
-\newcommand{\citep}[1]{[#1]}
-\newcommand{\citet}[1]{#1}
-
-\title{PUV Pipeline --- Methods and Validation Results}
+\title{PUV Pipeline: Methods and Validation Results}
 \author{Holden Leslie-Bole \\ Scripps Institution of Oceanography}
-\date{April 2026}
+\date{Draft of April 2026; methods updated 15 October 2026}
 
 \begin{document}
 \maketitle
+
+\section*{How to read this document}
+
+This is a working draft of the methods and results sections written for the
+first PUV paper. It is kept because it is the most complete written account of
+the L1 to L3 processing and of the validation tests run in spring and summer
+2026.
+
+\begin{itemize}
+  \item \textbf{Methods} (Section~\ref{sec:methods}) were checked against the code
+    on 2026-10-15 and describe the processing that produced catalog version
+    2026-10-14.1. Each paragraph that changed carries a boxed note saying what
+    changed and when.
+  \item \textbf{Results} (Section~\ref{sec:results}) record analyses run between
+    April and July 2026 on the catalog as it then stood (33 to 38 instruments,
+    17-minute segments for the earliest). None was recomputed for this revision.
+    Passages later retracted are boxed and labeled.
+\end{itemize}
+
+For the current pipeline, start with \texttt{README.md}, then
+\texttt{docs/pipeline\_levels.md} (status by level),
+\texttt{PIPELINE\_NOTES.md} (design reasons) and \texttt{CHANGELOG.md}. The
+long-form manual is \texttt{docs/PUV\_Pipeline\_Guide.pdf}. The spectral-estimator
+choice is documented in \texttt{docs/multitaper\_writeup.pdf}, and the faults of
+the legacy processing code in \texttt{docs/legacy\_pipeline\_defects.pdf}. Current
+model-comparison findings live in the separate paper repository
+(\texttt{Wave\_model\_validation\_paper/docs/}), not here.
+
 \tableofcontents
 \newpage
 
 \section{Methods}
+\label{sec:methods}
 \input{methods_L1_L2}
 
 \newpage
 \section{Results}
+\label{sec:results}
 \input{results_validation}
 
 \end{document}
