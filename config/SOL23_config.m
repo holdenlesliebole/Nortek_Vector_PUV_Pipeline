@@ -16,6 +16,7 @@ function cfg = SOL23_config()
     cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector';
     cfg.outputDir   = fullfile(fileparts(mfilename('fullpath')), '..', 'outputs');
     cfg.qcOpts.Tvalid = [9 26];  % San Diego coastal; matches the canonical L1 (rerun_*_2026_07_11 injection)
+    cfg.tideStation = '9410230';  % NOAA CO-OPS La Jolla (Scripps Institution Wharf), harmonic station; tidal depth in PUV_L3_currents. Same station every catalog L3 used through 2026-10-15 (then hardcoded in toolbox getztide2.m)
     cfg.fs          = 2;  % Hz
 
     k = 0;
@@ -25,6 +26,7 @@ function cfg = SOL23_config()
     % Battery depleted. Found and recovered 12/08/2025 with bent pipe.
     k = k + 1;
     cfg.instruments(k).label          = 'MOP651_5m';
+    cfg.instruments(k).knownFailed    = 'battery depleted, no valid pressure; instrument lost 2 yr, recovered 12/08/2025 with a bent pipe; this file''s header and docs/deployment_database_overview.md (SOL23 MOP651_5m row)';
     cfg.instruments(k).filePrefix     = '5M_65102';
     cfg.instruments(k).rawSubfolder   = 'Solana20231115-20240128MOP651';
     cfg.instruments(k).mopStation     = 'D0651';

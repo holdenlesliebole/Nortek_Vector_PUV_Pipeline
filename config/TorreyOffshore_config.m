@@ -101,6 +101,7 @@ function cfg = TorreyOffshore_config(deployment_name)
     cfg.rawDataRoot = row{1};
 
     cfg.qcOpts.Tvalid       = [9 26];   % San Diego coastal
+    cfg.tideStation = '9410230';  % NOAA CO-OPS La Jolla (Scripps Institution Wharf), harmonic station; tidal depth in PUV_L3_currents. Same station every catalog L3 used through 2026-10-15 (then hardcoded in toolbox getztide2.m)
     cfg.qcOpts.cutoffGapSec = 60;       % clear the benign per-file firmware-1.21 hiccups
 
     k = 1;

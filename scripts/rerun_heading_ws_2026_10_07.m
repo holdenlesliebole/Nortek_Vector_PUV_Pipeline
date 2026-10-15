@@ -613,7 +613,7 @@ function [s, okRec] = rebuild_combined(reg, dep, lab, lv, outRoot, bk, L4WANT)
         % ---- L3: ALWAYS a full rebuild (bands, storms, transport, currents), so every
         %      catalog L3 comes from one code version with seeded t_tide and NOAA depth ----
         L3 = PUV_L3_bands(L2); L3 = PUV_L3_storms(L3, L2);
-        L3 = PUV_L3_transport(L3, L2, struct('Tvalid', Tvalid)); L3 = PUV_L3_currents(L3, L2);
+        L3 = PUV_L3_transport(L3, L2, struct('Tvalid', Tvalid)); L3 = PUV_L3_currents(L3, L2, l3_currents_opts(cfg));
         [okRef, why, evMsg] = same_storm_reference(L3, L3old, contains(lv,'L2'));
         if ~okRef, error('L3 storm reference differs from before (%s): not saved', why); end
         if ~isempty(evMsg), msgs{end+1} = evMsg; end

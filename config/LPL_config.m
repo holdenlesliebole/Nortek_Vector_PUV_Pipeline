@@ -20,6 +20,7 @@ function cfg = LPL_config(deployment_name)
     cfg.fs        = 2;  % Hz
     cfg.outputDir = fullfile(fileparts(mfilename('fullpath')), '..', 'outputs');
     cfg.qcOpts.Tvalid = [9 26];  % San Diego coastal; matches the canonical L1 (rerun_*_2026_07_11 injection)
+    cfg.tideStation = '9410230';  % NOAA CO-OPS La Jolla (Scripps Institution Wharf), harmonic station; tidal depth in PUV_L3_currents. Same station every catalog L3 used through 2026-10-15 (then hardcoded in toolbox getztide2.m)
 
     % Surveyed position of the Los Penasquitos offshore station. Stable across
     % 2019-2026 in the field logs (same jetted pipe reused each season):

@@ -156,8 +156,11 @@ L3g = struct('time', t, 'segValid', true(n,1));
 keep = ~dead;
 L2c = struct('time', t(keep), 'uMean', u(keep), 'vMean', v(keep), 'depth', d(keep));
 L3c = struct('time', t(keep), 'segValid', true(sum(keep),1));
-Og = quiet(@() PUV_L3_currents(L3g, L2g));
-Oc = quiet(@() PUV_L3_currents(L3c, L2c));
+% (synthetic L2 with no LATLON: name the station; the depth fallback is
+% allowed because only the tidal CURRENT fit is compared here)
+o3 = struct('tideStation', '9410230', 'allowTtideFallback', true);
+Og = quiet(@() PUV_L3_currents(L3g, L2g, o3));
+Oc = quiet(@() PUV_L3_currents(L3c, L2c, o3));
 a = Og.tidal.u(keep); b = Oc.tidal.u;
 r = rms(a) / rms(b);                % tidal-current amplitude, dead tail vs truncated
 end

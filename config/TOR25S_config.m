@@ -21,6 +21,7 @@ function cfg = TOR25S_config()
     cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector';
     cfg.outputDir   = fullfile(fileparts(mfilename('fullpath')), '..', 'outputs');
     cfg.qcOpts.Tvalid = [9 26];  % San Diego coastal; matches the canonical L1 (rerun_*_2026_07_11 injection)
+    cfg.tideStation = '9410230';  % NOAA CO-OPS La Jolla (Scripps Institution Wharf), harmonic station; tidal depth in PUV_L3_currents. Same station every catalog L3 used through 2026-10-15 (then hardcoded in toolbox getztide2.m)
     cfg.fs          = 2;  % Hz
 
     k = 0;
@@ -29,6 +30,7 @@ function cfg = TOR25S_config()
     % Flat layout in Torrey20250326-20250601/
     k = k + 1;
     cfg.instruments(k).label          = 'MOP586_5m';
+    cfg.instruments(k).knownFailed    = 'no valid pressure data; pipe bent, kelp blockage; docs/deployment_database_overview.md (TOR25S MOP586_5m row)';
     cfg.instruments(k).filePrefix     = '5M_58602';
     cfg.instruments(k).rawSubfolder   = 'Torrey20250326-20250601';
     cfg.instruments(k).mopStation     = 'D0586';

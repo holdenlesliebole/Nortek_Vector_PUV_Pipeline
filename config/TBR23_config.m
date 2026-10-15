@@ -24,6 +24,7 @@ function cfg = TBR23_config()
     % discriminant. TBR23 is a summer deployment, so the thermistor should read ~15-22 C
     % throughout; a reading below 9 C is a failure. See docs/PUV_Pipeline_Guide.pdf sec 5.
     cfg.qcOpts.Tvalid = [9 26];
+    cfg.tideStation = '9410230';  % NOAA CO-OPS La Jolla (Scripps Institution Wharf), harmonic station; tidal depth in PUV_L3_currents. Same station every catalog L3 used through 2026-10-15 (then hardcoded in toolbox getztide2.m)
     cfg.outputDir   = fullfile(fileparts(mfilename('fullpath')), '..', 'outputs');
     cfg.fs          = 2;  % Hz
 

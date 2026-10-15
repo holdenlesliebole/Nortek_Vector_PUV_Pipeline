@@ -22,6 +22,7 @@ function cfg = SIO_Pier_config(deployment_name)
     cfg.fs        = 2;  % Hz
     cfg.outputDir = fullfile(fileparts(mfilename('fullpath')), '..', 'outputs');
     cfg.qcOpts.Tvalid = [9 26];  % San Diego coastal; matches the canonical L1 (rerun_*_2026_07_11 injection)
+    cfg.tideStation = '9410230';  % NOAA CO-OPS La Jolla (Scripps Institution Wharf), harmonic station; tidal depth in PUV_L3_currents. Same station every catalog L3 used through 2026-10-15 (then hardcoded in toolbox getztide2.m)
 
     % Surveyed position of the SIO Pier 6 m station (MOP511). Every deployment
     % since 2023 reuses the same pipe, so one value covers them all:
@@ -54,6 +55,7 @@ function cfg = SIO_Pier_config(deployment_name)
             cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector/SouthSIOPier20240611-20240728';
             k = k + 1;
             cfg.instruments(k).label          = 'SIO_6m';
+            cfg.instruments(k).knownFailed    = 'knocked over: 32 deg tilt (pitch -22, roll 23) for the whole record, beam correlations < 10%; docs/deployment_database_overview.md (SIO24B row)';
             cfg.instruments(k).filePrefix     = '6M_51102';
             cfg.instruments(k).rawSubfolder   = '';
             cfg.instruments(k).mopStation     = 'D0511';
@@ -69,6 +71,7 @@ function cfg = SIO_Pier_config(deployment_name)
             cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector/SouthSIOPier20241024-20241231';
             k = k + 1;
             cfg.instruments(k).label          = 'SIO_6m';
+            cfg.instruments(k).knownFailed    = 'no valid pressure, beam correlations very low, battery depleted 12/31/2024; docs/deployment_database_overview.md (SIO24C row)';
             cfg.instruments(k).filePrefix     = '6M_51102';
             cfg.instruments(k).rawSubfolder   = '';
             cfg.instruments(k).mopStation     = 'D0511';
@@ -84,6 +87,7 @@ function cfg = SIO_Pier_config(deployment_name)
             cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector/SouthSIOPier20250123-20250329';
             k = k + 1;
             cfg.instruments(k).label          = 'SIO_6m';
+            cfg.instruments(k).knownFailed    = 'started upside down (pitch -168 deg), beam correlations stayed low after it righted, power-pin corrosion; docs/deployment_database_overview.md (SIO25A row)';
             cfg.instruments(k).filePrefix     = '6M-51102';
             cfg.instruments(k).rawSubfolder   = '';
             cfg.instruments(k).mopStation     = 'D0511';

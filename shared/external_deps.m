@@ -8,7 +8,10 @@ function D = external_deps(level)
 %
 % The list is static and comes from a matlab.codetools.requiredFilesAndProducts
 % scan of each level's entry functions (2026-10-09): L1, L2, L4 and L4_xspec
-% need nothing outside this repository; L3 needs the 12 files below.
+% need nothing outside this repository; L3 needs the 11 files below (12 until
+% 2026-10-15, when getztide2 was replaced by shared/noaa_tide_predictions so the
+% NOAA station can be set per deployment; stamps made before then still list
+% getztide2, and check_prov keeps comparing it while it is on the path).
 %   - t_tide v1 (Pawlowicz, Beardsley & Lentz 2002), used directly by
 %     PUV_L3_currents for the tidal fit: t_tide, t_predic, t_astron, t_getconsts,
 %     t_vuf and its data files t_constituents.mat, t_equilib.dat, tide3.dat.
@@ -18,9 +21,8 @@ function D = external_deps(level)
 %     "summer 2021 Maldives research/old code/t_tide_v1/", bytes unchanged,
 %     so stamps made at the old path still pass check_prov, which compares
 %     SHA-256 only).
-%   - Research/toolbox: getztide2 (tide prediction) and read_MOPline2 (CDIP MOP
-%     reader, used by PUV_L3_storms through cdip_station_reference), which in
-%     turn need get_k and xyRotate.
+%   - Research/toolbox: read_MOPline2 (CDIP MOP reader, used by PUV_L3_storms
+%     through cdip_station_reference), which in turn needs get_k and xyRotate.
 % build_provenance stamps this list for the level; check_prov SOFT-refuses a
 % file whose recorded hash for any of these differs from the file found now.
 % Re-run the scan when an entry function gains a dependency.
@@ -29,7 +31,7 @@ function D = external_deps(level)
 
     L.L3 = {'t_tide.m','t_predic.m','t_astron.m','t_getconsts.m','t_vuf.m', ...
             't_constituents.mat','t_equilib.dat','tide3.dat', ...
-            'getztide2.m','read_MOPline2.m','get_k.m','xyRotate.m'};
+            'read_MOPline2.m','get_k.m','xyRotate.m'};
     if nargin < 1
         names = unique([L.L3]);
     elseif isfield(L, level)
