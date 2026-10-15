@@ -67,4 +67,4 @@ docs/diagnostics_2026-07-09/
 outputs
 
 # Talk slides are built locally and not versioned (2026-10-15)
-docs/puv_pipeline_slides*.pdf
+docs/puv_pipeline_slides*
