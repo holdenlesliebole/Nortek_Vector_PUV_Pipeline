@@ -544,7 +544,7 @@ function CE = read_change_entries(dirPath)
 %     - L3: why the L3 code change does not invalidate these files
 %   fallback_ack: false
 %   ```
-    CE = struct('path', {}, 'title', {}, 'body', {}, 'files', {}, 'code_ack', {}, 'fallback_ack', {});
+    CE = struct('path', {}, 'title', {}, 'body', {}, 'files', {}, 'code_ack', {}, 'fallback_ack', {}, 'changes', {});
     F = dir(fullfile(dirPath, '*.md'));
     for k = 1:numel(F)
         if strcmpi(F(k).name, 'README.md'), continue, end
@@ -562,6 +562,11 @@ function CE = read_change_entries(dirPath)
         e.code_ack = regexprep(ca, ':.*$', '');
         fa = regexp(b, 'fallback_ack:\s*(\S+)', 'tokens', 'once');
         e.fallback_ack = ~isempty(fa) && strcmpi(fa{1}, 'true');
+        % 'changes: false' = acknowledgement-only entry: its code_ack/fallback_ack
+        % apply to the files it names, but it does NOT explain a changed sha256, so a
+        % file whose bytes changed still needs an entry that describes the change.
+        ch = regexp(b, 'changes:\s*(\S+)', 'tokens', 'once');
+        e.changes = isempty(ch) || ~strcmpi(ch{1}, 'false');
         CE(end+1) = e; %#ok<AGROW>
     end
 end
@@ -584,7 +589,7 @@ function [ackCode, ackFb, ents] = entries_for(CE, rel)
             if ~isempty(regexp(rel, rx, 'once')), hit = true; break, end
         end
         if hit
-            ents{end+1} = CE(k).title; %#ok<AGROW>
+            if CE(k).changes, ents{end+1} = CE(k).title; end %#ok<AGROW>
             ackCode = union(ackCode, CE(k).code_ack);
             ackFb = ackFb || CE(k).fallback_ack;
         end

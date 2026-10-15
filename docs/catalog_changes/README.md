@@ -51,6 +51,11 @@ example: "new L3 files carry transport_params.ws_C1 = 20").
 - `code_ack`: levels whose code changed since the files' build commit, with a
   reason. Without it, `check_prov` refuses a file whose level code changed after
   it was built (`SOFT` refusal).
+- `changes`: omit (or `true`) for an entry that explains changed files. Set
+  `changes: false` for an acknowledgement-only entry (for example code edits that
+  change no output values): its `code_ack`/`fallback_ack` apply to the files it
+  names, but it does not count as naming a changed sha256, so any file whose bytes
+  changed is still refused unless another entry describes that change.
 - `fallback_ack`: `true` only when the change knowingly publishes a build that
   recorded a fallback (for example a site with no CDIP shore-normal).
 - A forced push (`forceReasons` in `copy_to_server`) writes its reason into
