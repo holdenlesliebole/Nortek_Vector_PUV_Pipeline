@@ -205,56 +205,72 @@ for v = 1:numel(vars)
 end
 
 %% ======================== SCATTER PLOTS ========================
-fig = figure('Position', [100 100 1400 400], 'Name', ...
-    sprintf('PUV vs MOP: %s %s', L2.deploymentName, L2.label));
+% Diagnostic figure, drawn to the figure conventions (~/.claude/skills/
+% figure-conventions): no titles, labels with units, panel labels, sized for
+% a double column (7.2 in) with fonts set for that size; vector PDF + PNG.
+% The record identity is in the file name. Never opens a window.
+fig = figure('Visible', 'off', 'Units', 'inches', 'Position', [1 1 7.2 2.6], ...
+    'Color', 'w', 'Name', sprintf('PUV vs MOP: %s %s', L2.deploymentName, L2.label));
+tl = tiledlayout(fig, 1, 3, 'TileSpacing', 'compact', 'Padding', 'compact');
 
-varLabels = {'Hs (m)', 'Tm (s)', 'Ef (W/m)'};
+axLabels = {'{\itH}_s (m)', '{\itT}_{m02} (s)', '{\itE}_f (kW/m)'};
+scl      = [1, 1, 1e-3];                 % Ef shown in kW/m so ticks stay short
+cPts = [0.000 0.447 0.741];              % colorblind-safe blue
+cFit = [0.850 0.325 0.098];              % orange; also a different line style
+panel = 'abc';
 
 for v = 1:3
-    subplot(1, 3, v);
-    x = results.([vars{v} '_mop']);
-    y = results.([vars{v} '_puv']);
+    ax = nexttile(tl); hold(ax, 'on'); box(ax, 'on');
+    set(ax, 'FontSize', 8, 'LineWidth', 0.75, 'TickDir', 'out');
+    x = results.([vars{v} '_mop']) * scl(v);
+    y = results.([vars{v} '_puv']) * scl(v);
     good = ~isnan(x) & ~isnan(y);
 
-    scatter(x(good), y(good), 8, 'filled', 'MarkerFaceAlpha', 0.3);
-    hold on;
-
-    % 1:1 line
-    lims = [min([x(good); y(good)]), max([x(good); y(good)])];
-    h1 = plot(lims, lims, 'k--', 'LineWidth', 1);
-
-    % Best fit
+    scatter(ax, x(good), y(good), 6, cPts, 'filled', 'MarkerFaceAlpha', 0.25, ...
+        'MarkerEdgeColor', 'none');
+    lo = min([x(good); y(good)]); hi = max([x(good); y(good)]);
+    pad = 0.04 * (hi - lo); lims = [lo - pad, hi + pad];
+    h1 = plot(ax, lims, lims, 'k--', 'LineWidth', 0.9);
     h2 = [];
     if sum(good) > 10
         p = polyfit(x(good), y(good), 1);
-        h2 = plot(lims, polyval(p, lims), 'r-', 'LineWidth', 1);
+        h2 = plot(ax, lims, polyval(p, lims), '-', 'Color', cFit, 'LineWidth', 1.2);
     end
+    xlim(ax, lims); ylim(ax, lims); axis(ax, 'square'); grid(ax, 'on');
+    ax.GridAlpha = 0.15;
+    xlabel(ax, ['MOP ' axLabels{v}]);
+    ylabel(ax, ['PUV ' axLabels{v}]);
 
-    xlabel(sprintf('MOP %s', varLabels{v}));
-    ylabel(sprintf('PUV %s', varLabels{v}));
-    title(sprintf('%s — %s', varLabels{v}, L2.label));
-    axis equal; grid on;
     s = results.stats.(vars{v});
-    text(0.05, 0.92, sprintf('R^2=%.3f\nRMSE=%.3f\nbias=%+.3f', ...
-        s.R2, s.RMSE, s.bias), 'Units', 'normalized', 'FontSize', 8, ...
-        'VerticalAlignment', 'top');
-
-    % Legend
-    if ~isempty(h2)
-        legend([h1, h2], {'1:1', 'Best fit'}, 'Location', 'southeast', 'FontSize', 7);
+    text(ax, 0.04, 0.96, sprintf('(%s)', panel(v)), 'Units', 'normalized', ...
+        'FontWeight', 'bold', 'FontSize', 9, 'VerticalAlignment', 'top');
+    % Statistics in the lower-right corner: below the 1:1 line at high MOP
+    % values, the corner that stays empty when PUV and MOP agree.
+    text(ax, 0.96, 0.04, sprintf('{\\itR}^2 = %.2f\nRMSE = %.3g\nbias = %+.2g', ...
+        s.R2, s.RMSE * scl(v), s.bias * scl(v)), 'Units', 'normalized', ...
+        'FontSize', 7.5, 'HorizontalAlignment', 'right', 'VerticalAlignment', 'bottom');
+    if v == 1 && ~isempty(h2)
+        legend(ax, [h1, h2], {'1:1', 'Linear fit'}, 'Location', 'northwest', ...
+            'FontSize', 7.5, 'Box', 'off');
+        lg = ax.Legend; lg.Position(2) = lg.Position(2) - 0.12;   % below the panel letter
     end
 end
 
-sgtitle(sprintf('%s — %s: PUV vs MOP (shoaled %.1f m to %.1f m)', ...
-    L2.deploymentName, L2.label, h_mop, h_puv), 'FontWeight', 'bold');
-
-% Save figure
-diagDir = fullfile(fileparts(fileparts(mfilename('fullpath'))), ...
-    'outputs', 'validation');
+% Save next to the other validation output: <repo>/outputs/validation
+% (walk up to the folder holding startup_puv.m, so this works from archive/).
+repoRoot = fileparts(mfilename('fullpath'));
+while ~isfile(fullfile(repoRoot, 'startup_puv.m'))
+    up = fileparts(repoRoot);
+    if strcmp(up, repoRoot), error('compare_PUV_MOP:noRoot', 'No startup_puv.m above %s', mfilename('fullpath')); end
+    repoRoot = up;
+end
+diagDir = fullfile(repoRoot, 'outputs', 'validation');
 if ~exist(diagDir, 'dir'), mkdir(diagDir); end
-figFile = fullfile(diagDir, sprintf('%s_%s_PUV_vs_MOP.png', ...
-    L2.deploymentName, L2.label));
-exportgraphics(fig, figFile, 'Resolution', 200);
-fprintf('  Figure saved: %s\n', figFile);
+figBase = fullfile(diagDir, sprintf('%s_%s_PUV_vs_MOP', L2.deploymentName, L2.label));
+exportgraphics(fig, [figBase '.pdf'], 'ContentType', 'vector');
+exportgraphics(fig, [figBase '.png'], 'Resolution', 300);
+close(fig);
+figFile = [figBase '.pdf'];
+fprintf('  Figure saved: %s (.pdf, .png)\n', figBase);
 
 end
