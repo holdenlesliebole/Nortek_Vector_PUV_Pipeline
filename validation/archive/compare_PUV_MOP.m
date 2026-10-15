@@ -209,7 +209,7 @@ end
 % figure-conventions): no titles, labels with units, panel labels, sized for
 % a double column (7.2 in) with fonts set for that size; vector PDF + PNG.
 % The record identity is in the file name. Never opens a window.
-fig = figure('Visible', 'off', 'Units', 'inches', 'Position', [1 1 7.2 2.6], ...
+fig = figure('Visible', 'off', 'Units', 'inches', 'Position', [1 1 7.2 2.75], ...
     'Color', 'w', 'Name', sprintf('PUV vs MOP: %s %s', L2.deploymentName, L2.label));
 tl = tiledlayout(fig, 1, 3, 'TileSpacing', 'compact', 'Padding', 'compact');
 
@@ -241,19 +241,19 @@ for v = 1:3
     xlabel(ax, ['MOP ' axLabels{v}]);
     ylabel(ax, ['PUV ' axLabels{v}]);
 
-    s = results.stats.(vars{v});
-    text(ax, 0.04, 0.96, sprintf('(%s)', panel(v)), 'Units', 'normalized', ...
-        'FontWeight', 'bold', 'FontSize', 9, 'VerticalAlignment', 'top');
-    % Statistics in the lower-right corner: below the 1:1 line at high MOP
-    % values, the corner that stays empty when PUV and MOP agree.
-    text(ax, 0.96, 0.04, sprintf('{\\itR}^2 = %.2f\nRMSE = %.3g\nbias = %+.2g', ...
-        s.R2, s.RMSE * scl(v), s.bias * scl(v)), 'Units', 'normalized', ...
-        'FontSize', 7.5, 'HorizontalAlignment', 'right', 'VerticalAlignment', 'bottom');
-    if v == 1 && ~isempty(h2)
-        legend(ax, [h1, h2], {'1:1', 'Linear fit'}, 'Location', 'northwest', ...
-            'FontSize', 7.5, 'Box', 'off');
-        lg = ax.Legend; lg.Position(2) = lg.Position(2) - 0.12;   % below the panel letter
-    end
+    % Panel letter just outside the upper-left corner, so it never sits on data.
+    text(ax, -0.02, 1.02, sprintf('(%s)', panel(v)), 'Units', 'normalized', ...
+        'FontWeight', 'bold', 'FontSize', 9, 'HorizontalAlignment', 'right', ...
+        'VerticalAlignment', 'bottom');
+    if v == 1 && ~isempty(h2), hLeg = [h1, h2]; end
+end
+% R^2/RMSE/bias are caption/table material (figure conventions): they are in
+% results.stats and written to <figBase>_stats.csv, not drawn on the axes.
+% One legend for all panels, below the axes, so it can never cover data.
+if exist('hLeg', 'var')
+    lg = legend(hLeg, {'1:1', 'Linear fit'}, 'Orientation', 'horizontal', ...
+        'FontSize', 8, 'Box', 'off');
+    lg.Layout.Tile = 'south';
 end
 
 % Save next to the other validation output: <repo>/outputs/validation
@@ -270,6 +270,11 @@ figBase = fullfile(diagDir, sprintf('%s_%s_PUV_vs_MOP', L2.deploymentName, L2.la
 exportgraphics(fig, [figBase '.pdf'], 'ContentType', 'vector');
 exportgraphics(fig, [figBase '.png'], 'Resolution', 300);
 close(fig);
+T = struct2table(arrayfun(@(k) struct('variable', string(vars{k}), 'unit', string(units{k}), ...
+    'R2', results.stats.(vars{k}).R2, 'RMSE', results.stats.(vars{k}).RMSE, ...
+    'bias', results.stats.(vars{k}).bias, 'skill', results.stats.(vars{k}).skill, ...
+    'N', results.stats.(vars{k}).N), 1:3));
+writetable(T, [figBase '_stats.csv']);
 figFile = [figBase '.pdf'];
 fprintf('  Figure saved: %s (.pdf, .png)\n', figBase);
 
