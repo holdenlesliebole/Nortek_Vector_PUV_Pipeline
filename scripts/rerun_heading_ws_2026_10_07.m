@@ -29,6 +29,15 @@
 %                       Backups: outputs/_pre_combined_backup_<date>/. Requires a
 %                       provenance sidecar on every input L1 and on any L2 not
 %                       rebuilt (run scripts/backfill_provenance first).
+%                       skipXspec = true leaves xspec to a later 'xspecprov'
+%                       stage (set by scripts/run_L4_refresh_watchdog.sh).
+%   stage = 'xspecprov' L4_xspec, WITH provenance, for xspecDeps = {...}, from the
+%                       L4 files on disk now. Run once after every launch of a
+%                       watchdog-driven 'L4' or 'combined' pass has finished:
+%                       a launch killed for a hang never reaches its own xspec
+%                       step, which left IB19S, IB18W and RUBY22 xspec stale
+%                       behind rebuilt L4s (2026-10-08 and 10-12/13).
+%                       Backups: outputs/_pre_combined_backup_<date>/.
 %   dryRun = true       stop after PREFLIGHT; nothing is backed up or written.
 %
 % Heading changes (config, magnetic deg; old = PUV.rotation.sensor in the L1
@@ -48,7 +57,7 @@
 
 repoRoot = fileparts(fileparts(mfilename('fullpath')));
 run(fullfile(repoRoot, 'startup_puv.m'));
-if ~exist('stage', 'var'), error('set stage = ''heading'' | ''sio24a'' | ''xspec'' | ''L3'''); end
+if ~exist('stage', 'var'), error('set stage = ''heading'' | ''sio24a'' | ''xspec'' | ''L3'' | ''L4'' | ''combined'' | ''xspecprov'''); end
 if ~exist('dryRun', 'var'), dryRun = false; end
 if ~exist('outRoot', 'var'), outRoot = fullfile(repoRoot, 'outputs'); end
 if ~exist('rawRoot', 'var'), rawRoot = fullfile(fileparts(outRoot), 'raw_cache'); end
@@ -203,6 +212,17 @@ if strcmp(stage, 'combined')
     [~, c1d, c2d, shd] = settling_velocity(2.5e-4, 2650, 1025, 1e-6);
     fprintf('  %d records; settling velocity default %s (C1 %g, C2 %g); backups -> %s\n', size(combinedRecs,1), shd, c1d, c2d, bkComb);
 end
+if strcmp(stage, 'xspecprov')
+    if ~exist('xspecDeps', 'var') || isempty(xspecDeps), error('PREFLIGHT: set xspecDeps = {dep, ...} for stage xspecprov'); end
+    bkComb = fullfile(outRoot, ['_pre_combined_backup_' char(datetime('today', 'Format', 'yyyy-MM-dd'))]);
+    for d = xspecDeps
+        if ~isfile(fullfile(outRoot,'L4_xspec',d{1},'xspec.mat')), error('PREFLIGHT: no xspec for %s', d{1}); end
+        nL4 = numel(dir(fullfile(outRoot,'L4',d{1},'*_L4.mat')));
+        if nL4 < 2, error('PREFLIGHT: %s has %d L4 file(s); xspec needs at least 2', d{1}, nL4); end
+        fprintf('  xspecprov %-8s %d L4 files\n', d{1}, nL4);
+    end
+    fprintf('  backups -> %s\n', bkComb);
+end
 if strcmp(stage, 'xspec') && exist('xspecDeps', 'var')
     for d = xspecDeps, if ~isfile(fullfile(outRoot,'L4_xspec',d{1},'xspec.mat')), error('PREFLIGHT: no xspec for %s', d{1}); end, end
     fprintf('  xspec deployments: %s\n', strjoin(xspecDeps, ', '));
@@ -270,8 +290,16 @@ case 'combined'
         if okRec && contains(lv, 'L4') && isfile(fullfile(outRoot,'L4_xspec',dep,'xspec.mat')), xDeps{end+1} = dep; end %#ok<SAGROW>
     end
     xDeps = unique(xDeps);
+    if exist('skipXspec', 'var') && skipXspec
+        fprintf('\nskipXspec: xspec left to stage xspecprov for: %s\n', strjoin(xDeps, ', '));
+        xDeps = {};
+    end
     for k = 1:numel(xDeps)   % (for d = unique({}) would iterate once over a 0x1 cell)
         summary{end+1} = rebuild_xspec_prov(xDeps{k}, outRoot, bkComb); %#ok<SAGROW>
+    end
+case 'xspecprov'
+    for d = xspecDeps
+        summary{end+1} = rebuild_xspec_prov(d{1}, outRoot, bkComb); %#ok<SAGROW>
     end
 case 'L3'
     for r = 1:size(LIST,1)
