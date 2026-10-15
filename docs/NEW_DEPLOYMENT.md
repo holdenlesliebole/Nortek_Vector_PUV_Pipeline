@@ -14,13 +14,16 @@ network, or any San Diego data to process your own deployment.
 
 ## 0. Prerequisites
 
-- **MATLAB** R2023b or newer, with:
+- **MATLAB.** Developed and tested on R2025a; older releases are untested. With:
   - **Signal Processing Toolbox** (required — multi-taper / Welch spectra, L2)
   - **Aerospace Toolbox** (required — `igrfmagm` for magnetic declination at L1;
     works at any latitude/longitude worldwide. *Not* Mapping Toolbox — a common
     mix-up; `igrfmagm` is an Aerospace function)
-  - **t_tide** on the path (external; only for L3 tidal harmonic analysis —
-    L1/L2/L4 do not need it)
+  - **t_tide v1.3** on the path (external; only for the L3 tidal harmonic
+    analysis; L1, L2 and L4 do not need it). See README "External dependencies".
+  - *Parallel Computing Toolbox is optional*: only `PUV_L4_bispectra` with
+    `opts.useParallel = true` (used by `PUV_L4_run_all`) needs it, and the
+    serial path gives bit-identical results.
   - *Statistics and Machine Learning Toolbox is NOT needed for L1–L4* (moments and
     correlations are computed inline); only a few optional `validation/` scripts use it.
 - Your **raw Nortek Vector files** for the deployment, in *either* form. Put them
@@ -61,10 +64,10 @@ For **each instrument** in the deployment you need:
 | `label` | short unique name, used in output filenames (e.g. `REEF_5m`) | you choose it |
 | `filePrefix` | leading characters of the raw filenames (Nortek base name) | look at your raw files |
 | `rawSubfolder` | subfolder under the data root, or `''` if flat | your folder layout |
-| `latlon` | `[lat lon]` in degrees (approximate is fine) | field GPS |
+| `latlon` | `[lat lon]` in degrees, the surveyed GPS fix (5 or more decimal places) | field GPS log |
 | `depth_nominal` | nominal water depth, m | deployment log |
 | **`doffp`** | **height of the pressure sensor above the bed, in meters** | **measure in the field** |
-| `heading` | instrument +x compass heading; leave `NaN` to auto-read the onboard compass | usually `NaN` |
+| `heading` | instrument +x heading, degrees magnetic; `NaN` reads the onboard compass (median over the record) | `NaN`, unless the compass drifts (see 2a) |
 | `clockDrift` | clock offset over the deployment, seconds; `NaN` if unknown | instrument clock check |
 | `serialNum` | instrument serial number (bookkeeping) | instrument label |
 
@@ -76,7 +79,42 @@ You also choose two deployment-level values:
 
 - `cfg.rawDataRoot` — absolute path to the folder holding the raw files.
 - `cfg.qcOpts.Tvalid` — plausible water-temperature range for your site (see
-  step 4). **Set this**; do not blindly copy a San Diego range.
+  step 4). **Set this in the config**; do not blindly copy a San Diego range.
+
+### 2a. Put the source on every geometry line
+
+Write where each `doffp`, `latlon`, `heading` and `shorenormal` value came from
+as a comment **on the same line**: the log or workbook, the sheet and row, the
+instrument serial number, and the cell's own wording. The form (angle brackets
+mark what to fill in):
+
+```matlab
+cfg.instruments(k).doffp   = 0.71;   % m; <workbook> '<sheet>' row <n>, S/N <serial>: "<cell text>"
+```
+
+Two real lines from `config/TOR24S_config.m`:
+
+```matlab
+cfg.instruments(k).latlon  = [32.93048, -117.26420];   % surveyed; DeploymentNotes2023-2024.xls 'All Data' "Torrey Pines 7m MOP586 PUV Vector" ...
+cfg.instruments(k).heading = 94.5;   % magnetic; DeploymentNotes2023-2024.xls 'All Data' row 35, "Redeploy" S/N 16739: "+X onshore, 94.5deg. magnetic." ...
+```
+
+A comment in the file header does not change when the value does. In July 2026
+every inherited geometry value that was checked against the field logs turned
+out wrong (three "not recorded" `doffp` claims, 23 hand-placed coordinates up to
+925 m off, a 21.9 km lat/lon error). Match log rows on **serial number**, not on
+site and depth. `validation/audit_config_provenance.m` lists every `doffp`,
+`latlon` and `shorenormal` without a source on its line.
+
+Heading rule (2026-10):
+- Leave `heading = NaN` (compass) unless the compass is known to drift or step
+  while the tilt stays constant; then use the mount heading logged in the field
+  and cite it. Decide this from the PUV record itself, not by comparison with a
+  wave model, or any later model comparison becomes circular.
+- If the logged and compass headings differ by more than 10 deg and you keep
+  the compass, add the record to `shared/heading_disputed_records.m` with both
+  values and the log citation. Directional analyses exclude listed records or
+  report both values.
 
 ---
 
@@ -104,6 +142,16 @@ Then register it — add one line to `config/deployment_registry.m`:
 registry('HIREEF25') = @HIREEF25_config;
 ```
 
+Then check that every registered config still builds:
+
+```matlab
+>> run validation/audit_registry_loads
+```
+
+The batch scripts walk the registry inside `try/catch`, so a config that throws
+would otherwise drop out of runs and audits without a trace (TOR18A,
+2026-07-27). Run it after any config edit.
+
 ---
 
 ## 4. Set the temperature QC range (`cfg.qcOpts.Tvalid`)
@@ -123,6 +171,11 @@ caught:
 > ⚠️ **Do not copy the San Diego `[9 26]` range to a warm-water site.** Reef water
 > near 27–29 °C would be flagged as sensor failure, triggering spurious
 > sound-speed rescaling of otherwise-good velocities.
+
+`Tvalid` must live in the config (`cfg.qcOpts.Tvalid`), not in a run script:
+L1 stores the options it applied at `PUV.qc.opts`, `validation/audit_L1_qcopts.m`
+compares them with the config, and L3 reads the same range (through
+`l1_qc_opts(cfg)`) to decide which segment temperatures set the viscosity.
 
 ---
 
@@ -235,7 +288,15 @@ Set `deployment_name` at the top of each driver to your key, then run L1 → L4:
 ```
 
 Each level reads the previous level's `.mat` files and errors clearly if they're
-missing, so always run in sequence. `PUV_L2_driver` also runs the offshore-
+missing, so always run in sequence. A driver keeps going when one instrument
+fails, then ends with an error naming every record it did not write.
+
+**Provenance.** The drivers above do not write provenance sidecars
+(`<file>.prov.json`). Their outputs are fine for your own analysis, but
+`scripts/copy_to_server.m` refuses any file without a sidecar, so they cannot be
+published to the lab catalog as they are. The catalog's stamped files were
+built by `scripts/rerun_heading_ws_2026_10_07.m` (stage `combined`); see README
+"Provenance and the published catalog". `PUV_L2_driver` also runs the offshore-
 reference validation figures when a `refStation` (or `mopStation`) is set (§6);
 they are **skipped automatically** when neither is present.
 
@@ -258,6 +319,12 @@ back to a generic path) at other sites — they never crash the run:
   `rho_s = 2650`** — they are not physically meaningful over a rough carbonate
   reef, so ignore L3 transport outputs there (L1/L2/L4 are unaffected). To use a
   real grain size, add an entry to `site_grain_size.m` for your label.
+- **Tidal depth** (`L3.tidal.depth_pred`) is the NOAA prediction for La Jolla
+  (station 9410230), fetched through the lab toolbox's `getztide2`. Without that
+  toolbox, or when the download fails, L3 fits t_tide to your own depth record
+  and stores `L3.tidal.depth_source = 't_tide'`. At a site far from La Jolla the
+  NOAA prediction is the wrong tide: check `depth_source` and do not use a NOAA
+  `depth_pred` there.
 
 ---
 

@@ -44,84 +44,44 @@ If a count in any doc disagrees with what these report, **the audit is right**.
 
 ---
 
-## Current state (2026-07-28)
+## Current state (2026-10-14)
 
-- **Catalog:** 65 instrument-records across 46 deployments, at every level
-  L1–L4; 9 deployments also have `L4_xspec` (the multi-instrument ones).
-- **Canonical processed copy:** `/Volumes/group/PUV_data/Vector/Processed_HLB/`,
-  laid out `<DEPLOYMENT>/Level{1,2,3,4}_QC/<label>_*.mat`, with `manifest.csv`
-  and a generated `README.md`. Push with `scripts/copy_to_server.m` (idempotent,
-  size+mtime skip; it also regenerates the manifest and README, and now refuses
-  to push deployments that are not in the registry).
-- **Levels L1–L4 are complete and verified**, re-verified 2026-07-26 after the
-  L4 repair below. L5 (PUV↔altimeter merge) is planned, not built.
-- **L4 repair, 2026-07-26.** An audit found `bispectra` missing on 23 of 65
-  records and 3 records whose L4 sat one index off the current L2. Both had the
-  same cause — **L4 built against a superseded L2 snapshot**, not a module bug.
-  All 26 were rebuilt/backfilled (4.15 h, 0 failures) and
-  `validation/audit_L4_coverage.m` now reports every record complete and
-  time-aligned. Also regenerated L3 for 11 records whose L3 predated their L2
-  (TBR23 ×4, TOR23W ×6, SIO24A). Details in `docs/todo.md`.
-- **Local `outputs/` is a superset of the catalog.** `TOR20A/MOP591_9m` has L2
-  and L3 on disk but is deliberately unregistered. Enumerate records via
-  `deployment_registry()`, not by globbing `outputs/L*/*/`.
-- **Site geometry, 2026-07-27.** `doffp` placeholders were resolved from the
-  field logs on 9 records (RUBY22 ×3, Cardiff ×2, Coronado ×2, Catalina ×2) and
-  propagated through L2→L4. **Three config headers claimed the data was not
-  recorded; all three were wrong** — see `config/DOFFP_LOOKUP_CHECKLIST.md` for
-  where to look and how to match. Catalina also had a **21.9 km lat/lon error**
-  and unset serial/`depth_nominal`. Still carried rather than sourced:
-  `TorreyOffshore` 0.63 m, real but copied back across 2014–2019.
-- **A config comment does not age with the value it describes.** Run
-  `validation/audit_config_provenance.m` — it classifies each `doffp`/`latlon`/
-  `shorenormal` assignment from *its own trailing comment* (sourced /
-  declared-placeholder / unannotated). **Put the source on the line, not in the
-  header.** Current state (2026-07-28): 47 sourced, 0 declared placeholders,
-  69 unannotated — up from 33/1/82 after the coordinate sweep below.
-- **Coordinates were the next thing the placeholders hid, 2026-07-28.** A sweep
-  of every `latlon` by *decimal precision* found 17 records at 3 dp (~111 m) and
-  one at 2 dp. Checked against `/Volumes/group/DeploymentNotes/*.xls` sheet
-  `'All Data'` (which carries GPS-surveyed NAD83 fixes, `doffp`, heading and
-  clock drift), **23 records were wrong**: `RUBY22` ×3 by up to **925 m**, `LPL`
-  ×4 by 453 m, `SIO_Pier` ×5 by 164 m, and the `TOR24S`/`TOR24W`/`TOR25S`
-  MOP586 ladder by 47–98 m. All corrected from the survey; `TorreyOffshore` and
-  `LPL` turn out to be the **same station** (32.934436, −117.26546) and only
-  TorreyOffshore had it right.
-  **This is not cosmetic: `PUV_L4_xspec.m:205` derives pair separations from
-  `LATLON`.** MOP586 7m–10m was 93 m against a surveyed 143 m (**−35%**), and
-  RUBY22 pairs were 42–50% too long. `L4_xspec` was rebuilt for the four
-  affected deployments. The per-pair coherences did **not** move — the
-  measurement was always right, only the distance attached to it was wrong, so
-  any coherence- or phase-versus-separation result needs redoing and nothing
-  else does. Verified three ways: serial numbers matching the log exactly
-  (`12414`/`16310`/`16737` for RUBY22), the same fixes appearing in two
-  independent seasons, and a Dean-profile consistency test scored against
-  `TOR23W` as a known-good control (surveyed 1.13 vs rounded 1.82).
-  Beware the obvious test that fails: scoring coordinates by how *constant* the
-  implied slope is picks the WRONG set, because hand-drawn placeholders are
-  evenly spaced and a real profile is concave. Use `separation / Δh^1.5`.
-- **Verified clean by the same sweep**, digit for digit against the logs, so
-  they need no further checking: `TBR23` ×4, `TOR23W` ×6, `SOL23` ×3,
-  `TOR19W`, `TOR20W`, `IB19W`, `CAT21A/B`. Still open: `IB18W`/`IB19S` carry
-  `doffp` 0.66/0.62 where the 2018-19 log says 70/73 cm, and neither config
-  value appears anywhere in the notes — source unknown, do not guess.
-- **Catalina shore-normal: `63°`, and prefer CURRENTS over waves when refraction
-  is weak.** `CAT21A`/`CAT21B` are outside CDIP MOP coverage. Four independent
-  estimators agree within 6°: imagery of the beach in front of the PUV (63°), the
-  mean-current principal axis (62.5°, anisotropy 3.12), and a GPS survey taken
-  *during* the deployment (`LiDAR/Mele/Catalina_GPS/20210525_CATALINA_RBR.txt`,
-  57.7–61.5°). **The wave principal axis (92.7°) is the outlier and an earlier
-  revision wrongly trusted it, applying 90°.** Refraction does not align waves
-  with the normal at a sheltered leeward embayment fed by long-period swell
-  (median Tp 16.4 s, 52° spread). The coast is embayed — the surveyed trend
-  swings 151.5°→137.1° over 460 m — so one angle is a compromise; ±8°.
-- **Pre-2023 archive: Tiers A, B, and C are all done** (2026-07-24), decoded from
-  raw `.VEC` — 23 new deployments back to 2014. Tier A = `TOR19W`/`TOR20W`/`IB19W`;
-  Tier B = `TOR15A/B`, `TOR16B`, `TOR17D`, `CDF15A/C`, `COR16B/D`; Tier C = the
-  Torrey/Los-Peñasquitos-mouth offshore station (`TOR14A`…`TOR19A`). **Two held
-  out** with the reasons documented: `TOR20A` (sequence-counter filenames, timing
-  unvalidatable) and the 2023 LPL dye (surfzone/intertidal, unsuitable). Full
-  account: `docs/recopied_data_backlog.md`.
+Detail and open items: the top block of `docs/todo.md`. Code changes:
+`CHANGELOG.md`. Catalog changes: `docs/catalog_changes/`.
+
+- **Catalog 2026-10-14.1 is on the server** (`/Volumes/group/PUV_data/Vector/Processed_HLB/`,
+  pushed and verified 2026-10-14: 269/269 files at equal size, manifest sha256
+  269/269, sidecars 269/269). 65 records / 46 deployments; 9 have `L4_xspec`.
+- **One code version.** All 65 records rebuilt at L2-L4 on 2026-10-12/14, plus
+  all 9 xspec, by `scripts/rerun_heading_ws_2026_10_07.m` stage `combined`
+  under `scripts/run_L4_refresh_watchdog.sh`. L1 not rebuilt in that pass.
+- **What the 2026-10 work fixed:** ENU declination (SOL24, LPL24, LPL25A);
+  logged mount heading for 9 compass-drift records + SIO24A from `.VEC`;
+  `Tvalid` in every config (was injected by the July reruns); 29 L4 files
+  built from superseded L2s; edge-gap fills that extrapolated (L2-L4);
+  settling velocity (F&C 2004 C1 20 / C2 1.1) and per-segment viscosity;
+  seeded t_tide; NOAA tidal depth required (TOR24W/MOP586_10m had a silent
+  fallback); provenance sidecars on every L2-L4/xspec file, L1 backfilled.
+- **Audits 2026-10-14:** L1 qcopts 65/65, L4 content 65/65, registry 50/50.
+- **The plain drivers write no provenance**, so their outputs are refused by
+  `copy_to_server` (HARD). Rebuild catalog files through the rerun script.
+- **`check_prov` compares code by directory.** Any edit under a level's code
+  folders (L3: `L3_forcing/`, `L3_transport/`, `shared/`) SOFT-refuses every
+  file of that level at the next push until a change entry carries `code_ack`.
+  The 2026-10-14 driver edits (L1-L4 drivers, L3 Tvalid) need one.
+- **Open (do not guess):** IB18W/IB19S `doffp` source unknown; 69 geometry
+  values unannotated (July count); 42 records on the 250 um placeholder D50;
+  12 disputed headings (`shared/heading_disputed_records.m`); off-bed pressure
+  QC off until the next L1 rebuild; IB19S/MOP045_7m 2019-04-22 19:30 IG
+  anomaly; `get_k.m`/`xyRotate.m` still resolve from old
+  `Beach_Change_Observation` folders on Holden's path; GitHub `origin` not yet
+  pushed; backups (~48 GB) held pending the PUV_paper findings reconciliation.
+- **History still true (July 2026):** filename clocks are Pacific local
+  (`clockOffsetHours`, all at lag 0); 23 hand-placed coordinates were corrected
+  from the surveyed logs (only `PUV_L4_xspec.m` separations used them);
+  Catalina shore-normal 63 deg from currents and survey, not the wave axis;
+  `TorreyOffshore` and `LPL` are the same station; the 17-min archive was
+  deleted 2026-07-28 (manifest in `docs/`).
 
 ---
 
@@ -210,7 +170,7 @@ the next reader can check it in one grep. Match on **serial number**, which is
 unambiguous, rather than on site and depth. Before trusting any inherited
 geometry, open `/Volumes/group/DeploymentNotes/*.xls` and look;
 `config/DOFFP_LOOKUP_CHECKLIST.md` says where. Two search traps live there:
-mid-deployment rows are often labelled only **"Redeploy"** with no site name, and
+mid-deployment rows are often labeled only **"Redeploy"** with no site name, and
 a `doffp` may be quoted to the **altimeter face** rather than the pressure port.
 
 **The cheap detector: sort by precision.** A surveyed GPS fix is 5–7 decimal
@@ -274,7 +234,7 @@ test anyway. `validation/compare_seglen_phase2.m` will not run until someone
 regenerates a 17-min L2.
 
 **`doffp` is required and it matters.** Pressure-sensor height above the bed, in
-metres, from the field log — for San Diego, `/Volumes/group/DeploymentNotes/`.
+meters, from the field log — for San Diego, `/Volumes/group/DeploymentNotes/`.
 L2 uses a single fixed value per deployment, so records where the bed moved a lot
 carry extra uncertainty (see IB19W). Also set `cfg.qcOpts.Tvalid` to the site's
 water-temperature range; the `[-2 40]` default is a wide safety bound, not a
@@ -296,7 +256,7 @@ TorreyOffshore records where `doffp` was corrected by up to 25 cm: depth moves
 one-for-one (≈3%), but `U_b` moves 0.10%, and `τ_b`/`shields` 0.27%, because the
 bed-transfer term is `cosh(k·doffp)` and `k·doffp ≈ 0.04` at 9 m under swell, so
 the correction is second-order. Worst realistic case (5 m, 6 s) is ≈0.9%. Treat
-`doffp` uncertainty as serious for **depth-normalised** quantities (`Hs/h`,
+`doffp` uncertainty as serious for **depth-normalized** quantities (`Hs/h`,
 Ursell) and negligible for bed stress and mobilisation.
 Where a record needs time resolution, use the **measured** knots: the 2024-25
 and 2025-26 logs record mid-deployment *inspection* values, not just endpoints
@@ -314,7 +274,13 @@ cross-repo cleanup — see `docs/todo.md`.
 
 - **All code is MATLAB.** Run with
   `/Applications/MATLAB_R2025a.app/bin/matlab -nodisplay -nosplash -nodesktop -batch "startup_puv; …"`.
-  `startup_puv` puts the whole repo on the path.
+  `startup_puv` puts the whole repo on the path. **That command's exit code is
+  0 even when the batch errors** (`-nodisplay` with `-batch` on R2025a/macOS,
+  checked 2026-10-14); judge a run by its log, or drop `-nodisplay` when the
+  exit code matters.
+- **Tests:** `run_all_tests` (validation/run_all_tests.m) runs the 21
+  self-contained tests and exits nonzero on a failure; `run_all_tests('includeData',
+  true)` adds the read-only ones that need `outputs/`, the server or the network.
 - **Batch over the catalog** with `PUV_L{1,2,3,4}_run_all` — each skips
   deployments that already have outputs, so adding one deployment is cheap. The
   single-deployment `PUV_L*_driver` scripts hardcode `deployment_name` at the top.

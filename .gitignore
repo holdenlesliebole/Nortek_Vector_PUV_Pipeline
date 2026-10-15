@@ -4,6 +4,13 @@
 # MATLAB
 *.asv
 *.mex*
+# data files anywhere (outputs, caches, scratch); the one tracked .mat is a lookup table
+*.mat
+!shared/moplist.mat
+# partial copies left by an interrupted backup or sidecar write
+*.part
+# session scratch
+scratch/
 
 # Raw instrument data (cached locally, not versioned)
 raw_cache/
