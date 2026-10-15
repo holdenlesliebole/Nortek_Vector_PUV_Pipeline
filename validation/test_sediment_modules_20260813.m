@@ -79,7 +79,8 @@ c10 = isequal(size(tmv),[1 3]); ok = ok & c10;
 chk(c10, 'wave_current_stress vector shape preserved');
 
 % 11. the Paper_1 shadow now agrees with canonical
-addpath('/Users/holden/Documents/Scripps/Research/Paper_1/DataCodes/PUV','-end');
+p1 = fullfile(fileparts(fileparts(fileparts(mfilename('fullpath')))), 'Paper_1', 'DataCodes', 'PUV');   % sibling repo, if present
+if isfolder(p1), addpath(p1, '-end'); end
 w = which('settling_velocity','-all');
 v = zeros(numel(w),1);
 for i=1:numel(w)

@@ -14,7 +14,7 @@ function cfg = copy_raw_to_local(cfg, localRoot)
 %   INPUTS
 %     cfg        - deployment config struct (from e.g. TBR23_config)
 %     localRoot  - (optional) root directory for local cache.
-%                  Default: ~/Documents/Scripps/Research/PUV_Pipeline/raw_cache
+%                  Default: <repo root>/raw_cache
 %
 %   OUTPUT
 %     cfg        - same config with cfg.localDataRoot set to localRoot

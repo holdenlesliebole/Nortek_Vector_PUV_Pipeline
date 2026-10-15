@@ -20,7 +20,7 @@
 startup_puv
 toolboxPath = fullfile(getenv('HOME'),'Documents','Scripps','Research','toolbox');
 if ~exist('read_MOPline2','file'), addpath(toolboxPath); end
-V = '/Users/holden/Documents/Scripps/Research/PUV_Pipeline/outputs/validation';
+V = fullfile(fileparts(fileparts(mfilename('fullpath'))), 'outputs', 'validation');
 
 C = load(fullfile(V,'cross_deployment_consequences.mat')); R = C.ROWS;
 key = arrayfun(@(r)[r.deployment '/' r.label],R,'UniformOutput',false);
@@ -28,7 +28,7 @@ key = arrayfun(@(r)[r.deployment '/' r.label],R,'UniformOutput',false);
 R = R(~(strcmp({R.deployment},'RUBY22') & contains({R.label},'30m')));
 
 reg = deployment_registry();
-L2root = '/Users/holden/Documents/Scripps/Research/PUV_Pipeline/outputs/L2';
+L2root = fullfile(fileparts(fileparts(mfilename('fullpath'))), 'outputs', 'L2');
 
 fprintf('\n===== SHORE-NORMAL MISMATCH TEST =====\n');
 fprintf('%-9s %-13s %8s %9s %9s %9s %8s\n', ...
