@@ -3,6 +3,13 @@
 %   Loads L2 .mat files and computes L3 products (frequency-band decomposition,
 %   transport proxies, etc.). Saves one L3 .mat file per instrument.
 %
+%   Each saved file carries provenance (shared/save_with_provenance): an
+%   embedded .prov block and a <file>.prov.json sidecar, as scripts/copy_to_server
+%   requires. Instruments flagged knownFailed in the config are skipped.
+%   The NOAA tide station for the tidal depth is cfg.tideStation
+%   (l3_currents_opts); PUV_L3_currents errors on a site outside San Diego
+%   without one, and on a failed NOAA download.
+%
 %   To process a different deployment, change deployment_name below and re-run.
 % Author: Holden Leslie-Bole, 2026
 
@@ -25,6 +32,7 @@ cfg = configFn();
 % PUV_L3_transport: the config's own L1 Tvalid, so L3 uses the same bound L1
 % applied (without it PUV_L3_transport falls back to the wide [-2 40] default).
 l3Opts = struct('Tvalid', l1_qc_opts(cfg).Tvalid);
+tideOpts = l3_currents_opts(cfg);   % cfg.tideStation (NOAA id) for PUV_L3_currents
 
 % L2 input directory
 l2Dir = fullfile(cfg.outputDir, 'L2', cfg.name);
@@ -45,6 +53,11 @@ fprintf('\n=== L3 Forcing Characterization: %s (%d instruments) ===\n', deployme
 for k = 1:nInstr
     instr = cfg.instruments(k);
     fprintf('\n[%d/%d] Processing %s - %s\n', k, nInstr, cfg.name, instr.label);
+    [isKF, kfWhy] = known_failed(instr);
+    if isKF
+        fprintf('  KNOWN FAILED, skipped (instruments(%d).knownFailed): %s\n', k, kfWhy);
+        continue
+    end
 
     l2File = fullfile(l2Dir, [instr.label '_L2.mat']);
     if ~isfile(l2File)
@@ -69,10 +82,10 @@ for k = 1:nInstr
         L3 = PUV_L3_transport(L3, L2, l3Opts);
 
         % --- L3d: Current decomposition ---
-        L3 = PUV_L3_currents(L3, L2);
+        L3 = PUV_L3_currents(L3, L2, tideOpts);
 
         outFile = fullfile(outDir, [instr.label '_L3.mat']);
-        save(outFile, 'L3', '-v7.3');
+        save_with_provenance(outFile, 'L3', 'L3', L3, struct('level', 'L2', 'path', l2File), instr);
         fprintf('  Saved: %s\n', outFile);
 
     catch ME

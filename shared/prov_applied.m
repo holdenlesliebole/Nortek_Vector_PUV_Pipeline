@@ -96,6 +96,8 @@ function [applied, fallbacks] = prov_applied(level, S, instr)
         td = getf(S, 'tidal', struct());
         applied.tidal_depth_source = getf(td, 'depth_source', NR);   % 'NOAA' expected; 't_tide' = NOAA fetch failed
         applied.tidal_ttide_rng    = getf(td, 'ttide_rng', NR);
+        applied.tide_station        = getf(td, 'station', NR);          % NOAA CO-OPS id (from 2026-10-15)
+        applied.tide_station_source = getf(td, 'station_source', NR);   % 'config' | 'default (San Diego region)'
         if ischar(applied.tidal_depth_source) && strcmp(applied.tidal_depth_source, 't_tide')
             fallbacks{end+1} = 'L3 tidal depth: NOAA prediction download failed, t_tide fit used';
         end

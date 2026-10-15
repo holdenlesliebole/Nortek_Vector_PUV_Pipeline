@@ -16,6 +16,12 @@
 %   Run this after touching any config. It is the one audit that does NOT
 %   swallow errors.
 %
+%   Third part (2026-10-15): every configured instrument without an L1 on disk
+%   is listed either as KNOWN FAILED (its config sets knownFailed, with the
+%   cause and source) or as MISSING (no flag: a new failure or a record not yet
+%   built). An instrument flagged knownFailed that HAS an L1 is listed too.
+%   Set outRoot before running to audit another output tree.
+%
 %   Author: Holden Leslie-Bole, 2026
 
 startup_puv
@@ -53,7 +59,9 @@ else
 end
 
 % Second half: outputs on disk that no registry entry claims.
-outRoot = fullfile(fileparts(fileparts(mfilename('fullpath'))), 'outputs');
+if ~exist('outRoot', 'var') || isempty(outRoot)
+    outRoot = fullfile(fileparts(fileparts(mfilename('fullpath'))), 'outputs');
+end
 d = dir(fullfile(outRoot,'L4','*','*_L4.mat'));
 have = cell(numel(d),1);
 for i = 1:numel(d)
@@ -77,4 +85,32 @@ if isempty(orphan)
 else
     fprintf(2, 'ORPHANED OUTPUTS (on disk, unclaimed -- usually a config that throws):\n');
     for i = 1:numel(orphan), fprintf(2, '  %s\n', orphan{i}); end
+end
+
+% Third part: configured instruments with no L1, known field failures vs missing.
+kfList = {}; missList = {}; kfHaveL1 = {};
+seen = containers.Map('KeyType','char','ValueType','logical');
+for i = 1:numel(names)
+    try, f = reg(names{i}); c = f(); catch, continue, end
+    if isKey(seen, c.name), continue, end
+    seen(c.name) = true;
+    for j = 1:numel(c.instruments)
+        rec = [c.name '/' c.instruments(j).label];
+        hasL1 = isfile(fullfile(outRoot, 'L1', c.name, [c.instruments(j).label '_processed.mat']));
+        [isKF, why] = known_failed(c.instruments(j));
+        if isKF && ~hasL1,     kfList(end+1,:)   = {rec, why}; %#ok<SAGROW>
+        elseif isKF && hasL1,  kfHaveL1{end+1}   = rec;        %#ok<SAGROW>
+        elseif ~hasL1,         missList{end+1}   = rec;        %#ok<SAGROW>
+        end
+    end
+end
+fprintf('\nconfigured instruments without L1: %d known failed, %d missing\n', size(kfList,1), numel(missList));
+for i = 1:size(kfList,1), fprintf('  KNOWN FAILED  %-20s %s\n', kfList{i,1}, kfList{i,2}); end
+if ~isempty(missList)
+    fprintf('MISSING (no L1 and no knownFailed flag -- a new failure, or not built yet):\n');
+    for i = 1:numel(missList), fprintf('  MISSING       %s\n', missList{i}); end
+end
+if ~isempty(kfHaveL1)
+    fprintf('FLAGGED knownFailed BUT AN L1 EXISTS (check the flag or the file):\n');
+    for i = 1:numel(kfHaveL1), fprintf('  KNOWN+L1      %s\n', kfHaveL1{i}); end
 end

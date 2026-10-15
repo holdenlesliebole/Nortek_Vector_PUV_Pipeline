@@ -4,6 +4,10 @@
 %   pressure thresholds, correlation filter), rotates to buoy coordinates,
 %   and saves one .mat file per instrument.
 %
+%   Each saved file carries provenance (shared/save_with_provenance): an
+%   embedded .prov block and a <file>.prov.json sidecar, as scripts/copy_to_server
+%   requires. Instruments flagged knownFailed in the config are skipped.
+%
 %   To process a different deployment, change deployment_name below and re-run.
 % Author: Holden Leslie-Bole, 2026
 
@@ -45,12 +49,17 @@ fprintf('\n=== L1 Processing: %s (%d instruments) ===\n', deployment_name, nInst
 for k = 1:nInstr
     instr = cfg.instruments(k);
     fprintf('\n[%d/%d] Processing %s - %s\n', k, nInstr, cfg.name, instr.label);
+    [isKF, kfWhy] = known_failed(instr);
+    if isKF
+        fprintf('  KNOWN FAILED, skipped (instruments(%d).knownFailed): %s\n', k, kfWhy);
+        continue
+    end
 
     try
         PUV = PUV_raw_process(instr, cfg);
 
         outFile = fullfile(outDir, [instr.label '_processed.mat']);
-        save(outFile, 'PUV', '-v7.3');
+        save_with_provenance(outFile, 'L1', 'PUV', PUV, [], instr);
         fprintf('  Saved: %s\n', outFile);
     catch ME
         failed{end+1} = instr.label; %#ok<SAGROW>

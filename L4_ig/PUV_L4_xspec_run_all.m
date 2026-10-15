@@ -4,6 +4,9 @@
 %   runs PUV_L4_xspec across all instrument pairs and writes
 %   outputs/L4_xspec/{deployment}/xspec.mat. Idempotent: deployments
 %   whose xspec.mat already exists are skipped.
+%
+%   Each xspec.mat carries provenance (shared/save_with_provenance) whose
+%   parents are every member L4 file, as scripts/copy_to_server requires.
 % Author: Holden Leslie-Bole, 2026
 
 startup_puv
@@ -65,7 +68,8 @@ for d = 1:nDeploy
     try
         t0   = tic;
         L4xs = PUV_L4_xspec(L4list);
-        save(outFile, 'L4xs', '-v7.3');
+        save_with_provenance(outFile, 'L4_xspec', 'L4xs', L4xs, ...
+            struct('level', repmat({'L4'}, 1, numel(L4list)), 'path', L4list(:)'));
         resultPairs(d)  = numel(L4xs.pairs);
         resultStatus{d} = sprintf('%d pairs, %.1fs', resultPairs(d), toc(t0));
         fprintf('  %s\n', resultStatus{d});

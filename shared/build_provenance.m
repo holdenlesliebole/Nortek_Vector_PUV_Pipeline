@@ -15,6 +15,15 @@ function prov = build_provenance(level, S, parents, instr, opts)
 % opts     .keyFunctions  cellstr of function names whose which() must resolve
 %                         inside this repo (default: per level)
 %          .sidecarRoot / .outRoot  see read_prov
+%          .repoRoot      code root to describe (default: this repository;
+%                         set by validation/test_provenance to exercise the
+%                         no-git case)
+%
+% A checkout with no .git (a zip download from GitHub) has no commit to record.
+% Its stamp says code.git_hash = 'unknown (no git)' and code.dirty = true
+% (it cannot be shown clean), and check_prov SOFT-refuses it until a change
+% entry acknowledges the level. A checkout that HAS a .git but whose hash
+% cannot be read still errors: that is a broken repository, not a download.
 %
 % Fields (schema 1): schema, build_id, level, builtAt (UTC), code.git_hash,
 % code.dirty, code.repo_root, code.branch, code.matlab, code.resolved, parents,
@@ -36,6 +45,7 @@ function prov = build_provenance(level, S, parents, instr, opts)
     if nargin < 5, opts = struct(); end
 
     repoRoot = fileparts(fileparts(mfilename('fullpath')));
+    if isfield(opts, 'repoRoot') && ~isempty(opts.repoRoot), repoRoot = opts.repoRoot; end
     prov = struct();
     prov.schema   = 1;
     prov.build_id = char(java.util.UUID.randomUUID());
@@ -44,14 +54,21 @@ function prov = build_provenance(level, S, parents, instr, opts)
 
     code = struct();
     code.repo_root = repoRoot;
-    [~, h] = system(sprintf('git -C "%s" rev-parse HEAD 2>/dev/null', repoRoot));     code.git_hash = strtrim(h);
-    [~, b] = system(sprintf('git -C "%s" rev-parse --abbrev-ref HEAD 2>/dev/null', repoRoot)); code.branch = strtrim(b);
-    [~, d] = system(sprintf('git -C "%s" status --porcelain -uno 2>/dev/null', repoRoot));
-    code.dirty  = ~isempty(strtrim(d));
-    code.matlab = version;
-    if isempty(code.git_hash) || ~isempty(regexp(code.git_hash, '[^0-9a-f]', 'once'))
-        error('build_provenance:git', 'cannot read the git hash of %s', repoRoot);
+    if ~isfolder(fullfile(repoRoot, '.git')) && ~isfile(fullfile(repoRoot, '.git'))
+        % no repository at all (zip download): record that, do not invent a hash
+        code.git_hash = NO_GIT;
+        code.branch   = '';
+        code.dirty    = true;    % cannot be shown clean
+    else
+        [~, h] = system(sprintf('git -C "%s" rev-parse HEAD 2>/dev/null', repoRoot));     code.git_hash = strtrim(h);
+        [~, b] = system(sprintf('git -C "%s" rev-parse --abbrev-ref HEAD 2>/dev/null', repoRoot)); code.branch = strtrim(b);
+        [~, d] = system(sprintf('git -C "%s" status --porcelain -uno 2>/dev/null', repoRoot));
+        code.dirty  = ~isempty(strtrim(d));
+        if isempty(code.git_hash) || ~isempty(regexp(code.git_hash, '[^0-9a-f]', 'once'))
+            error('build_provenance:git', 'cannot read the git hash of %s (it has a .git)', repoRoot);
+        end
     end
+    code.matlab = version;
 
     if isfield(opts, 'keyFunctions'), kf = opts.keyFunctions; else, kf = default_key_functions(level); end
     res = struct();
@@ -82,6 +99,11 @@ function prov = build_provenance(level, S, parents, instr, opts)
     end
 
     [prov.applied, prov.fallbacks] = prov_applied(level, S, instr);
+end
+
+function s = NO_GIT
+% the git_hash recorded for a checkout without .git (check_prov matches it)
+    s = 'unknown (no git)';
 end
 
 function kf = default_key_functions(level)

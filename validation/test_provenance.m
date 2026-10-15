@@ -14,7 +14,12 @@
 %   7 L3 carrying the smooth-sphere ws for its D50              HARD ws mismatch
 %   8 sidecar describes the file (file_sha256 present, equal)   ok via read_prov
 %   9 a file with no provenance                                 HARD no provenance
-%   10 L3 records its 12 external deps; a changed one SOFT-refuses unless acknowledged
+%   10 L3 records its 11 external deps; a changed one SOFT-refuses unless acknowledged
+%   11a a checkout with no .git (zip download) stamps 'unknown (no git)'    stamped, no error
+%   11b check_prov on it, no ack                               SOFT no git (no HARD)
+%   11c same, acknowledged                                     ok
+%   12a L3 tide station differs from cfg.tideStation           HARD config mismatch
+%   12b L3 tide station equals cfg.tideStation                 no tide refusal
 % Prints n/N; errors unless all pass.
 %
 % Run from PUV_Pipeline/:  >> run validation/test_provenance
@@ -118,8 +123,8 @@ fprintf('  7 stale settling velocity refused             %d\n', ok);
 % 10 external (out-of-repo) dependency recorded, then changed
 J = jsondecode(fileread(sidecar_path(f3)));
 nExt = numel(J.external);
-total = total + 1; ok = nExt == 12 && all(cellfun(@(h) numel(h) == 64, {J.external.sha256})); pass = pass + ok;
-fprintf('  10a L3 stamp records 12 external deps with hashes %d\n', ok);
+total = total + 1; ok = nExt == 11 && all(cellfun(@(h) numel(h) == 64, {J.external.sha256})); pass = pass + ok;
+fprintf('  10a L3 stamp records 11 external deps with hashes %d\n', ok);
 L3ok = L3; L3ok.transport_params.ws_C1 = 20; L3ok.transport_params.ws_C2 = 1.1; L3 = L3ok; save(f3, 'L3', '-v7.3');
 write_prov_sidecar(f3, build_provenance('L3', L3ok, struct('level','L2','path',f2), instr, kf));
 J = jsondecode(fileread(sidecar_path(f3)));
@@ -132,6 +137,40 @@ fprintf('  10b changed external dependency refused      %d\n', ok);
 rq.ackCodeLevels = {'L3'}; r = check_prov(rq); total = total + 1;
 ok = ~has(r, 'SOFT: external dependency'); pass = pass + ok;
 fprintf('  10c acknowledged external change passes     %d\n', ok);
+
+% 11 a checkout with no .git (zip download): stamped, then a SOFT refusal
+G = fullfile(T, 'nogit_checkout'); mkdir(G);
+L2g = L2; f11 = mk('L2', 'NOGIT_7m_L2.mat'); save(f11, 'L2g', '-v7.3');
+okStamp = false; Pg = struct();
+try
+    Pg = build_provenance('L2', L2g, struct('level','L1','path',f1), instr, struct('keyFunctions', {{}}, 'repoRoot', G));
+    write_prov_sidecar(f11, Pg);
+    okStamp = strcmp(Pg.code.git_hash, 'unknown (no git)') && isequal(Pg.code.dirty, true);
+catch ME
+    fprintf('    build_provenance on a no-git checkout threw: %s\n', ME.message);
+end
+total = total + 1; pass = pass + okStamp;
+fprintf('  11a no-git checkout stamped "unknown (no git)" %d\n', okStamp);
+rq = req2; rq.matPath = f11; rq.ackCodeLevels = {}; rq.ackFallback = true;
+r = struct('ok', false, 'refusals', {{'not run'}});
+if okStamp, try, r = check_prov(rq); catch ME, r.refusals = {['threw: ' ME.message]}; end, end
+total = total + 1;
+ok = okStamp && ~r.ok && has(r, 'SOFT: built from a checkout with no git') && ~has(r, 'HARD'); pass = pass + ok;
+fprintf('  11b no-git build SOFT-refused, no HARD       %d  %s\n', ok, strjoin(r.refusals, ' | '));
+rq.ackCodeLevels = {'L2'};
+if okStamp, try, r = check_prov(rq); catch ME, r = struct('ok', false, 'refusals', {{['threw: ' ME.message]}}); end, end
+total = total + 1; ok = okStamp && r.ok; pass = pass + ok;
+fprintf('  11c no-git build acknowledged passes         %d  %s\n', ok, strjoin(r.refusals, ' | '));
+
+% 12 tide station recorded in L3 against the config's
+L3t = L3ok; L3t.tidal = struct('depth_source', 'NOAA', 'station', '9410230', 'station_source', 'config');
+f12 = mk('L3', 'TIDE_7m_L3.mat'); L3 = L3t; save(f12, 'L3', '-v7.3');
+write_prov_sidecar(f12, build_provenance('L3', L3t, struct('level','L2','path',f2), instr, kf));
+rq = req3; rq.matPath = f12; rq.cfg.tideStation = '9410079';
+r = check_prov(rq); total = total + 1; ok = ~r.ok && has(r, 'HARD: config/applied mismatch on tide_station'); pass = pass + ok;
+fprintf('  12a tide station changed in config refused    %d\n', ok);
+rq.cfg.tideStation = '9410230'; r = check_prov(rq); total = total + 1; ok = ~has(r, 'tide_station'); pass = pass + ok;
+fprintf('  12b same tide station: no tide refusal       %d  %s\n', ok, strjoin(r.refusals, ' | '));
 
 % 9 no provenance at all
 f9 = mk('L4', 'NOPROV_L4.mat'); x = 1; save(f9, 'x');   %#ok<NASGU>

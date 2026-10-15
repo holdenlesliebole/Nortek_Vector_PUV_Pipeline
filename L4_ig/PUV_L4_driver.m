@@ -4,6 +4,12 @@
 %   instrument in the deployment, runs PUV_L4_eta → PUV_L4_reflection →
 %   PUV_L4_bispectra, and saves one L4 .mat file per instrument.
 %
+%   Each saved file carries provenance (shared/save_with_provenance): an
+%   embedded .prov block and a <file>.prov.json sidecar, as scripts/copy_to_server
+%   requires. Instruments flagged knownFailed in the config are skipped.
+%   The provenance parent of an L4 is its L2 (as in the catalog rebuilds and
+%   copy_to_server's lineage check), although L4 also reads the L1.
+%
 %   To process a different deployment, change deployment_name below and
 %   re-run.
 % Author: Holden Leslie-Bole, 2026
@@ -55,6 +61,11 @@ fprintf('\n=== L4 IG / Bound-Wave Dynamics: %s (%d instruments) ===\n', deployme
 for k = 1:nInstr
     instr = cfg.instruments(k);
     fprintf('\n[%d/%d] Processing %s - %s\n', k, nInstr, cfg.name, instr.label);
+    [isKF, kfWhy] = known_failed(instr);
+    if isKF
+        fprintf('  KNOWN FAILED, skipped (instruments(%d).knownFailed): %s\n', k, kfWhy);
+        continue
+    end
 
     l1File = fullfile(l1Dir, [instr.label '_processed.mat']);
     l2File = fullfile(l2Dir, [instr.label '_L2.mat']);
@@ -117,7 +128,7 @@ for k = 1:nInstr
         L4.builtAt        = datetime('now');
 
         outFile = fullfile(outDir, [instr.label '_L4.mat']);
-        save(outFile, 'L4', '-v7.3');
+        save_with_provenance(outFile, 'L4', 'L4', L4, struct('level', 'L2', 'path', l2File), instr);
         fprintf('  Saved: %s\n', outFile);
 
     catch ME

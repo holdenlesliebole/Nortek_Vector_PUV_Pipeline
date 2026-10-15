@@ -3,6 +3,10 @@
 %   Loads L1 QC'd .mat files, runs spectral analysis (1-hour UTC-aligned
 %   segments by default), and saves one L2 .mat file per instrument.
 %
+%   Each saved file carries provenance (shared/save_with_provenance): an
+%   embedded .prov block and a <file>.prov.json sidecar, as scripts/copy_to_server
+%   requires. Instruments flagged knownFailed in the config are skipped.
+%
 %   To process a different deployment, change deployment_name below and re-run.
 % Author: Holden Leslie-Bole, 2026
 
@@ -47,6 +51,11 @@ fprintf('\n=== L2 Spectral Processing: %s (%d instruments) ===\n', deployment_na
 for k = 1:nInstr
     instr = cfg.instruments(k);
     fprintf('\n[%d/%d] Processing %s - %s\n', k, nInstr, cfg.name, instr.label);
+    [isKF, kfWhy] = known_failed(instr);
+    if isKF
+        fprintf('  KNOWN FAILED, skipped (instruments(%d).knownFailed): %s\n', k, kfWhy);
+        continue
+    end
 
     l1File = fullfile(l1Dir, [instr.label '_processed.mat']);
     if ~isfile(l1File)
@@ -63,7 +72,7 @@ for k = 1:nInstr
         L2 = PUV_L2_spectral(loaded.PUV, instr, opts);
 
         outFile = fullfile(outDir, [instr.label '_L2.mat']);
-        save(outFile, 'L2', '-v7.3');
+        save_with_provenance(outFile, 'L2', 'L2', L2, struct('level', 'L1', 'path', l1File), instr);
         fprintf('  Saved: %s\n', outFile);
 
         nValid = sum(L2.segValid);

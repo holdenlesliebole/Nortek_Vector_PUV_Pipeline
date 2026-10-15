@@ -32,6 +32,8 @@ function res = check_prov(req)
 %     superseded parent -- the 29 stale L4s of 2026-10-07 would refuse here)
 % SOFT refusals clear when a pending change entry acknowledges them:
 %   - the level's code changed since the build commit
+%   - built from a checkout with no git (code.git_hash 'unknown (no git)',
+%     e.g. a zip download): the code version cannot be compared at all
 %   - an external (out-of-repo) dependency's bytes changed since the build
 %   - the build recorded a fallback
 %   - built from uncommitted code (dirty)
@@ -67,7 +69,11 @@ function res = check_prov(req)
     end
 
     % --- code ---
-    if ~backfilled
+    noGit = ~backfilled && strcmp(P.code.git_hash, 'unknown (no git)');
+    if noGit && ~any(strcmp(req.ackCodeLevels, req.level))
+        res.refusals{end+1} = sprintf('SOFT: built from a checkout with no git (code version unknown), not acknowledged by a change entry for %s', req.level);
+    end
+    if ~backfilled && ~noGit
         if isfield(P.code, 'dirty') && P.code.dirty && ~any(strcmp(req.ackCodeLevels, req.level))
             res.refusals{end+1} = 'SOFT: built from uncommitted code (dirty), not acknowledged';
         end
@@ -197,6 +203,10 @@ function R = config_refusals(req, P)
         end
         if ischar(field(A,'D50_source')) && startsWith(A.D50_source, 'site_grain_size')
             try, gs = site_grain_size(I.label); R = [R chk('D50', A.D50, gs.D50)]; catch, end
+        end
+        % NOAA tide station (recorded from 2026-10-15; older files say 'not recorded')
+        if isstruct(req.cfg) && isfield(req.cfg, 'tideStation') && ~isempty(req.cfg.tideStation)
+            R = [R chk('tide_station', field(A,'tide_station'), char(string(req.cfg.tideStation)))];
         end
     case 'L4'
         R = [R chk('doffp', field(A,'doffp'), field(I,'doffp'))];
