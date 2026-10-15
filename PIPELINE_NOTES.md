@@ -46,7 +46,7 @@ Related directories:
 - **Input**: L1 `.mat` files
 - **Script**: `PUV_L2_driver.m` → `PUV_L2_spectral.m`
 - **Processing**: 1-hour (7200-sample @ 2 Hz) UTC-aligned segments, detrend,
-  Wu pressure correction, multi-taper PSD (DPSS NW=4, K=7), Hs/Tp/energy flux,
+  Wu pressure correction, multi-taper PSD (DPSS NW=4, K=6 kept), Hs/Tp/energy flux,
   bed velocity (IFFT method), Reynolds stress, velocity moments, shore-normal
   rotation (cached for L4), optional MOP comparison
 - **Output**: `outputs/L2/{deployment}/{label}_L2.mat` per instrument
@@ -103,7 +103,8 @@ was abandoned because tidal artifacts persisted after fitting. The earlier
 iteration of this pipeline then used 17-min (2048-sample) segments to get finer
 temporal resolution. The current pipeline returns to 1-hour segments — but with
 detrending instead of tidal fitting, MOP/CDIP-aligned boundaries, and a
-multi-taper estimator (NW=4, 7 DPSS tapers).
+multi-taper estimator (NW=4; `psd_multitaper` keeps the 6 DPSS tapers with
+eigenvalue > 0.99, about 12 degrees of freedom per bin; earlier text said 7).
 **Do not reintroduce tidal fitting or 3-hour segments.**
 
 The 17-min mode is still available as a fallback by passing `opts.segLen = 2048`.
@@ -733,7 +734,7 @@ now refuses to push an incomplete L4 at all.
   also nanMaxFrac=0.10 rejection
 - 1-hour (7200 @ 2 Hz) UTC-aligned segments, detrend, Wu pressure correction
   (17-min still available via `opts.segLen = 2048`)
-- **Spectral method: full multi-taper** (NW=4, 7 DPSS tapers, nfft=2048,
+- **Spectral method: full multi-taper** (NW=4, 6 DPSS tapers kept [7 in the original text; corrected 2026-10-15], nfft=2048,
   df ≈ 0.001 Hz). Welch with Hanning still available via
   `opts.spectralMethod = 'welch'`. See `docs/multitaper_writeup.pdf` for
   comparison and recommendation rationale.

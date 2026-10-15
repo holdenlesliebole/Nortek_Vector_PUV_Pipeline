@@ -11,7 +11,7 @@ This comparison covers the fundamental spectral processing differences only, not
 | Parameter | Multi-taper pipeline | Legacy pipeline |
 |-----------|---------------|-------------------|
 | Segment length | 2048 samples (17 min @ 2 Hz) | 2400 samples (20 min @ 2 Hz) |
-| PSD method | Multi-taper (DPSS, NW=4, K=7 tapers) | Custom FFT via `get_spectrum()`/`calculate_fft2()` |
+| PSD method | Multi-taper (DPSS, NW=4, K=6 tapers kept; earlier text said 7) | Custom FFT via `get_spectrum()`/`calculate_fft2()` |
 | Window | DPSS tapers | Hanning |
 | nfft | 2048 (full segment) | 2400 (full segment) |
 | df | 0.001 Hz | 0.00083 Hz |
@@ -53,7 +53,7 @@ The legacy code caps Kp² at 10 (Kp ≈ 3.16 max amplification). No physical bas
 
 ### nfft and frequency resolution
 
-Both pipelines now use full-segment FFTs with similar frequency resolution (df ≈ 0.001 Hz, ~24 bins across the swell peak). Our multi-taper estimator averages over 7 DPSS tapers for variance reduction, while the legacy single-periodogram approach has higher variance per bin. Hs (integral) is unaffected by either choice. See `multitaper_writeup.pdf` for the comparison that drove this method change.
+Both pipelines now use full-segment FFTs with similar frequency resolution (df ≈ 0.001 Hz, ~24 bins across the swell peak). Our multi-taper estimator averages over 6 DPSS tapers (eigenvalue > 0.99; earlier text said 7) for variance reduction, while the legacy single-periodogram approach has higher variance per bin. Hs (integral) is unaffected by either choice. See `multitaper_writeup.pdf` for the comparison that drove this method change.
 
 ### Swell band upper limit (0.25 vs 0.20 Hz)
 
@@ -106,7 +106,7 @@ We reprocessed Ruby2D MOP582_6m (Oct 2021 -- Feb 2022, ~3100 hours of record) wi
 
 ### Spectral shape
 
-Per-segment spectra are nearly indistinguishable in shape (see `outputs/validation/Ruby2D/ruby2d_582_6m_spectra.png`). At the median segment (Nov 27, 2021 03:00, Hs ≈ 0.77 m) and a storm peak (Dec 14, 2021 22:00, Hs ≈ 2.78 m, bimodal at 0.06 and 0.13 Hz), the integrated Hs values match within ~4% (averaging the three 17-min new-pipeline segments inside the legacy hour). The visible difference is exactly what multi-taper is for: the legacy single-periodogram spectra carry chi-square noise across the full frequency band, while the multi-taper estimate (DPSS K=7) is smoother because the variance is reduced ~7x per bin.
+Per-segment spectra are nearly indistinguishable in shape (see `outputs/validation/Ruby2D/ruby2d_582_6m_spectra.png`). At the median segment (Nov 27, 2021 03:00, Hs ≈ 0.77 m) and a storm peak (Dec 14, 2021 22:00, Hs ≈ 2.78 m, bimodal at 0.06 and 0.13 Hz), the integrated Hs values match within ~4% (averaging the three 17-min new-pipeline segments inside the legacy hour). The visible difference is exactly what multi-taper is for: the legacy single-periodogram spectra carry chi-square noise across the full frequency band, while the multi-taper estimate (DPSS, K = 6 kept) is smoother because the variance is reduced about 6x per bin (earlier text said K=7, ~7x).
 
 ### Match rate
 

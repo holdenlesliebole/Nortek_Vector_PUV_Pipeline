@@ -166,7 +166,9 @@ deployments. Records that were dropped are documented hardware failures
 - **Segmentation: 7200 samples = 1 hour @ 2 Hz, non-overlapping**, aligned
   to UTC top-of-hour boundaries (matches MOP/CDIP cadence). Legacy 17-min
   (2048-sample) segments can be re-enabled by passing `opts.segLen = 2048`.
-- Multi-taper PSD (DPSS, NW=4, K=7 tapers) via `shared/psd_multitaper.m`;
+- Multi-taper PSD (DPSS, NW=4) via `shared/psd_multitaper.m`, which keeps the
+  tapers with eigenvalue > 0.99: K = 6 (the seventh is 0.937), about 12 degrees
+  of freedom per bin (revisions before 2026-10-15 said K = 7);
   same tapers used for auto- and cross-spectra so directional coefficients
   are consistent (this was a critical bug in the legacy pipeline — see
   `pipeline_comparison_legacy.md`)
@@ -220,7 +222,8 @@ processed at 1-hour cadence. Output: `outputs/L2/{deployment}/{label}_L2.mat`.
 - MOP gap-filling for missing PUV hours
 
 ### L3c — Transport Proxies
-- Bottom energy flux Fb = ρg·cg·Ub² (spectral integral)
+- Bottom energy flux Fb = ρg ∫ cg(f) S_eta(f) df over the sea-swell band
+  (`PUV_L3_transport.m`; revisions before 2026-10-15 wrote ρg·cg·Ub²)
 - Shields parameter time series (configurable D50), from the **wave** stress
   amplitude `L2.tau_b` — the correct quantity for wave mobilization
 - Wave-current combined bed shear stress (Soulsby 1997): `tau_c`, `tau_m`, `tau_max`

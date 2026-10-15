@@ -204,8 +204,9 @@ not discard good velocity. Each L2 segment carries:
   rescaled), 4 fail. Anything reconstructed is 3, never 1.
 - `Hs_source`: `'measured'`, `'reconstructed'` or `'none'`.
 
-At L4 these travel per burst as `puv_qc_flag`, `puv_segValid_vel`,
-`puv_segValid_p`. `L2.qc_record` holds a record-level Z-test flag (pressure
+L4 copies `L2.segValid` into each sub-product (`L4.eta.segValid` and so on);
+it does not carry `qc_flag`, `segValid_vel` or `segValid_p`, so join L4 to L2
+on time (`shared/l4_l2_index_map.m`) to filter on them. `L2.qc_record` holds a record-level Z-test flag (pressure
 against velocity-predicted pressure); it marks a record and drops nothing.
 Two records are excluded from reported statistics at reporting time
 (`shared/excluded_records.m`: RUBY22/MOP582_30m, over-ranged pressure sensor;
