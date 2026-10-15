@@ -20,7 +20,8 @@ network, or any San Diego data to process your own deployment.
     works at any latitude/longitude worldwide. *Not* Mapping Toolbox — a common
     mix-up; `igrfmagm` is an Aerospace function)
   - **t_tide v1.3** on the path (external; only for the L3 tidal harmonic
-    analysis; L1, L2 and L4 do not need it). See README "External dependencies".
+    analysis; L1, L2 and L4 do not need it). L3 stops with an error without it.
+    See README "External dependencies".
   - *Parallel Computing Toolbox is optional*: only `PUV_L4_bispectra` with
     `opts.useParallel = true` (used by `PUV_L4_run_all`) needs it, and the
     serial path gives bit-identical results.
@@ -39,8 +40,9 @@ network, or any San Diego data to process your own deployment.
   it will be silently short** — set `instr.rawFormat = 'VEC'` to force the binary
   and get the whole record. (`'ASCII'` forces the other way.)
 - The **deployment metadata** you recorded in the field (see step 2).
-- *Internet is only needed if you use a CDIP MOP station for the shore-normal
-  angle (California sites). A manually specified angle needs no network.*
+- *Internet is needed at L3 for the NOAA tide predictions (§2, `tideStation`),
+  and at L2 only if you use a CDIP MOP station for the shore-normal angle
+  (California sites). A manually specified angle needs no network.*
 
 ---
 
@@ -75,11 +77,31 @@ For **each instrument** in the deployment you need:
 surface-elevation transfer function needs the sensor elevation. Everything else
 has a sensible default or auto-computes.
 
-You also choose two deployment-level values:
+You also choose three deployment-level values:
 
 - `cfg.rawDataRoot` — absolute path to the folder holding the raw files.
 - `cfg.qcOpts.Tvalid` — plausible water-temperature range for your site (see
   step 4). **Set this in the config**; do not blindly copy a San Diego range.
+- `cfg.tideStation`: the NOAA CO-OPS station whose hourly tide prediction L3
+  uses for the tidal depth. Pick the nearest **harmonic** station (type "R" in
+  [the station list](https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json?type=tidepredictions));
+  a subordinate ("S") station has no hourly predictions. Put the station name
+  and distance in the comment. **Required outside San Diego County**: without
+  it L3 stops with an error. San Diego configs use `'9410230'` (La Jolla). Outside
+  US waters there is no NOAA station; build L3 with
+  `opts.allowTtideFallback = true` passed to `PUV_L3_currents` by hand, which
+  fits the tide to your own depth record and records the fallback.
+
+An instrument that was deployed but failed in the field (dead battery, knocked
+over, buried) stays in the config, with its serial and position, plus one line:
+
+```matlab
+cfg.instruments(k).knownFailed = 'battery depleted, no valid pressure; DeploymentNotes2024.xls row 12';
+```
+
+Give the cause and where it is documented. The drivers skip it with a
+`KNOWN FAILED` line and do not count it as a failure, so a batch ends in error
+only on a new one; `validation/audit_registry_loads.m` lists it as known.
 
 ### 2a. Put the source on every geometry line
 
@@ -291,12 +313,13 @@ Each level reads the previous level's `.mat` files and errors clearly if they're
 missing, so always run in sequence. A driver keeps going when one instrument
 fails, then ends with an error naming every record it did not write.
 
-**Provenance.** The drivers above do not write provenance sidecars
-(`<file>.prov.json`). Their outputs are fine for your own analysis, but
-`scripts/copy_to_server.m` refuses any file without a sidecar, so they cannot be
-published to the lab catalog as they are. The catalog's stamped files were
-built by `scripts/rerun_heading_ws_2026_10_07.m` (stage `combined`); see README
-"Provenance and the published catalog". `PUV_L2_driver` also runs the offshore-
+**Provenance.** Every file the drivers write carries a provenance block (an
+embedded `prov` field and a `<file>.prov.json` sidecar: commit, parents'
+`build_id`s, the physical choices applied including the L3 tide station), which
+`scripts/copy_to_server.m` checks before publishing; see README "Provenance and
+the published catalog". Built from a zip download (no `.git`), the stamp says
+`git_hash = 'unknown (no git)'` and needs a change entry before a push.
+`PUV_L2_driver` also runs the offshore-
 reference validation figures when a `refStation` (or `mopStation`) is set (§6);
 they are **skipped automatically** when neither is present.
 
@@ -305,7 +328,8 @@ they are **skipped automatically** when neither is present.
 ## 8. What is San-Diego-specific and safe to ignore
 
 These pieces assume the San Diego MOP/CDIP network and simply **no-op** (or fall
-back to a generic path) at other sites — they never crash the run:
+back to a generic path) at other sites — they never crash the run. The tide
+station is the exception: set it (§2).
 
 - **Offshore-reference storm context / validation figures** — if you set a
   `refStation` (§6), these work anywhere via `cdip_station_reference`. If you set
@@ -319,12 +343,11 @@ back to a generic path) at other sites — they never crash the run:
   `rho_s = 2650`** — they are not physically meaningful over a rough carbonate
   reef, so ignore L3 transport outputs there (L1/L2/L4 are unaffected). To use a
   real grain size, add an entry to `site_grain_size.m` for your label.
-- **Tidal depth** (`L3.tidal.depth_pred`) is the NOAA prediction for La Jolla
-  (station 9410230), fetched through the lab toolbox's `getztide2`. Without that
-  toolbox, or when the download fails, L3 fits t_tide to your own depth record
-  and stores `L3.tidal.depth_source = 't_tide'`. At a site far from La Jolla the
-  NOAA prediction is the wrong tide: check `depth_source` and do not use a NOAA
-  `depth_pred` there.
+- **Tidal depth** (`L3.tidal.depth_pred`) is the NOAA prediction at
+  `cfg.tideStation` (§2), stored with the station id in `L3.tidal.station`. La
+  Jolla 9410230 is the default only inside San Diego County; anywhere else a
+  config without `tideStation` stops L3 with an error, as does a failed download
+  (unless `opts.allowTtideFallback = true`).
 
 ---
 
@@ -337,6 +360,9 @@ back to a generic path) at other sites — they never crash the run:
 | L4 reflection output is empty | `L2.shorenormal` is `NaN` — supply a shore-normal angle (§5) and re-run L2 |
 | Lots of `qc_flag == 4` on temperature; velocities rescaled | `Tvalid` too narrow for your site — widen it (§4) |
 | `Undefined function 'igrfmagm'` | install / license the **Aerospace Toolbox** (not Mapping) |
+| `PUV_L3_currents:noTideStation` | set `cfg.tideStation` to a NOAA harmonic station near the site (§2) |
+| `PUV_L3_currents:noaaFailed` | NOAA download failed: check the network and the station id (hourly predictions exist only for harmonic stations) |
+| `PUV_L3_currents:noTtide` | put t_tide v1.3 on the path (README "External dependencies") |
 | Raw files not found | check `cfg.rawDataRoot`, `rawSubfolder`, and `filePrefix` against your actual filenames |
 | `No CDIP data for buoy … in [window]` | wrong `refStation` id, no internet, or the buoy has no data in your deployment window — verify the station at cdip.ucsd.edu and check connectivity |
 | Reference/validation says *looks like a MOP model point … not on the path* | you set a MOP id (`D0###`) off the California grid — use a CDIP buoy id (e.g. `233p1`) in `refStation` instead |

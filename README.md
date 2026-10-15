@@ -65,15 +65,15 @@ folder; the bundled San Diego configs point at
 
 ### External dependencies (not in this repository)
 
-L1, L2 and L4 use only files in this repository. **L3 needs 12 files from
+L1, L2 and L4 use only files in this repository. **L3 needs 11 files from
 outside it.** The list is kept in `shared/external_deps.m`, and every L3
 provenance sidecar records the path and SHA-256 of each one as used.
 
 | file(s) | from | used by |
 |---|---|---|
 | `t_tide.m`, `t_predic.m`, `t_astron.m`, `t_getconsts.m`, `t_vuf.m`, `t_constituents.mat`, `t_equilib.dat`, `tide3.dat` | **t_tide version 1.3** (header revision 29/9/14), R. Pawlowicz, B. Beardsley and S. Lentz (2002), *Computers & Geosciences* 28, 929-937, distributed by the author (UBC EOAS, "T_TIDE harmonic analysis toolbox") | `PUV_L3_currents` tidal fit |
-| `getztide2.m`, `read_MOPline2.m` | the SIO Coastal Processes lab MATLAB `toolbox/` (not public; ask the lab) | NOAA tide predictions; CDIP MOP reader behind `cdip_station_reference` (`PUV_L3_storms`) |
-| `get_k.m`, `xyRotate.m` | helpers those two toolbox functions call | |
+| `read_MOPline2.m` | the SIO Coastal Processes lab MATLAB `toolbox/` (not public; ask the lab) | CDIP MOP reader behind `cdip_station_reference` (`PUV_L3_storms`) |
+| `get_k.m`, `xyRotate.m` | helpers it calls | |
 
 t_tide is not redistributed here because its license is informal. Put it on
 the MATLAB path yourself. If it is not on the path, `PUV_L3_currents` adds
@@ -83,13 +83,20 @@ functions. Those fallback folders match the lab layout; elsewhere, add the
 folders to your path before running L3.
 
 What happens without them:
-- No t_tide: `PUV_L3_currents` warns and returns, and the L3 file is saved
-  **without** tidal and subtidal currents.
-- No lab toolbox: no NOAA tide (the depth prediction falls back to a t_tide fit
-  of the record, stored as `L3.tidal.depth_source = 't_tide'`) and no MOP storm
-  reference (recorded as a fallback in provenance).
-- `getztide2` always fetches NOAA station 9410230 (La Jolla, Scripps Pier),
-  whatever the deployment site.
+- No t_tide: `PUV_L3_currents` **stops with an error** pointing here. Pass
+  `opts.allowNoTides = true` to build an L3 without tidal and subtidal
+  currents on purpose.
+- No lab toolbox: no MOP storm reference (recorded as a fallback in
+  provenance). The NOAA tide no longer needs the toolbox.
+
+NOAA tide predictions come from `shared/noaa_tide_predictions.m` (the same
+request the toolbox `getztide2.m` made, with the station as an argument) at the
+config's `cfg.tideStation`, and are needed for every L3. A failed download is an
+error unless `opts.allowTtideFallback = true`, which falls back to a t_tide fit
+of the record (`L3.tidal.depth_source = 't_tide'`, recorded as a fallback). A
+config with no `tideStation` gets La Jolla 9410230 if its instruments lie in San
+Diego County, and an error anywhere else. The station used is stored in
+`L3.tidal.station` and in the L3 provenance.
 
 ---
 
@@ -119,10 +126,14 @@ the slow module) and says so at the end.
 Every driver keeps going when one record fails, then **ends with an error**
 naming each config that threw and each record it did not write, so
 `matlab -batch` exits nonzero. Seven of the 72 configured records have no L1
-because the instrument failed in the field (listed in
-`docs/pipeline_levels.md`); the `run_all` scripts report them as failures on
-every run, so over the full San Diego registry they end with that error even
-when nothing else went wrong. Read the list it prints.
+because the instrument failed in the field. Their configs flag them
+(`instruments(k).knownFailed = '<cause>; <source>'`), and the drivers skip them
+with a `KNOWN FAILED` line, so the error means a new failure.
+`validation/audit_registry_loads.m` lists them as known.
+
+Every file the drivers write carries provenance (an embedded `prov` field and a
+`<file>.prov.json` sidecar), the same stamp as the catalog rebuild; see
+"Provenance and the published catalog".
 
 ---
 
@@ -142,7 +153,11 @@ To add a deployment (full walkthrough in `docs/NEW_DEPLOYMENT.md`):
    required), `heading`, and a shore-normal source.
 3. Set `cfg.qcOpts.Tvalid` to the site's water-temperature range, in the
    config (San Diego coastal `[9 26]`; the default `[-2 40]` only catches
-   gross failures). L1 and L3 both read it.
+   gross failures). L1 and L3 both read it. Set `cfg.tideStation` to the
+   nearest NOAA CO-OPS harmonic station (San Diego configs: `'9410230'`, La
+   Jolla); L3 errors without it outside San Diego County. An instrument that
+   failed in the field stays in the config with
+   `knownFailed = '<cause>; <source>'`, so the drivers skip it.
 4. Put the **source of every `doffp`, `latlon`, `heading` and `shorenormal`
    on the same line** as a comment: workbook, sheet, row, serial number and the
    cell's wording. `validation/audit_config_provenance.m` lists the values that
@@ -212,11 +227,17 @@ fallback taken, and the SHA-256 of the saved bytes. As of catalog 2026-10-14.1:
 sidecars were backfilled (`scripts/backfill_provenance.m`) and say so in their
 `backfilled` field.
 
-**The drivers do not stamp.** `PUV_L*_driver` and `PUV_L*_run_all` write no
-sidecar. Their outputs are fine for your own work, but cannot be published as
-they are. The stamped catalog was built with
-`scripts/rerun_heading_ws_2026_10_07.m` (stages `combined` and `xspecprov`),
-driven by `scripts/run_L4_refresh_watchdog.sh`.
+**The drivers stamp too (from 2026-10-15).** `PUV_L*_driver`,
+`PUV_L*_run_all`, `PUV_L4_xspec_driver` and `PUV_L4_xspec_run_all` save
+through `shared/save_with_provenance.m`, which writes the same embedded block
+and sidecar, with parents linked by `build_id` (L2 from L1; L3 and L4 from L2;
+xspec from every member L4). Their outputs pass the provenance gate like the
+catalog's (`validation/test_driver_provenance.m`). The 2026-10-14.1 catalog
+itself was built with `scripts/rerun_heading_ws_2026_10_07.m` (stages
+`combined` and `xspecprov`), driven by `scripts/run_L4_refresh_watchdog.sh`.
+A checkout without `.git` (a zip download) records `git_hash = 'unknown (no
+git)'`; `check_prov` SOFT-refuses such a file until a change entry
+acknowledges its level.
 
 **Server catalog.** `/Volumes/group/PUV_data/Vector/Processed_HLB/`, laid out
 `<DEPLOYMENT>/Level{1,2,3,4}_QC/<label>_*.mat` plus `L4_xspec`, each with its
@@ -266,11 +287,11 @@ or from a shell, exiting nonzero on any failure:
 matlab -batch "cd /path/to/PUV_Pipeline; startup_puv; run_all_tests"
 ```
 
-`validation/run_all_tests.m` runs 21 tests (synthetic closure tests in
+`validation/run_all_tests.m` runs 23 tests (synthetic closure tests in
 `L1_raw_to_qc/`, `L2_spectral/` and `validation/`, plus a shell test of the
 watchdog with a stand-in for MATLAB), prints PASS, FAIL or SKIP per test and
-the total, and lists the tests it did not run with the reason. Two tests
-(`test_provenance`, `test_fillmissing_endvalues`) need the L3 external files
+the total, and lists the tests it did not run with the reason. Three tests
+(`test_provenance`, `test_fillmissing_endvalues`, `test_l3_tide_station`) need the L3 external files
 and are skipped, not failed, when any is missing from the path. It never runs
 the three tests that write into `outputs/validation/`.
 
@@ -312,10 +333,12 @@ the tide). These read `outputs/`.
   `puv_channel_qc` stays off until the next deliberate L1 rebuild, so descent
   samples can pass pressure QC (SIO24A: 61 s at 3.1 dBar at a 6 m site). No L2
   segment in the catalog is affected.
-- **Tidal depth is La Jolla's.** See "External dependencies".
+- **Catalina tidal depth is La Jolla's.** CAT21A/B set `tideStation =
+  '9410230'` (as built), 110 km away; the nearest NOAA harmonic station is
+  9410079 Avalon. Over the CAT21A record the two predictions differ by 2.8 cm
+  rms (max 8 cm). Switching needs an L3 rebuild and a change entry.
 - **Unsourced geometry.** 69 `doffp`/`latlon`/`shorenormal` values carried no
   on-line source at the last audit (2026-07-28). Treat them as unverified.
-- **No provenance from the drivers** (see above).
 
 ---
 

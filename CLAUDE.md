@@ -63,12 +63,21 @@ Detail and open items: the top block of `docs/todo.md`. Code changes:
   seeded t_tide; NOAA tidal depth required (TOR24W/MOP586_10m had a silent
   fallback); provenance sidecars on every L2-L4/xspec file, L1 backfilled.
 - **Audits 2026-10-14:** L1 qcopts 65/65, L4 content 65/65, registry 50/50.
-- **The plain drivers write no provenance**, so their outputs are refused by
-  `copy_to_server` (HARD). Rebuild catalog files through the rerun script.
+- **The plain drivers stamp provenance** (since 2026-10-15,
+  `shared/save_with_provenance.m`), same block and sidecar as the rerun script.
+  A no-git checkout stamps `git_hash 'unknown (no git)'` (SOFT at push).
+- **Known field failures are flagged in the configs** (`knownFailed`, 7
+  instruments); drivers skip them and error only on new failures.
+- **Tide station is per deployment** (`cfg.tideStation`; SD configs 9410230).
+  `PUV_L3_currents` errors outside SD without one, on a failed NOAA download
+  (unless `allowTtideFallback`) and without t_tide (unless `allowNoTides`).
+  Catalina still uses 9410230 as built, pending Holden (Avalon 9410079 is the
+  nearest harmonic station).
 - **`check_prov` compares code by directory.** Any edit under a level's code
   folders (L3: `L3_forcing/`, `L3_transport/`, `shared/`) SOFT-refuses every
   file of that level at the next push until a change entry carries `code_ack`.
-  The 2026-10-14 driver edits (L1-L4 drivers, L3 Tvalid) need one.
+  The 2026-10-14/15 driver edits are acknowledged by the pending entry
+  `docs/catalog_changes/2026-10-15_driver_provenance_tides.md`.
 - **Open (do not guess):** IB18W/IB19S `doffp` source unknown; 69 geometry
   values unannotated (July count); 42 records on the 250 um placeholder D50;
   12 disputed headings (`shared/heading_disputed_records.m`); off-bed pressure
@@ -278,7 +287,7 @@ cross-repo cleanup — see `docs/todo.md`.
   0 even when the batch errors** (`-nodisplay` with `-batch` on R2025a/macOS,
   checked 2026-10-14); judge a run by its log, or drop `-nodisplay` when the
   exit code matters.
-- **Tests:** `run_all_tests` (validation/run_all_tests.m) runs the 21
+- **Tests:** `run_all_tests` (validation/run_all_tests.m) runs the 23
   self-contained tests and exits nonzero on a failure; `run_all_tests('includeData',
   true)` adds the read-only ones that need `outputs/`, the server or the network.
 - **Batch over the catalog** with `PUV_L{1,2,3,4}_run_all` — each skips

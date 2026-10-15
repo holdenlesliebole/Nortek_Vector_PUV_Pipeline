@@ -57,6 +57,8 @@ function R = run_all_tests(varargin)
         'test_shoal_bin_synthetic',           'validation',   'm',  ''
         'test_provenance',                    'validation',   'm',  'L3deps'
         'test_driver_loud_failures',          'validation',   'm',  ''
+        'test_known_failed',                  'validation',   'm',  ''
+        'test_l3_tide_station',               'validation',   'm',  'L3deps'
         'test_watchdog_xspec',                'validation',   'sh', ''
     };
     % read-only, but need data that a fresh clone does not have
@@ -67,6 +69,7 @@ function R = run_all_tests(varargin)
         'test_sxy_geometry',             'validation',   'm', 'reads outputs/validation and outputs/L2'
         'test_read_VEC',                 'L1_raw_to_qc', 'm', 'raw .VEC/.dat on /Volumes/group'
         'test_L1_comparison',            'L1_raw_to_qc', 'm', 'legacy L1 file not mirrored on the server'
+        'test_driver_provenance',        'validation',   'm', 'reads raw_cache/COR16B; NOAA tide download; ~15 min'
     };
     NEVER = {
         'test_resolution_artifact', 'writes outputs/validation/resolution_artifact_bound.mat'

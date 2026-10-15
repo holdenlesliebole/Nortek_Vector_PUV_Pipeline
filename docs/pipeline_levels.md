@@ -84,9 +84,11 @@ have been updated in place below.
 
 **Why 65 and not 72.** The registry configures **72** instrument-records; 7 have
 no L1/L2 because the instrument genuinely failed in the field, so the catalog is
-65. `PUV_L{1..4}_run_all` reports these as `fail` ("missing L1 or L2 file") on
-every run — that is expected, not a regression. Each is documented with its cause
-in `docs/deployment_database_overview.md`:
+65. Each config flags them with `instruments(k).knownFailed` (cause and
+source), and since 2026-10-15 the drivers skip them with a `KNOWN FAILED` line
+instead of counting them as failures; `validation/audit_registry_loads.m` lists
+them as known. Each is documented with its cause in
+`docs/deployment_database_overview.md`:
 
 | record | cause |
 |---|---|

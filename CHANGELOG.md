@@ -6,6 +6,51 @@ What each change did to the published catalog, with measured sizes, is in
 catalog version. Changes before 2026-10-07 are recorded in `PIPELINE_NOTES.md`
 and the dated `docs/RESULTS_*.md` logs.
 
+## Unreleased (2026-10-15)
+
+No catalog output value changes. Change entry:
+`docs/catalog_changes/2026-10-15_driver_provenance_tides.md` (acknowledges the
+code change for L1-L4 and L4_xspec at the next push).
+
+- **Provenance from the drivers.** `PUV_L{1..4}_driver`, `PUV_L{1..4}_run_all`,
+  `PUV_L4_xspec_driver` and `PUV_L4_xspec_run_all` save through the new
+  `shared/save_with_provenance.m`: the same embedded `prov` block and
+  `.prov.json` sidecar as the catalog rebuild, parents linked by `build_id`.
+  Test: `validation/test_driver_provenance.m` (data test, needs
+  `raw_cache/COR16B` and NOAA): 18/18 files pass `check_prov` (0/18 on the
+  previous drivers, all "HARD: no provenance").
+- **No-git checkouts.** `build_provenance` records
+  `git_hash = 'unknown (no git)'` (and `dirty = true`) for a checkout without
+  `.git` instead of erroring, and `check_prov` SOFT-refuses such a file until a
+  change entry acknowledges the level (the previous `check_prov` HARD-refused
+  it as an unknown commit). `test_provenance` cases 11a-c.
+- **Known field failures.** `instruments(k).knownFailed = '<cause>; <source>'`
+  marks the 7 configured instruments with no L1 (SIO24B, SIO24C, SIO25A,
+  SOL23/MOP651_5m, TOR24S/MOP586_15m, TOR24W/MOP586_5m, TOR25S/MOP586_5m;
+  causes from `docs/deployment_database_overview.md`). The drivers skip them
+  with a `KNOWN FAILED` line and end in error only on new failures; the
+  `run_all` errors now name the failed labels. `audit_registry_loads` lists
+  configured instruments without an L1 as KNOWN FAILED or MISSING. Test:
+  `validation/test_known_failed.m` (18/18; 0/18 on the previous drivers).
+- **Tide station per deployment.** `cfg.tideStation` (NOAA CO-OPS id) is set
+  in every config; all San Diego configs use 9410230 (La Jolla), as built.
+  `PUV_L3_currents(L3, L2, opts)` fetches it through the new
+  `shared/noaa_tide_predictions.m` (the toolbox `getztide2` request with the
+  station as an argument; identical output for 9410230 on two 30-day windows,
+  721/721 values), so `getztide2` leaves `external_deps` (12 -> 11 L3 files).
+  With no station, La Jolla is the default only inside San Diego County;
+  elsewhere L3 errors. The station is stored in `L3.tidal.station` and stamped
+  in L3 provenance, and `check_prov` refuses an L3 whose stamped station
+  differs from the config. Catalina (CAT21A/B) keeps 9410230, flagged in its
+  config as a known approximation pending a decision (nearest harmonic station
+  9410079 Avalon, 1.9 km; 2.8-3.0 cm rms difference over the deployments).
+- **L3 refuses silent tidal fallbacks.** `PUV_L3_currents` errors when the
+  NOAA download fails (was: silent t_tide depth fallback; only the rebuild
+  script refused it) unless `opts.allowTtideFallback = true`, and when t_tide
+  is missing (was: warning and an L3 without tidal/subtidal) unless
+  `opts.allowNoTides = true`. Test: `validation/test_l3_tide_station.m` (9/9;
+  0/9 on the previous `PUV_L3_currents`).
+
 ## Unreleased (2026-10-14, repository polish)
 
 - L3 drivers (`PUV_L3_driver`, `PUV_L3_run_all`) pass the config's
