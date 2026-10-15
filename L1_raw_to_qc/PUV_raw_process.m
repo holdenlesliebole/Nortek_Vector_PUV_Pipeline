@@ -628,7 +628,10 @@ function PUV = PUV_raw_process(instr, cfg)
     % For a tilted instrument:
     %   R_pitch rotates around the Y axis by pitch angle
     %   R_roll  rotates around the X axis by roll angle
-    %   [U;V;W]_corrected = R_roll * R_pitch * [U;V;W]_measured
+    %   [U;V;W]_corrected = R_pitch * R_roll * [U;V;W]_measured
+    %   (roll applied first, then pitch: the components in the loop below are
+    %   those of R_pitch*R_roll. Comments before 2026-10-15 said R_roll*R_pitch.
+    %   Whether this order matches Nortek's pitch/roll convention is unchecked.)
     %
     % The pitch/roll values from SEN are at 1 Hz (duplicated to 2 Hz),
     % so the correction is applied sample-by-sample.
@@ -671,7 +674,7 @@ function PUV = PUV_raw_process(instr, cfg)
             cp = cos(p_rad(ii)); sp = sin(p_rad(ii));
             cr = cos(r_rad(ii)); sr = sin(r_rad(ii));
 
-            % R_roll * R_pitch (extrinsic rotation)
+            % R_pitch * R_roll (roll first, then pitch)
             U_tc(ii) =  cp      * U(ii) + sp*sr   * V(ii) + sp*cr   * W(ii);
             V_tc(ii) =              cr   * V(ii) -    sr   * W(ii);
             W_tc(ii) = -sp      * U(ii) + cp*sr   * V(ii) + cp*cr   * W(ii);

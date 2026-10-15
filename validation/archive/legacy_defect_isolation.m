@@ -42,7 +42,15 @@
 
 startup_puv
 
-pipeRoot = fileparts(fileparts(mfilename('fullpath')));
+% Repository root = the nearest folder above this file holding startup_puv.m, so
+% the script runs from validation/ or from validation/archive/ (moved 2026-07-30).
+pipeRoot = fileparts(mfilename('fullpath'));
+while ~isfile(fullfile(pipeRoot, 'startup_puv.m'))
+    up = fileparts(pipeRoot);
+    if strcmp(up, pipeRoot), error('legacy_defect_isolation:noRoot', ...
+            'No startup_puv.m above %s', mfilename('fullpath')); end
+    pipeRoot = up;
+end
 outDir   = fullfile(pipeRoot,'outputs','validation');
 
 % Records spanning the conditions of interest. The first two are the same

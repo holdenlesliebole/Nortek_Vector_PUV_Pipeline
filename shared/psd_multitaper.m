@@ -15,7 +15,9 @@ function [Pxx, Pxy, f] = psd_multitaper(x, y, nfft, fs, NW)
 %     y     - second signal for cross-spectrum, or [] for auto-only
 %     nfft  - FFT length / taper length (samples)
 %     fs    - sampling frequency (Hz)
-%     NW    - time-bandwidth product (default 4; K = 2*NW-1 tapers used)
+%     NW    - time-bandwidth product (default 4). Tapers with concentration
+%             eigenvalue > 0.99 are kept, which for NW = 4 is K = 6 (not
+%             2*NW-1 = 7: the seventh eigenvalue is 0.937), ~12 dof per bin
 %
 %   OUTPUTS
 %     Pxx   - one-sided auto-PSD of x [nf x 1] (units²/Hz)
