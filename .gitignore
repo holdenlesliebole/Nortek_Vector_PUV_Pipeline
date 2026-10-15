@@ -65,3 +65,6 @@ docs/diagnostics_2026-07-09/
 
 # real directory lives in ~/LocalData (outside iCloud sync); this path is a symlink
 outputs
+
+# Talk slides are built locally and not versioned (2026-10-15)
+docs/puv_pipeline_slides*.pdf
