@@ -42,6 +42,7 @@ fprintf('========================================\n');
 
 resultStatus = cell(nDeploy, 1);
 resultNInstr = zeros(nDeploy, 1);
+problems     = {};   % config errors and failed records, reported at the end
 builtWithoutBisp = {};
 
 for d = 1:nDeploy
@@ -54,6 +55,7 @@ for d = 1:nDeploy
     catch ME
         fprintf('  ERROR loading config: %s\n', ME.message);
         resultStatus{d} = 'config_error';
+        problems{end+1} = sprintf('%s: config error: %s', dName, ME.message); %#ok<SAGROW>
         continue
     end
 
@@ -132,6 +134,7 @@ for d = 1:nDeploy
     end
 
     resultStatus{d} = sprintf('%d ok, %d skip, %d fail', nProcessed, nSkipped, nFailed);
+    if nFailed > 0, problems{end+1} = sprintf('%s: %d record(s) failed', dName, nFailed); end %#ok<SAGROW>
     fprintf('\n  Summary: %s\n', resultStatus{d});
 end
 
@@ -162,4 +165,13 @@ if ~isempty(builtWithoutBisp)
                 '  and check the L4 grid still matches L2 first --\n' ...
                 '  see shared/l4_l2_index_map.m. Then confirm with\n' ...
                 '  validation/audit_L4_coverage.m\n\n']);
+end
+
+% Fail loudly. Every deployment and record runs inside try/catch so one failure
+% cannot abort the batch, but a config that throws or a record that fails must
+% not end the run looking like success (TOR18A, 2026-07-27, was invisible for a
+% day this way). An error here makes `matlab -batch` exit nonzero.
+if ~isempty(problems)
+    error('PUV_L4_run_all:failures', '%d problem(s); details in the log above:\n  %s', ...
+        numel(problems), strjoin(problems, '\n  '));
 end

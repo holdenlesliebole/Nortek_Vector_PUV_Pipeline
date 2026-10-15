@@ -21,6 +21,11 @@ end
 configFn = registry(deployment_name);
 cfg = configFn();
 
+% Plausible water-temperature range for the per-segment viscosity in
+% PUV_L3_transport: the config's own L1 Tvalid, so L3 uses the same bound L1
+% applied (without it PUV_L3_transport falls back to the wide [-2 40] default).
+l3Opts = struct('Tvalid', l1_qc_opts(cfg).Tvalid);
+
 % L2 input directory
 l2Dir = fullfile(cfg.outputDir, 'L2', cfg.name);
 if ~isfolder(l2Dir)
@@ -34,6 +39,7 @@ if ~exist(outDir, 'dir'), mkdir(outDir); end
 
 %% ======================== PROCESS EACH INSTRUMENT ========================
 nInstr = numel(cfg.instruments);
+failed = {};   % labels of records not written
 fprintf('\n=== L3 Forcing Characterization: %s (%d instruments) ===\n', deployment_name, nInstr);
 
 for k = 1:nInstr
@@ -44,6 +50,7 @@ for k = 1:nInstr
     if ~isfile(l2File)
         warning('PUV_L3_driver:noL2File', ...
             'L2 file not found: %s — skipping.', l2File);
+        failed{end+1} = instr.label; %#ok<SAGROW>
         continue
     end
 
@@ -59,7 +66,7 @@ for k = 1:nInstr
         L3 = PUV_L3_storms(L3, L2);
 
         % --- L3c: Transport proxies ---
-        L3 = PUV_L3_transport(L3, L2);
+        L3 = PUV_L3_transport(L3, L2, l3Opts);
 
         % --- L3d: Current decomposition ---
         L3 = PUV_L3_currents(L3, L2);
@@ -69,6 +76,7 @@ for k = 1:nInstr
         fprintf('  Saved: %s\n', outFile);
 
     catch ME
+        failed{end+1} = instr.label; %#ok<SAGROW>
         warning('PUV_L3_driver:instrumentFailed', ...
             'FAILED: %s\nReason: %s', instr.label, ME.message);
         for s = 1:length(ME.stack)
@@ -78,3 +86,10 @@ for k = 1:nInstr
 end
 
 fprintf('\nDone. L3 processing for %s complete.\n', deployment_name);
+
+% Fail loudly: a record that failed or had no input must not end the run looking
+% like success (each record runs in try/catch so the others still run).
+if ~isempty(failed)
+    error('PUV_L3_driver:failures', '%d of %d record(s) not written for %s: %s (details above)', ...
+        numel(failed), nInstr, deployment_name, strjoin(failed, ', '));
+end

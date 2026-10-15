@@ -39,6 +39,7 @@ if ~exist(diagDir, 'dir'), mkdir(diagDir); end
 
 %% ======================== PROCESS EACH INSTRUMENT ========================
 nInstr = numel(cfg.instruments);
+failed = {};   % labels of records not written
 fprintf('\n=== L1 Processing: %s (%d instruments) ===\n', deployment_name, nInstr);
 
 for k = 1:nInstr
@@ -52,13 +53,22 @@ for k = 1:nInstr
         save(outFile, 'PUV', '-v7.3');
         fprintf('  Saved: %s\n', outFile);
     catch ME
+        failed{end+1} = instr.label; %#ok<SAGROW>
+        % (the stack used to be formatted with arrayfun(@(s) string(s.name), ...),
+        % which throws MATLAB:invalidConversion and hid the original error)
         warning('PUV_L1_driver:instrumentFailed', ...
-            'FAILED: %s\nReason: %s\nStack: %s', ...
-            instr.label, ME.message, ...
-            sprintf('%s (line %d)\n', ...
-                arrayfun(@(s) string(s.name), ME.stack), ...
-                arrayfun(@(s) s.line, ME.stack)));
+            'FAILED: %s\nReason: %s', instr.label, ME.message);
+        for s = 1:length(ME.stack)
+            fprintf('    %s (line %d)\n', ME.stack(s).name, ME.stack(s).line);
+        end
     end
 end
 
 fprintf('\nDone. Processed %d instruments for %s.\n', nInstr, deployment_name);
+
+% Fail loudly: a record that failed or had no input must not end the run looking
+% like success (each record runs in try/catch so the others still run).
+if ~isempty(failed)
+    error('PUV_L1_driver:failures', '%d of %d record(s) not written for %s: %s (details above)', ...
+        numel(failed), nInstr, deployment_name, strjoin(failed, ', '));
+end

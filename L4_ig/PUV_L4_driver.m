@@ -49,6 +49,7 @@ if ~exist(outDir, 'dir'), mkdir(outDir); end
 
 %% ======================== PROCESS EACH INSTRUMENT ========================
 nInstr = numel(cfg.instruments);
+failed = {};   % labels of records not written
 fprintf('\n=== L4 IG / Bound-Wave Dynamics: %s (%d instruments) ===\n', deployment_name, nInstr);
 
 for k = 1:nInstr
@@ -60,11 +61,13 @@ for k = 1:nInstr
     if ~isfile(l1File)
         warning('PUV_L4_driver:noL1File', ...
             'L1 file not found: %s — skipping.', l1File);
+        failed{end+1} = instr.label; %#ok<SAGROW>
         continue
     end
     if ~isfile(l2File)
         warning('PUV_L4_driver:noL2File', ...
             'L2 file not found: %s — skipping.', l2File);
+        failed{end+1} = instr.label; %#ok<SAGROW>
         continue
     end
 
@@ -118,6 +121,7 @@ for k = 1:nInstr
         fprintf('  Saved: %s\n', outFile);
 
     catch ME
+        failed{end+1} = instr.label; %#ok<SAGROW>
         warning('PUV_L4_driver:instrumentFailed', ...
             'FAILED: %s\nReason: %s', instr.label, ME.message);
         for s = 1:length(ME.stack)
@@ -127,3 +131,10 @@ for k = 1:nInstr
 end
 
 fprintf('\nDone. L4 processing for %s complete.\n', deployment_name);
+
+% Fail loudly: a record that failed or had no input must not end the run looking
+% like success (each record runs in try/catch so the others still run).
+if ~isempty(failed)
+    error('PUV_L4_driver:failures', '%d of %d record(s) not written for %s: %s (details above)', ...
+        numel(failed), nInstr, deployment_name, strjoin(failed, ', '));
+end
