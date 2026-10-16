@@ -655,9 +655,9 @@ about $\pm15$\% at 250~$\mu$m.
 \paragraph{Tides and currents.} The tidal depth reference is the NOAA prediction for the
 config's \code{cfg.tideStation} (\code{shared/noaa\_tide\_predictions.m}); every San Diego config
 uses 9410230 (La Jolla, Scripps Pier). A config with no station gets 9410230 only when its
-instruments lie in San Diego County; elsewhere L3 stops with an error. Catalina (CAT21A/B) also
-uses 9410230, about 110~km away, as a flagged approximation: the nearest harmonic station,
-9410079 Avalon, differs by 2.8~cm rms over the CAT21A record. The station used is stored at
+instruments lie in San Diego County; elsewhere L3 stops with an error. Catalina (CAT21A/B) uses
+9410079 (Avalon), 1.9~km from the instrument; before 2026-10-16 it used 9410230, which differs
+from Avalon by 2.5~cm rms over the CAT21A record. The station used is stored at
 \code{L3.tidal.station} and in the provenance, and the push refuses an L3 whose station no longer
 matches its config. Tidal harmonic analysis (\code{t\_tide}, complex $u+iv$, seeded with
 \code{rng(0,'twister')} so the bootstrap is reproducible) runs on the segment-mean velocities
@@ -760,7 +760,6 @@ depths in m, times UTC. Config headings are magnetic; the declination is added a
   IB19S carry values whose source is unknown.
 \item \textbf{Off-bed pressure QC is off} until the next deliberate L1 rebuild; no L2 segment in
   the catalog is affected.
-\item \textbf{Catalina tidal depth} is La Jolla's (\S\ref{sec:l3methods}).
 \item \textbf{Unsourced geometry.} 69 \code{doffp}/\code{latlon}/\code{shorenormal} values had no
   on-line source at the last audit (2026-07-28); treat them as unverified.
 \end{itemize}

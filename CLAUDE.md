@@ -71,8 +71,8 @@ Detail and open items: the top block of `docs/todo.md`. Code changes:
 - **Tide station is per deployment** (`cfg.tideStation`; SD configs 9410230).
   `PUV_L3_currents` errors outside SD without one, on a failed NOAA download
   (unless `allowTtideFallback`) and without t_tide (unless `allowNoTides`).
-  Catalina still uses 9410230 as built, pending Holden (Avalon 9410079 is the
-  nearest harmonic station).
+  Catalina uses 9410079 Avalon since 2026-10-16 (L3 rebuilt; change entry
+  `docs/catalog_changes/2026-10-16_catalina_avalon_tide.md`, pending push).
 - **`check_prov` compares code by directory.** Any edit under a level's code
   folders (L3: `L3_forcing/`, `L3_transport/`, `shared/`) SOFT-refuses every
   file of that level at the next push until a change entry carries `code_ack`.
@@ -84,7 +84,7 @@ Detail and open items: the top block of `docs/todo.md`. Code changes:
   QC off until the next L1 rebuild; IB19S/MOP045_7m 2019-04-22 19:30 IG
   anomaly; `get_k.m`/`xyRotate.m` still resolve from old
   `Beach_Change_Observation` folders on Holden's path (not called by repo code; L3
-  needs them from the lab toolbox); backups (~48 GB) held pending the PUV_paper findings reconciliation.
+  needs them from the lab toolbox); October backups removed 2026-10-16 (manifests in `docs/archive_snapshot_manifests/`).
 - **History still true (July 2026):** filename clocks are Pacific local
   (`clockOffsetHours`, all at lag 0); 23 hand-placed coordinates were corrected
   from the surveyed logs (only `PUV_L4_xspec.m` separations used them);

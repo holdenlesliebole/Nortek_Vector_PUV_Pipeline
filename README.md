@@ -334,10 +334,6 @@ the tide). These read `outputs/`.
   `puv_channel_qc` stays off until the next deliberate L1 rebuild, so descent
   samples can pass pressure QC (SIO24A: 61 s at 3.1 dBar at a 6 m site). No L2
   segment in the catalog is affected.
-- **Catalina tidal depth is La Jolla's.** CAT21A/B set `tideStation =
-  '9410230'` (as built), 110 km away; the nearest NOAA harmonic station is
-  9410079 Avalon. Over the CAT21A record the two predictions differ by 2.8 cm
-  rms (max 8 cm). Switching needs an L3 rebuild and a change entry.
 - **Unsourced geometry.** 69 `doffp`/`latlon`/`shorenormal` values carried no
   on-line source at the last audit (2026-07-28). Treat them as unverified.
 

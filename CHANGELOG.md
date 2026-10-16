@@ -6,6 +6,15 @@ What each change did to the published catalog, with measured sizes, is in
 catalog version. Changes before 2026-10-07 are recorded in `PIPELINE_NOTES.md`
 and the dated `docs/RESULTS_*.md` logs.
 
+## Unreleased (2026-10-16)
+
+Change entry: `docs/catalog_changes/2026-10-16_catalina_avalon_tide.md`.
+
+- **Catalina tide station.** CAT21A and CAT21B set `cfg.tideStation =
+  '9410079'` (Avalon, 1.92 km from the instrument) instead of 9410230 (La
+  Jolla, 110 km). Their L3 was rebuilt; only `tidal.depth_pred` (2.5 cm rms
+  change over CAT21A), the station fields and provenance differ.
+
 ## Unreleased (2026-10-15)
 
 No catalog output value changes. Change entry:

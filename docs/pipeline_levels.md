@@ -277,7 +277,9 @@ processed at 1-hour cadence. Output: `outputs/L2/{deployment}/{label}_L2.mat`.
   and records `L3.tidal.depth_source = 't_tide'`. The catalog rebuild refused
   any record without NOAA depth (TOR24W/MOP586_10m had silently used the
   fallback). The plain drivers do not refuse it. For a site far from La Jolla
-  the NOAA prediction is the wrong tide.
+  the NOAA prediction is the wrong tide. Since 2026-10-15 the station is
+  `cfg.tideStation` per deployment and a failed download is an error; Catalina
+  uses 9410079 Avalon since 2026-10-16.
 - The t_tide fit covers only the span where velocity exists (2026-10-09).
 
 **Status (2026-10-14):** all 65 L3 rebuilt in full on 2026-10-12/14 (bands,
