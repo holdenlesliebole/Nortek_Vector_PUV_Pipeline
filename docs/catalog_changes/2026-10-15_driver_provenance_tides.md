@@ -1,7 +1,7 @@
 # Driver provenance, known-failed flags, per-deployment tide station: code only
 
 ```catalog-change
-status: pending
+status: published 2026-10-16.1
 files:
   - L1/*/*
   - L2/*/*

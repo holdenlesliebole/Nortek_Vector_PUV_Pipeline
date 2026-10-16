@@ -1,7 +1,7 @@
 # Catalina tidal depth from Avalon (9410079) instead of La Jolla (9410230)
 
 ```catalog-change
-status: pending
+status: published 2026-10-16.1
 files:
   - L3/CAT21A/*
   - L3/CAT21B/*
