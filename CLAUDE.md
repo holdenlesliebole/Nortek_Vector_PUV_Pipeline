@@ -84,7 +84,7 @@ Detail and open items: the top block of `docs/todo.md`. Code changes:
   QC off until the next L1 rebuild; IB19S/MOP045_7m 2019-04-22 19:30 IG
   anomaly; `get_k.m`/`xyRotate.m` still resolve from old
   `Beach_Change_Observation` folders on Holden's path (not called by repo code; L3
-  needs them from the lab toolbox); backups (~48 GB) held pending the PUV_paper findings reconciliation.
+  needs them from the lab toolbox); October backups removed 2026-10-16 (manifests in `docs/archive_snapshot_manifests/`).
 - **History still true (July 2026):** filename clocks are Pacific local
   (`clockOffsetHours`, all at lag 0); 23 hand-placed coordinates were corrected
   from the surveyed logs (only `PUV_L4_xspec.m` separations used them);
