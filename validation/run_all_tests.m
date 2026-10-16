@@ -41,6 +41,7 @@ function R = run_all_tests(varargin)
         'test_puv_channel_qc',                'L1_raw_to_qc', 'm',  ''
         'test_puv_trim_anchor',               'L1_raw_to_qc', 'm',  ''
         'test_enu_declination_closure',       'validation',   'm',  ''
+        'test_xyz_heading_rotation',          'validation',   'm',  ''
         'test_L2_channel_decoupling',         'L2_spectral',  'm',  ''
         'test_pressure_correction_synthetic', 'L2_spectral',  'm',  ''
         'test_ztest_linear',                  'L2_spectral',  'm',  ''

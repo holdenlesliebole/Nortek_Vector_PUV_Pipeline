@@ -712,30 +712,32 @@ function PUV = PUV_raw_process(instr, cfg)
 
         % Sensor heading is the magnetic compass bearing of beam 1 (+x axis).
         % If heading is NaN in config, compute from median compass reading.
-        if isnan(instr.heading)
+        % instr.headingSmoothHours (optional, compass mode only): the mount
+        % rotated during the deployment, so rotate each sample by the compass
+        % heading smoothed over that many hours instead of the record median
+        % (xyz_heading_series.m). theta_mag is then a column, one per sample.
+        smoothH = [];
+        if isfield(instr, 'headingSmoothHours'), smoothH = instr.headingSmoothHours; end
+        if isnan(instr.heading) && ~isempty(smoothH)
+            theta_mag = xyz_heading_series(SEN(:, 11), fs, smoothH);
+            fprintf('  Time-varying heading from .sen data (%.2f h window): %.2f to %.2f deg, median %.2f\n', ...
+                smoothH, min(theta_mag), max(theta_mag), median(theta_mag));
+        elseif isnan(instr.heading)
             heading_col = SEN(:, 11);
             heading_col = heading_col(~isnan(heading_col));
             theta_mag   = median(heading_col);
             fprintf('  Auto-computed heading from .sen data: %.4f deg\n', theta_mag);
         else
+            if ~isempty(smoothH)
+                error('PUV_raw_process:headingSmoothWithFixed', ...
+                    '%s: headingSmoothHours needs heading = NaN (compass mode).', instr.label);
+            end
             theta_mag = instr.heading;
         end
 
-        % Add mag declination to get true bearing of +x.
-        theta_true = theta_mag + magDeclination;
-
-        % Rotation angle: we want +x = WEST (270 deg true), so the CW
-        % rotation from the instrument's true-x axis to 270 deg is:
-        rotation_deg = 270 - theta_true;
-        alpha_rad    = rotation_deg * pi / 180;
-
-        % Left-handed (CW) rotation matrix
-        rot_mat = [ cos(alpha_rad)  sin(alpha_rad);
-                   -sin(alpha_rad)  cos(alpha_rad)];
-
-        uv     = rot_mat * [U'; V'];
-        U_true = uv(1,:).';   % +x WEST
-        V_true = uv(2,:).';   % +y NORTH
+        % Heading + declination -> true bearing of +x -> buoy frame (+x WEST,
+        % +y NORTH). theta_mag may be a scalar or one value per sample.
+        [U_true, V_true] = xyz_to_buoy_frame(U, V, theta_mag, magDeclination);
 
     elseif coordSystem == "ENU"
         % ENU: the instrument rotated to East-North-Up on board using its
@@ -780,7 +782,18 @@ function PUV = PUV_raw_process(instr, cfg)
     PUV.qc.opts                = qcOpts;
 
     PUV.LATLON         = instr.latlon;
-    PUV.rotation.sensor = theta_mag;      % actual heading used (may be auto-computed)
+    if isscalar(theta_mag) || isempty(theta_mag)
+        PUV.rotation.sensor = theta_mag;  % actual heading used (may be auto-computed)
+    else
+        % Time-varying heading: keep the record median here so scalar readers
+        % still work, and the series itself at 1-minute steps (single precision).
+        PUV.rotation.sensor        = median(theta_mag);
+        PUV.rotation.headingMode   = 'compass_smoothed';
+        PUV.rotation.headingSmoothHours = instr.headingSmoothHours;
+        iMin = 1 : round(60*fs) : numel(theta_mag);
+        PUV.rotation.sensorTime    = full_date(iMin);
+        PUV.rotation.sensorSeries  = single(theta_mag(iMin));
+    end
     PUV.rotation.mag    = magDeclination;
     % Stamp (2026-10-07): an L1 without these fields predates the ENU
     % declination fix, and its ENU velocities are in MAGNETIC coordinates.

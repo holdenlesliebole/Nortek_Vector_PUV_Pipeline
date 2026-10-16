@@ -6,6 +6,24 @@ What each change did to the published catalog, with measured sizes, is in
 catalog version. Changes before 2026-10-07 are recorded in `PIPELINE_NOTES.md`
 and the dated `docs/RESULTS_*.md` logs.
 
+## Unreleased (2026-10-16, Solana)
+
+Change entry: `docs/catalog_changes/2026-10-16_solana_sol25a_heading_sol26a.md`.
+
+- **Time-varying XYZ heading.** `instr.headingSmoothHours` (compass mode only,
+  `heading = NaN`) rotates each sample by the compass heading smoothed with a
+  circular moving mean over that many hours (`L1_raw_to_qc/xyz_heading_series.m`),
+  for a mount that turned during the deployment. The XYZ rotation moved into
+  `L1_raw_to_qc/xyz_to_buoy_frame.m` (same arithmetic, scalar or per-sample
+  heading). `PUV.rotation.sensor` stays the record median; the series is stored
+  at 1-minute steps in `PUV.rotation.sensorSeries`/`sensorTime`. Test:
+  `validation/test_xyz_heading_rotation.m`.
+- **SOL25A** uses it (`headingSmoothHours = 1`): its mount turned from about
+  17.4 to 13.9 deg magnetic on 2025-04-02, 11:30-16:00 UTC.
+- **SOL26A** added: Solana MOP 654.5, 7 m, S/N 15277, 2026-02-25 to 2026-05-07.
+- `validation/compare_derived_quantities.m` also returns the matched hours
+  (`seg_time`, `seg_idx`) and the MOP shore-normal.
+
 ## Unreleased (2026-10-16)
 
 Change entry: `docs/catalog_changes/2026-10-16_catalina_avalon_tide.md`.
