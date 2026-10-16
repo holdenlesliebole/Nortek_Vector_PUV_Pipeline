@@ -8,7 +8,7 @@
 %   This script re-caches TOR16B from the server into a scratch root (not raw_cache/, which
 %   is being removed by the audit), asserts the fresh cache has no empty files, backs up the
 %   current L1-L4 to outputs/_pre_TOR16Brebuild_backup_2026-09-22/ (EXPIRES: delete once the
-%   rebuild is verified and pushed; see docs/todo.md), then rebuilds L1 -> L2 -> L3 -> L4 with
+%   rebuild is verified and pushed), then rebuilds L1 -> L2 -> L3 -> L4 with
 %   the same call sequence as scripts/rerun_catalina_fix_2026_07_27.m and prints the
 %   before/after segment counts.
 %

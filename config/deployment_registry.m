@@ -49,7 +49,7 @@ function registry = deployment_registry()
     % site/season as TOR23W/TOR24S). Both keys load the same config; cfg.name
     % stays 'TBR23', so outputs/cache and downstream (Paper_1) are unchanged.
     % TODO: a proper TBR23 -> TOR23S rename (cfg.name + folders + Paper_1) is a
-    % separate coordinated cleanup — see docs/todo.md.
+    % separate coordinated cleanup, not yet scheduled.
     registry('TOR23S') = @TBR23_config;   % alias -> TBR23
     registry('TOR23W') = @TOR23W_config;    % Nov 2023-Feb 2024, 6 instruments (was NN24 Torrey)
     registry('SOL23')  = @SOL23_config;     % Nov 2023-Jan 2024, 3 instruments (was NN24 Solana)

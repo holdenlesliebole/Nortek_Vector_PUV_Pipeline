@@ -217,7 +217,7 @@ function cfg = TorreyOffshore_config(deployment_name)
     % the record. The 0.59 applied here is correct only at the start. Treat
     % TOR15B depth, Hs/h and any nonlinearity metric as unreliable, and do not
     % use it in a depth-dependent analysis without reconstructing a time-varying
-    % doffp. (A time-varying doffp is a parked pipeline extension — docs/todo.md.)
+    % doffp. (A time-varying doffp is a parked pipeline extension, not built.)
     cfg.instruments(k).depth_nominal = 9;
     cfg.instruments(k).rawFormat     = 'VEC';
     cfg.instruments(k).clockSource   = 'filename';

@@ -9,7 +9,7 @@ files:
   - L4/*/*
   - L4_xspec/*/*
 code_ack:
-  - L1: comment-only edits to PUV_raw_process.m (tilt order) and shared/psd_multitaper.m (taper count); driver/provenance/QC-guard changes (drivers stamp provenance, skip knownFailed instruments, name failed labels; build_provenance handles a no-git checkout); no output values changed
+  - L1: comment-only edits to PUV_raw_process.m (tilt order), shared/psd_multitaper.m (taper count) and shared/ws_to_D.m (a dangling doc pointer; shared/, so every level); driver/provenance/QC-guard changes (drivers stamp provenance, skip knownFailed instruments, name failed labels; build_provenance handles a no-git checkout); no output values changed
   - L2: driver/provenance/QC-guard changes (as L1, plus the 2026-10-14 loud-failure and stack-format fixes in the drivers); no output values changed
   - L3: driver/provenance/QC-guard changes (PUV_L3_currents takes cfg.tideStation, 9410230 for every San Diego config as built; NOAA fetch via shared/noaa_tide_predictions, identical to getztide2 for 9410230; errors instead of silent t_tide fallback or missing t_tide; 2026-10-14 driver Tvalid fix); no output values changed
   - L4: driver/provenance/QC-guard changes (drivers stamp provenance, skip knownFailed instruments); no output values changed

@@ -142,7 +142,8 @@ instrument prepared for a season with its site and its Vector config `.dep`
 filename, so they establish that a deployment happened even when its data cannot
 be found. `VectorPUV_Winter2020-2021Checkout.xlsx` is what confirmed the missing
 Catalina S/N 15033 deployment ("Catalina Island, ~8meter depth",
-`CatalinaIsland_September2020.dep`) — see the Catalina block in `docs/todo.md`.
+`CatalinaIsland_September2020.dep`) — see the header of `config/CAT21A_config.m`, which also
+explains why that deployment is not in this catalog.
 `TBR23_Notes.xlsx` (local) was the only machine-readable source before
 DeploymentNotes was discovered — its format is the template for new deployments.
 
@@ -721,7 +722,7 @@ now refuses to push an incomplete L4 at all.
   pipes, burial-during-storms, knocked-over instruments; battery, kelp,
   corrosion), correctly rejected — not a bug. Fix candidates and per-instrument
   explanations in `docs/deployment_database_overview.md` (a superseded 2026-04-05
-  snapshot — its counts are stale) and `docs/todo.md`.
+  snapshot — its counts are stale) and the `knownFailed` entries in the configs.
 - Catalog: deployments across 8 sites (Torrey nearshore + offshore/LPL-mouth,
   SIO Pier, Solana, LPL lagoon, Imperial Beach, Cardiff, Coronado, Catalina) —
   current status in `docs/pipeline_levels.md`; the 2026-04-05

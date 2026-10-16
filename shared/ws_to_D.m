@@ -35,8 +35,8 @@ function [D, C1, C2, shape] = ws_to_D(ws, rho_s, rho, nu, varargin)
 %   real uncertainty; bracket it. If a report gives a
 %   "fall diameter" rather than fall times, that number already went through
 %   the authors' own conversion (often a sphere curve), so recover their ws
-%   with THEIR relation before inverting with this one. See
-%   sediment_grain_size/docs/todo.md, "USACE settling-tube dataset".
+%   with THEIR relation before inverting with this one (the USACE
+%   settling-tube dataset is a case in point).
 %
 %   REFERENCE
 %     Ferguson & Church (2004), J. Sedimentary Res. 74(6):933-937, eq. 4.

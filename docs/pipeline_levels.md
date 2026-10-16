@@ -34,7 +34,7 @@ Updated: 2026-10-14
 >   backfilled and say so. See README "Provenance and the published catalog".
 >
 > Numbers above are from `docs/catalog_changes/2026-10-13_combined_rebuild.md`
-> and the 2026-10-07/08 entries in `docs/todo.md`. The two July blocks below
+> and `CHANGELOG.md`. The two July blocks below
 > are kept as the record of those fixes; their "complete and verified" status
 > lines describe the catalog as it stood in July.
 
@@ -72,7 +72,7 @@ Updated: 2026-10-14
 > superseded L2 whose segment grid had gained a leading segment. Both traced to
 > the same cause — L4 built against a different L2 snapshot — not to a bug in any
 > L4 module. `validation/audit_L4_coverage.m` now reports all 65 records complete
-> and time-aligned. Full account in `docs/todo.md`.
+> and time-aligned.
 
 **Catalog size:** 65 instrument-records across 46 deployments, present at
 every level L1–L4; 9 deployments also carry `L4_xspec`. Audits on 2026-10-14:
@@ -153,8 +153,8 @@ records, SIO24A) and 3 ENU records the same day; the rest date from the July
 reruns. L1 provenance sidecars are backfilled (built before stamping existed).
 **Status (July 2026, historical):** Complete and verified. 65 instrument-records processed across 46
 deployments. Records that were dropped are documented hardware failures
-(battery, tilt, kelp, corrosion), correctly rejected — not a bug. See `todo.md`
-"Verified L1 QC behavior" for the per-instrument explanations.
+(battery, tilt, kelp, corrosion), correctly rejected — not a bug. Per-instrument explanations are in
+`docs/deployment_database_overview.md` and in each config's `knownFailed` entry.
 
 ---
 
@@ -295,7 +295,7 @@ before the July L1/L2 reruns; they held spurious IG values (Hs_IG up to
 19.9 m). They were rebuilt on 2026-10-08, and `audit_L4_coverage` now checks
 content. Open: IB19S/MOP045_7m segment 2019-04-22 19:30 had L4 Hs_IG 3.88 m
 against L2's 0.757 m with 424 missing pressure samples in the window (before
-the fill fix); still listed as open in `docs/todo.md`.
+the fill fix); still open, not yet explained.
 
 `L4_xspec` depends on every member L4. Rebuild it whenever any member L4
 changes. `scripts/run_L4_refresh_watchdog.sh` does this once after all its
