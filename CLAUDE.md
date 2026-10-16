@@ -71,8 +71,8 @@ Detail and open items: the top block of `docs/todo.md`. Code changes:
 - **Tide station is per deployment** (`cfg.tideStation`; SD configs 9410230).
   `PUV_L3_currents` errors outside SD without one, on a failed NOAA download
   (unless `allowTtideFallback`) and without t_tide (unless `allowNoTides`).
-  Catalina still uses 9410230 as built, pending Holden (Avalon 9410079 is the
-  nearest harmonic station).
+  Catalina uses 9410079 Avalon since 2026-10-16 (L3 rebuilt; change entry
+  `docs/catalog_changes/2026-10-16_catalina_avalon_tide.md`, pending push).
 - **`check_prov` compares code by directory.** Any edit under a level's code
   folders (L3: `L3_forcing/`, `L3_transport/`, `shared/`) SOFT-refuses every
   file of that level at the next push until a change entry carries `code_ack`.
