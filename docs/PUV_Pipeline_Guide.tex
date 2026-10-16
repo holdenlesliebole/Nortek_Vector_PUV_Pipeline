@@ -1,8 +1,9 @@
 % ======================================================================
-% PUV Pipeline -- User Guide and Reference
-% Single, self-contained writeup. Compile with:
-%     pdflatex PUV_Pipeline_Guide.tex   (run twice for the table of contents)
+% PUV Pipeline: User Guide and Reference
+% Compile with:  latexmk -pdf PUV_Pipeline_Guide.tex
 % No external files or bibliography needed.
+% Revised 2026-10-15 against the code at commit 719c52b and catalog
+% version 2026-10-14.1. Audit: docs/doc_audit_2026-10-15/audit_PUV_Pipeline_Guide.md
 % ======================================================================
 \documentclass[11pt]{article}
 \usepackage[margin=1in]{geometry}
@@ -11,8 +12,11 @@
 \usepackage{array}
 \usepackage{xcolor}
 \usepackage{listings}
-\usepackage[colorlinks=true,linkcolor=blue!50!black,urlcolor=blue!50!black]{hyperref}
 \usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[colorlinks=true,linkcolor=blue!50!black,urlcolor=blue!50!black]{hyperref}
+\setlength{\emergencystretch}{3em}
+\sloppy
 
 \definecolor{codebg}{gray}{0.96}
 \definecolor{codekw}{rgb}{0.35,0.0,0.55}
@@ -30,26 +34,32 @@
 \newcommand{\code}[1]{\texttt{#1}}
 \newcommand{\qcflag}[1]{\texttt{qc\_flag}\,=\,#1}
 \providecommand{\degree}{\ensuremath{^{\circ}}}
+\newcommand{\boxnote}[1]{%
+  \par\smallskip\noindent
+  \fbox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule\relax}{\small #1}}%
+  \par\smallskip}
 
 \title{\textbf{Nortek Vector PUV Pipeline}\\[2pt]
        \large User Guide and Reference}
 \author{Holden Leslie-Bole \\ Scripps Institution of Oceanography}
-\date{Revised July 2026}
+\date{Revised 15 October 2026 (code at commit 719c52b; catalog version 2026-10-14.1)}
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
 \noindent
-This is the entry point for anyone using the Nortek Vector PUV pipeline. It takes raw
-pressure--velocity (PUV) instrument files through five processing levels into
-quality-controlled time series, wave spectra, and nearshore wave-forcing diagnostics, using
-one deployment-agnostic configuration system. Sections \ref{sec:start}--\ref{sec:running}
-are a step-by-step guide to running your own deployment. Section \ref{sec:qc} documents the
-quality-control and data-provenance system, including the per-channel QC that recovers
-storm-peak velocity from partial sensor failures. Sections \ref{sec:methods}--\ref{sec:outputs}
-are the methods and output reference. You do not need to read it front to back: to just run
-the code, read \S\ref{sec:start}--\ref{sec:running} and \S\ref{sec:qc}.
+This guide is for anyone running the Nortek Vector PUV pipeline on their own data or using
+the San Diego catalog it produced. The pipeline takes raw pressure--velocity (PUV) instrument
+files through four built levels into quality-controlled time series, hourly wave spectra,
+wave-forcing metrics and infragravity diagnostics, driven by one config file per deployment.
+Sections~\ref{sec:start}--\ref{sec:running} cover installing, configuring and running a
+deployment. Section~\ref{sec:qc} covers the per-channel quality control and the flags every
+segment carries, and Section~\ref{sec:prov} the provenance stamps and the published catalog.
+Sections~\ref{sec:methods}--\ref{sec:outputs} are the methods and output reference. To run the
+code, read Sections~\ref{sec:start}--\ref{sec:prov}. The repository \code{README.md} is kept
+current with every code change and is the place to check if this guide and the code ever
+disagree; \code{CHANGELOG.md} lists the changes.
 \end{abstract}
 
 \tableofcontents
@@ -59,39 +69,41 @@ the code, read \S\ref{sec:start}--\ref{sec:running} and \S\ref{sec:qc}.
 \section{What the pipeline is}
 \label{sec:intro}
 
-Nearshore wave and current dynamics are measured with bottom-mounted Nortek Vector acoustic
-Doppler velocimeters (ADVs) in pressure--velocity mode, sampling continuously at 2~Hz. The
-pipeline turns the raw instrument files into standardized outputs at five levels. It ingests
-either form of Nortek raw data --- the ExploreV ASCII export (\code{.dat}/\code{.sen}/%
-\code{.hdr}) or the raw recorder binary (\code{.VEC}/\code{.vec}/\code{.049}), which it decodes
-itself (\S\ref{sec:vec}); no Windows tooling is required. Every deployment runs through the
-same drivers and produces the same output structures, so results are comparable across sites
-and years. The catalog currently spans 26 deployments and 45 instrument-records, from a 2015
-Cardiff winter through the 2025 Torrey and SIO Pier seasons.
+Bottom-mounted Nortek Vector acoustic Doppler velocimeters (ADVs) record pressure and
+three-component velocity continuously at 2~Hz. The pipeline reads either form of Nortek raw
+data, the ExploreV ASCII export (\code{.dat}/\code{.sen}/\code{.hdr}) or the recorder binary
+(\code{.VEC}/\code{.vec}/\code{.049}), which it decodes itself (\S\ref{sec:vec}), so neither
+ExploreV nor Windows is needed. Every deployment runs through the same drivers and produces
+the same output structures. The San Diego catalog built with it holds 65 instrument-records
+from 46 deployments, 2014--2026, at Torrey Pines, Los Pe\~nasquitos, Solana Beach, Cardiff,
+SIO Pier, Imperial Beach, Coronado and Catalina Island, at nominal depths of 5 to 30~m. It is
+published on the SIO group share as catalog version 2026-10-14.1.
 
 \begin{center}
 \begin{tabular}{@{}c l p{9.3cm}@{}}
 \toprule
 Level & Output & What it contains \\
 \midrule
-\textbf{L1} & QC'd 2~Hz time series & Burst merge, clock-drift and tilt correction,
-  per-channel quality control, rotation to a geographic frame \\
-\textbf{L2} & Per-segment spectra & Multi-taper power spectra, pressure correction to surface
-  elevation, bulk wave parameters ($H_s$, $T_p$, direction), near-bed velocity, bed and
-  Reynolds stress, velocity moments \\
-\textbf{L3} & Forcing metrics & Frequency-band energy decomposition, storm detection,
-  transport proxies (Shields, Rouse), tidal and undertow current decomposition \\
-\textbf{L4} & Nonlinear / IG diagnostics & Surface-elevation bands, incident/reflected
-  infragravity split, bispectra (skewness, asymmetry, bicoherence), velocity PDFs \\
-\textbf{L5} & \emph{(planned)} & PUV--altimeter integration: bed change vs.\ forcing \\
+\textbf{L1} & QC'd 2~Hz time series & Per-file bursts, clock drift and offset, tilt correction,
+  per-channel quality control, sound-speed correction, rotation to a geographic frame \\
+\textbf{L2} & Hourly segments & Multitaper spectra, pressure correction to surface elevation,
+  bulk wave parameters ($H_s$, $T_p$, direction), near-bed velocity, bed and Reynolds stress,
+  velocity moments, pressure--velocity consistency diagnostics \\
+\textbf{L3} & Forcing metrics & Band energy (infragravity, swell, sea), storm events,
+  transport proxies (Shields, settling velocity, Rouse, mobilization), tidal and subtidal
+  currents \\
+\textbf{L4} & Nonlinear / IG diagnostics & Surface elevation in three bands,
+  incident/reflected infragravity split, bound/free infragravity separation, bispectra,
+  frequency-resolved moments, velocity PDFs; \code{L4\_xspec} holds pairwise infragravity
+  cross-spectra for multi-instrument deployments \\
+\textbf{L5} & \emph{(planned)} & PUV--altimeter merge: bed change against forcing \\
 \bottomrule
 \end{tabular}
 \end{center}
 
 \noindent
-L1--L3 are universal. L4 adds nonlinear-wave and infragravity diagnostics on top of L2. Each
-level reads the previous level's \code{.mat} files, so you always run L1$\rightarrow$L2$\rightarrow$L3$\rightarrow$L4
-in order.
+L1--L4 need no altimeter data. Each level reads the previous level's \code{.mat} files, so the
+levels run in order L1$\rightarrow$L2$\rightarrow$L3$\rightarrow$L4.
 
 % ======================================================================
 \section{Getting started}
@@ -100,89 +112,137 @@ in order.
 \subsection{Requirements}
 
 \begin{itemize}
-\item \textbf{MATLAB} R2023b or newer, with the \textbf{Signal Processing Toolbox}
-  (multi-taper and Welch spectra) and the \textbf{Aerospace Toolbox}
-  (\code{igrfmagm}, the IGRF magnetic-declination model used in the L1 heading rotation).
-  \code{t\_tide} must be on the path for the L3 tidal analysis. The Mapping Toolbox is
-  \emph{not} required (a common mix-up --- \code{igrfmagm} is an Aerospace function), and
-  neither is the Statistics and Machine Learning Toolbox (skewness, kurtosis, and correlation
-  are computed inline in L1--L4; only a few optional \code{validation/} scripts use it).
-\item \textbf{Internet at runtime}: L2 fetches the shore-normal angle from the CDIP THREDDS
-  server (it falls back to buoy coordinates if unavailable).
-\item \textbf{Raw data}: point each deployment's \code{cfg.rawDataRoot} at wherever the raw
-  Nortek files live; a local folder is fine, no lab server is required. The bundled San Diego
-  configs read from the SIO group share \code{/Volumes/group/PUV\_data/Vector/}, with
-  deployment metadata in \code{/Volumes/group/DeploymentNotes/}.
+\item \textbf{MATLAB R2025a}, the release used for development and testing; earlier releases
+  are untested. Required toolboxes: \textbf{Signal Processing} (DPSS multitaper spectra,
+  \code{cpsd}) and \textbf{Aerospace} (\code{igrfmagm}, the IGRF magnetic declination applied
+  at L1). The \textbf{Parallel Computing Toolbox} is optional; it speeds up
+  \code{PUV\_L4\_bispectra}, and the serial path gives bit-identical results. The Mapping and
+  Statistics toolboxes are not needed by L1--L4.
+\item \textbf{Files outside the repository, for L3 only.} L1, L2 and L4 use only files in the
+  repository. L3 needs 11 outside files, listed with their SHA-256 in
+  \code{shared/external\_deps.m}: \code{t\_tide} version~1.3 (Pawlowicz, Beardsley and Lentz,
+  2002; eight files, not redistributed because its license is informal) for the tidal fit, and
+  the SIO Coastal Processes lab toolbox function \code{read\_MOPline2.m} with its helpers
+  \code{get\_k.m} and \code{xyRotate.m} for the CDIP MOP storm reference. Without
+  \code{t\_tide}, L3 stops with an error unless \code{opts.allowNoTides = true} is passed;
+  without the lab toolbox, L3 runs without the MOP storm reference and records the fallback.
+  \code{README.md}, ``External dependencies'', gives the fallback folders the code searches.
+\item \textbf{Network access} at runtime for: the CDIP shore-normal angle when a config uses
+  \code{instr.mopStation}; the CDIP offshore reference (\code{instr.refStation}); and NOAA tide
+  predictions at L3 (\S\ref{sec:l3methods}). A failed NOAA download is an error unless
+  \code{opts.allowTtideFallback = true}.
+\item \textbf{Raw data}: point \code{cfg.rawDataRoot} at any folder. The bundled San Diego
+  configs read \code{/Volumes/group/PUV\_data/Vector/}, with deployment metadata in
+  \code{/Volumes/group/DeploymentNotes/}.
 \end{itemize}
 
 \subsection{First run}
 
 \begin{lstlisting}
-% 1. From the repo root, put every pipeline directory on the MATLAB path:
+% 1. From the repo root, put the pipeline on the MATLAB path
+%    (startup_puv leaves outputs/, raw_cache/, .git/ and .claude/ off it):
 cd /path/to/PUV_Pipeline
 startup_puv
 
-% 2. (Recommended) cache the raw files locally -- network reads are slow, and the
-%    drivers automatically use raw_cache/ when it exists:
+% 2. Optional: cache the raw files locally. Network reads are slow, and the
+%    L1 driver reads raw_cache/<deployment>/ when it exists.
 reg = deployment_registry();
-cfg = reg('TBR23')();
+f = reg('TBR23');
+cfg = f();
 copy_raw_to_local(cfg);
 
-% 3. Run the levels in order. Set the deployment name at the top of each driver:
-PUV_L1_driver    % raw  -> QC'd timeseries      (outputs/L1/TBR23/)
-PUV_L2_driver    % spectra + bulk params        (outputs/L2/TBR23/)
-PUV_L3_driver    % forcing characterization     (outputs/L3/TBR23/)
-PUV_L4_driver    % nonlinear / IG dynamics      (outputs/L4/TBR23/)
+% 3. Run the levels in order. Each driver has deployment_name = '...' at the top.
+PUV_L1_driver        % raw -> QC'd time series   (outputs/L1/TBR23/)
+PUV_L2_driver        % spectra + bulk params     (outputs/L2/TBR23/)
+PUV_L3_driver        % forcing characterization  (outputs/L3/TBR23/)
+PUV_L4_driver        % nonlinear / IG dynamics   (outputs/L4/TBR23/)
+PUV_L4_xspec_driver  % pairwise IG cross-spectra (two or more instruments)
 \end{lstlisting}
 
 \noindent
-To process every registered deployment, use the \code{*\_run\_all} batch scripts
-(\code{PUV\_L1\_run\_all}, \code{PUV\_L2\_run\_all}, \dots), which skip deployments that
-already have outputs. Outputs land in
-\code{outputs/L\{1..4\}/\{deployment\}/\{label\}\_L\{n\}.mat} and are not version-controlled;
-they are reproducible from raw data plus code.
+The batch scripts \code{PUV\_L1\_run\_all} \dots\ \code{PUV\_L4\_run\_all} and
+\code{PUV\_L4\_xspec\_run\_all} process every registered deployment and skip records whose
+output already exists. \code{PUV\_L4\_run\_all} leaves out \code{bispectra}, the slow module,
+by default (\code{runBispectra = false}) and says so at the end. Output files, each with a \code{.prov.json} sidecar (\S\ref{sec:prov}):
+\begin{itemize}
+\item \code{outputs/L1/<deployment>/<label>\_processed.mat}
+\item \code{outputs/L\{2,3,4\}/<deployment>/<label>\_L\{2,3,4\}.mat}
+\item \code{outputs/L4\_xspec/<deployment>/xspec.mat}
+\end{itemize} Outputs are not version-controlled; they are reproducible from raw data
+plus code.
+
+To check an installation, run the self-contained tests:
+\begin{lstlisting}
+run_all_tests                         % 23 tests: PASS / FAIL / SKIP and a total
+run_all_tests('includeData', true)    % also tests that read outputs/, the server or the network
+\end{lstlisting}
+From a shell use plain \code{matlab -batch "startup\_puv; run\_all\_tests"}: on R2025a under
+macOS, adding \code{-nodisplay} makes \code{matlab -batch} exit 0 even when the command errors.
 
 % ======================================================================
 \section{Configuring a deployment}
 \label{sec:config}
 
-Every deployment is registered in \code{config/deployment\_registry.m}, which maps a short
-name to a config function --- for example \code{'TBR23'} $\rightarrow$ \code{@TBR23\_config}.
-The naming convention is \code{SITE + year + optional season letter} (\code{TBR23} = Torrey
-Pines summer 2023; \code{TOR24S} = Torrey spring 2024; \code{SIO24A--C} = SIO Pier 2024
-chronological). For the pre-2019 seasons, which ran one instrument at a fixed station and
-swapped it every 5--6 weeks, the trailing letter is instead the deployment \emph{ordinal}
-within that winter (\code{TOR15A} = first Torrey deployment of 2015--16).
+\code{config/deployment\_registry.m} maps a short name to a config function, for example
+\code{'TBR23'} $\rightarrow$ \code{@TBR23\_config}; 50 names are registered. Names follow
+\code{SITE + year + optional season letter} (\code{TOR24S} = Torrey spring 2024;
+\code{SIO24A}--\code{C} = SIO Pier 2024 in order). \code{TBR23} (Torrey Pines Beach Recovery
+2023) is the one legacy exception, and \code{TOR23S} is registered as an alias of it. For the
+pre-2019 seasons, which ran one instrument at a fixed station and swapped it every 5--6 weeks,
+the trailing letter is the deployment's ordinal within that winter (\code{TOR15A} = first Torrey
+deployment of 2015--16).
 
 \subsection{Adding a new deployment}
 
+The full walkthrough is \code{docs/NEW\_DEPLOYMENT.md}. In outline:
 \begin{enumerate}
-\item Copy an existing \code{config/<SITE>\_config.m} as a template.
-\item Fill in the processing parameters from the authoritative source,
-  \code{/Volumes/group/DeploymentNotes/DeploymentNotes\{year\}.xls}: per-instrument
-  \code{latlon}, \code{heading}, \code{clockDrift}, and \code{doffp} (pressure-sensor height
-  above the bed). The annual checkout spreadsheets have serial numbers but not these
-  numerical parameters.
-\item Register the deployment in \code{config/deployment\_registry.m}.
-\item Check \code{config/CONFIG\_REVIEW\_NOTES.md} and \code{config/DOFFP\_LOOKUP\_CHECKLIST.md}
-  for deployment-specific gotchas.
+\item Copy \code{config/TEMPLATE\_config.m} to \code{config/<NAME>\_config.m} and rename the
+  function.
+\item Per instrument set \code{label}, \code{filePrefix}, \code{rawSubfolder}, \code{latlon},
+  \code{depth\_nominal}, \code{doffp} (pressure-port height above the bed, m; required),
+  \code{heading} and a shore-normal source. San Diego values come from
+  \code{/Volumes/group/DeploymentNotes/*.xls}; \code{config/DOFFP\_LOOKUP\_CHECKLIST.md} lists
+  where to look and the traps (rows labeled only ``Redeploy'', \code{doffp} quoted to the
+  altimeter face).
+\item Put the \textbf{source of every \code{doffp}, \code{latlon}, \code{heading} and
+  \code{shorenormal} on the same line} as a comment: workbook, sheet, row, serial number and the
+  cell's wording. \code{validation/audit\_config\_provenance.m} lists values without one. A
+  surveyed GPS fix carries 5--7 decimal places; a coordinate at 3 decimal places
+  (about 111~m) was placed by hand.
+\item Set \code{cfg.qcOpts.Tvalid} to the site's water-temperature range (\S\ref{sec:qcopts})
+  and \code{cfg.tideStation} to the nearest NOAA CO-OPS harmonic station
+  (\S\ref{sec:l3methods}).
+\item An instrument that failed in the field stays in the config with
+  \code{instruments(k).knownFailed = '<cause>; <source>'}, so the drivers skip it
+  (\S\ref{sec:running}).
+\item Register the deployment, then run \code{validation/audit\_registry\_loads.m}. It is the
+  one check that does not swallow a config that throws an error, and it lists configured
+  instruments with no L1 as known failures or missing.
 \end{enumerate}
 
-\noindent
-For a deployment ingested from raw binary (\S\ref{sec:vec}), also set
-\code{instr.rawFormat = 'VEC'}, and for a firmware-1.21 recorder with a wrong clock epoch add
-\code{instr.clockSource = 'filename'}, \code{instr.deployYear}, and
-\code{cfg.qcOpts.cutoffGapSec = 60}. See \code{config/TorreyOffshore\_config.m} for a worked
-example. Metadata for the older seasons lives in \code{PandPUV2015-2025.xlsx} (the
-season-by-season PUV inventory) and the \code{VectorPUV\_Winter201*Checkout.xlsx} sheets rather
-than the \code{DeploymentNotes} files.
+\paragraph{Heading.} Leave \code{heading = NaN} to use the median of the onboard compass,
+unless the compass drifts or steps while the tilt stays constant; then use the mount heading
+from the field log. A record whose logged and compass headings differ by more than
+10\degree\ and that keeps the compass value goes in
+\code{shared/heading\_disputed\_records.m} (12 records at present).
+
+\paragraph{Shore-normal.} \code{instr.shorenormal = <deg>} (offshore-pointing bearing, any site;
+takes precedence) or \code{instr.mopStation = 'D0580'} (fetched from CDIP, California). With
+neither, velocity stays in buoy coordinates and the L4 incident/reflected split is skipped.
+
+\paragraph{Pre-2019 recorders.} For a deployment ingested from raw binary (\S\ref{sec:vec}) set
+\code{instr.rawFormat = 'VEC'}. For a firmware-1.21 recorder with a wrong clock epoch add
+\code{instr.clockSource = 'filename'}, \code{instr.deployYear}, \code{instr.clockOffsetHours}
+(\S\ref{sec:vec}) and \code{cfg.qcOpts.cutoffGapSec = 60}. \code{config/TorreyOffshore\_config.m}
+is a worked example.
 
 \subsection{Quality-control options: \texttt{cfg.qcOpts}}
 \label{sec:qcopts}
 
-The L1 quality control has one option struct, \code{cfg.qcOpts}, with sensible defaults. You
-only need to set it deliberately in one case, but that case matters (see the boxed note).
-The fields:
+L1 quality control reads one option struct. The defaults live in
+\code{L1\_raw\_to\_qc/l1\_qc\_opts.m}, overlaid field by field with \code{cfg.qcOpts}; the
+result is stored in each L1 file at \code{PUV.qc.opts}, and
+\code{validation/audit\_L1\_qcopts.m} compares the stored options with the configs.
 
 \begin{center}
 \begin{tabular}{@{}l l p{7.7cm}@{}}
@@ -191,250 +251,246 @@ Field & Default & Meaning \\
 \midrule
 \code{corrMin}    & 70 & Minimum beam correlation (\%), Nortek's recommendation. \\
 \code{Tvalid}     & \code{[-2 40]} & \textbf{Plausible water-temperature range (\degree C).}
-  The primary thermistor-failure discriminant. See the boxed note. \\
-\code{maxJump}    & \code{Inf} & Optional per-sample temperature-step gate; \code{Inf} = off.
-  Catches instantaneous glitches, never genuine drift. \\
-\code{tiltStdMax} & 2  & Rolling-std tilt-variability threshold (\degree). \\
-\code{tiltAbsMax} & 30 & Absolute tilt = toppled frame; always invalidates velocity. \\
-\code{tiltWindow} & 120 & Samples for the rolling std (60~s at 2~Hz). \\
-\code{cFactorTol} & 0.002 & Below this, no sound-speed rescale is applied. \\
+  The primary thermistor-failure test. See the boxed note. \\
+\code{maxJump}    & \code{Inf} & Optional per-sample temperature-step gate; \code{Inf} = off. \\
+\code{tiltStdMax} & 2  & Moving-window standard deviation of pitch or roll above which the
+  tilt counts as unstable (\degree). \\
+\code{tiltAbsMax} & 30 & Absolute tilt = toppled frame; always invalidates velocity (\degree). \\
+\code{tiltWindow} & 120 & Samples in the moving window (60~s at 2~Hz). \\
+\code{cFactorTol} & 0.002 & Below this fractional sound-speed difference no rescale is
+  applied. \\
 \code{cutoffGapSec} & 1 & Gap between consecutive sensor records that counts as a battery
-  cutoff (s). Raise it (e.g.\ 60) for the firmware-1.21 recorders, which leave a benign few-second
-  gap in nearly every hourly file (\S\ref{sec:vec}). \\
+  cutoff (s). 60 for the firmware-1.21 recorders, which leave a benign few-second gap in
+  nearly every hourly file. Read by \code{PUV\_raw\_process}. \\
+\code{offBedDbar} & absent (off) & Vertical-transit pressure test (dbar). Off in every
+  config; it stays off until the next deliberate L1 rebuild. \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-\begin{center}
-\fbox{\parbox{0.94\textwidth}{\small
-\textbf{Set \code{Tvalid} to the site's water-temperature range.} The default
-\code{[-2 40]} is a wide safety bound that catches gross failures (freezing, firmware
-garbage) anywhere on Earth, but it treats an implausibly cold in-water reading from a failing
-thermistor as valid. For San Diego coastal deployments set
-\code{cfg.qcOpts.Tvalid = [9 26]}; this catches the subtler within-bounds thermistor failures
-(a December reading of $8\,\degree$C at Torrey Pines is not real water) without ever
-mis-flagging genuine seasonal or upwelling temperatures. Section~\ref{sec:qc} explains why.
-}}
-\end{center}
+\boxnote{\textbf{Set \code{Tvalid} to the site's water-temperature range.} The default
+\code{[-2 40]} catches gross failures (freezing, firmware garbage) anywhere, but it accepts an
+implausibly cold reading from a failing thermistor. Every San Diego and Catalina config sets
+\code{cfg.qcOpts.Tvalid = [9 26]}; a December reading of 8\,\degree C at Torrey Pines is not
+real water. L1 uses it for the thermistor test and L3 for the per-segment viscosity.
+Section~\ref{sec:tvalid} explains why a range test is safe for good data.}
 
 % ======================================================================
 \section{Raw-binary ingestion and the pre-2019 archive}
 \label{sec:vec}
 
-Most deployments before 2019 exist only as raw Nortek recorder binary
-(\code{.VEC}/\code{.vec}/\code{.049}), with no ExploreV ASCII export --- and where an export
-does exist it can be partial (one deployment's \code{.dat} covers 5~days of a 174-day record
-and ends mid-line). The pipeline therefore decodes the binary directly with
-\code{read\_VEC.m}, so ExploreV --- and Windows --- are never needed. The decoder is verified
-bit-exact against the one ASCII export that overlaps it: over 886{,}319 velocity and 443{,}131
-system records, every integer-valued column (velocity counts, amplitude, correlation, clock,
-flags) is identical, and pressure and attitude agree to the ASCII's print precision
-(\code{test\_read\_VEC.m}).
+Most deployments before 2019 exist only as recorder binary (\code{.VEC}/\code{.vec}/\code{.049})
+with no ExploreV export, and where an export exists it can be partial: \code{TORREY02\_1.dat}
+covers 5.1~days of a 174-day record and ends mid-line. The pipeline therefore decodes the binary
+with \code{L1\_raw\_to\_qc/read\_VEC.m}. The decoder matches the one ASCII export that overlaps
+it: over 886{,}319 velocity and 443{,}131 system records, every integer-valued column (velocity
+counts, amplitude, correlation, clock, flags) is identical, and pressure and attitude agree to
+the ASCII's print precision (\code{test\_read\_VEC.m}).
 
 \subsection{Choosing the ingest path}
 
-Set \code{instr.rawFormat} to \code{'VEC'} or \code{'ASCII'} to force a path; left unset, L1
-auto-detects and prefers the ASCII export when a \code{.dat} is present. \emph{That preference
-is a trap for an interrupted export}, so L1 warns whenever both forms exist and points at
-\code{rawFormat = 'VEC'}; pin it whenever the ASCII might be short. Sampling rate and coordinate
-system come from the binary's User Configuration record, so a deployment with a 0-byte
-\code{.hdr} --- which cannot be read at all from ASCII --- still ingests.
+Set \code{instr.rawFormat} to \code{'VEC'} or \code{'ASCII'} to force a path. Left unset, L1
+prefers the ASCII export when a \code{.dat} exists, which is wrong when an export was
+interrupted, so L1 warns whenever both forms are present. Sampling rate and coordinate system
+come from the binary's User Configuration record, so a deployment with a 0-byte \code{.hdr}
+still ingests.
 
 \subsection{Two things the firmware-1.21 recorders get wrong}
 
-The 2015--2018 instruments run firmware 1.21 and need two corrections, both handled
-automatically once the config opts in:
+\paragraph{Sample rate.} The configuration field implies 8~Hz on this firmware, but the records
+are 2~Hz. \code{read\_VEC} measures the rate from the ratio of velocity to 1~Hz system records
+and warns when it disagrees with the configuration. Three checks agree: the decoded record
+ratio is 2, the system-record count equals the clock span in seconds, and the field checkout
+sheet states ``Sample rate = 2Hz, Samples per block = 7168, Block time = 3600~s''.
+\code{instr.decimateTo} handles a genuine 8~Hz record.
 
-\paragraph{Sample rate.} The User Configuration field implies 8~Hz on this firmware, but the
-records are unambiguously 2~Hz. \code{read\_VEC} measures the rate from the decoded records
-(the ratio of velocity to 1~Hz system records) rather than trusting the configuration field,
-and warns when the two disagree. This is confirmed three independent ways: the decoded record
-ratio is exactly~2, the system-record count equals the clock span in seconds, and the field
-checkout sheet states ``Sample rate = 2Hz, Samples per block = 7168, Block time = 3600~s''.
+\paragraph{Clock epoch and time zone.} These recorders stamp their first sample with a wrong
+epoch (2000-01-01 or 2002-01-01). The clock runs correctly from that wrong start, and the
+recorder names each hourly file \code{MMDDHHMM} for the hour it was set to. With
+\code{instr.clockSource = 'filename'} and \code{instr.deployYear},
+\code{vec\_clock\_from\_filenames.m} recovers one constant offset, the median over every file,
+and rejects it (on the 98th percentile) unless it is nearly constant, so a wrong filename
+convention fails loudly. Against the one instrument whose clock was set correctly, the
+filename-derived time agrees to 33~s.
 
-\paragraph{Clock epoch.} These recorders stamp their first sample with a nonsense epoch
-(2000-01-01 or 2002-01-01). The clock is not dead --- it \emph{runs} correctly, just from the
-wrong start --- and the recorder names each hourly file \code{MMDDHHMM} for the true wall-clock
-hour. A single constant offset reconciles the two, recovered by \code{vec\_clock\_from\_filenames.m}:
-opt in with \code{instr.clockSource = 'filename'} and \code{instr.deployYear}. The offset is
-the median over every file and is rejected (on the 98th percentile, so a few dying-battery
-outliers do not veto a good deployment) if it is not near-constant, so a wrong filename
-convention fails loudly rather than silently shifting the record. Every recovered span matches
-the logged deployment date; the one instrument in the set whose clock \emph{was} set correctly
-serves as the control, and filename-derived time agrees with it to 33~s.
+The recovered clock is \textbf{Pacific local time, not UTC}. Cross-correlating L2 depth with
+the NOAA tide prediction placed every filename-clocked record at a lag of $-7$ or $-8$~h, so
+\code{instr.clockOffsetHours} is added at L1: 7~h for the 2014 records, 8~h for the later ones.
+It is a fixed offset, not a time-zone conversion; records entirely in daylight time still want
+8~h. Derive the sign rather than fitting it: if the data are $D(t) = W(t+\delta)$ and the
+prediction is $P(t) = W(t)$, the best lag is $L = -\delta$, so a lag of $-8$~h means the labels
+are slow and 8~h is \emph{added}. Applying $-8$ doubles the error and still looks like a match
+in a lag scan. \code{scripts/audit\_clock\_lag.m} checks every filename-clocked record at lag~0.
 
 \subsection{Robustness the archive forced}
 
-Processing these records surfaced several edge cases the modern continuously-sampled
-instruments never produced, now handled in L1:
 \begin{itemize}
-\item \textbf{Benign hourly gaps.} Firmware 1.21 drops a few seconds in nearly every hourly
-  file. \code{cfg.qcOpts.cutoffGapSec} (\S\ref{sec:qcopts}) raises the battery-cutoff threshold
-  above them (60~s for these configs) so a hiccup is not read as the instrument dying.
-\item \textbf{Power-on glitch.} Some recorders write one sample at power-on, then a multi-minute
-  gap, then the deployment. The leading glitch is trimmed off the front rather than ending the
-  record.
+\item \textbf{Benign hourly gaps.} Firmware 1.21 drops a few seconds in nearly every hourly file;
+  \code{cutoffGapSec = 60} keeps them from being read as battery death.
+\item \textbf{Power-on glitch.} Some recorders write one sample at power-on, then a long gap,
+  then the deployment (TOR16B: one ping, then 2463~s). The leading sample is trimmed rather than
+  ending the record.
 \item \textbf{Battery-death clock drift.} A dying battery pulls the clock off in the last hours;
-  the record is truncated at that jump, and the affected tail is flagged as having approximate
-  absolute timing (its wave statistics are unaffected).
-\item \textbf{Year-crossing deployments.} \code{MMDDHHMM} filenames sort January ahead of the
-  previous November, so a deployment that spans New Year is reordered chronologically by its
-  (monotonic) clock before the bursts are merged.
+  the record is truncated at that jump.
+\item \textbf{Year-crossing deployments.} \code{MMDDHHMM} names sort January ahead of the
+  previous November, so files are ordered by their clock, not by name.
 \end{itemize}
 
 \subsection{Split recorder files}
 
-The recorder splits large records at 100~MiB with a \code{\_N} suffix, and names hourly files
-by wall-clock hour; either way each raw file is treated as its own burst, so the battery-cutoff
-detector never mistakes a file-boundary seam for a real gap. Files are concatenated in
-chronological (not lexical) order.
+The recorder splits large records at 100~MiB with a \code{\_N} suffix. Each raw file is treated
+as its own burst and the battery-cutoff test runs within each burst, so a seam between files
+is never read as a gap. Concatenating the files first would let one lost second at a seam
+truncate months of good data.
 
 % ======================================================================
 \section{Running the pipeline, level by level}
 \label{sec:running}
 
-Each level has a driver (\code{PUV\_L\{n\}\_driver.m}) with a \code{deployment\_name} variable
-at the top. Set it and run. The batch versions (\code{PUV\_L\{n\}\_run\_all.m}) loop over the
-registry.
+Each level has a driver (\code{PUV\_L\{n\}\_driver.m}) with a \code{deployment\_name} variable at
+the top, and a batch version (\code{PUV\_L\{n\}\_run\_all.m}) that loops over the registry.
 
 \begin{description}
-\item[L1 --- raw to QC'd time series.] Reads the raw \code{.dat}/\code{.sen}/\code{.hdr},
-  merges bursts to a continuous 2~Hz series, corrects clock drift, applies per-channel QC
-  (\S\ref{sec:qc}), corrects tilt, and rotates velocity to the geographic buoy frame ($+x$
-  west, $+y$ north, $+z$ up). Writes one \code{*\_processed.mat} per instrument holding a
-  \code{PUV} struct with the time series and a \code{PUV.qc} provenance sub-struct.
-\item[L2 --- spectra and wave statistics.] Segments the L1 series into 1-hour windows,
-  estimates multi-taper spectra, converts pressure to surface elevation, and computes bulk
-  wave parameters, near-bed velocity, bed and Reynolds stress, and velocity moments. Writes an
-  \code{L2} struct, one row per segment. This is the level most analyses read.
-\item[L3 --- forcing characterization.] Decomposes energy into frequency bands, detects storm
-  events (with MOP gap-filling), computes transport proxies (Shields, Rouse), and separates
-  tidal from subtidal (wave-driven) currents. Writes an \code{L3} struct.
-\item[L4 --- nonlinear / IG dynamics.] Adds surface-elevation band products, an
-  incident/reflected infragravity split, bispectra, and velocity PDFs on top of L2. Writes an
-  \code{L4} struct.
+\item[L1: raw to QC'd time series.] Reads the raw files (ASCII or binary), corrects clock drift
+  and offset, applies per-channel QC (\S\ref{sec:qc}), corrects tilt and sound speed, and
+  rotates velocity to the buoy frame ($+x$ west, $+y$ north, $+z$ up). Writes
+  \code{<label>\_processed.mat} holding a \code{PUV} struct and its \code{PUV.qc} sub-struct.
+\item[L2: spectra and wave statistics.] Cuts the L1 series into 1-hour segments, estimates
+  multitaper spectra, converts pressure to surface elevation, and computes bulk wave parameters,
+  near-bed velocity, bed and Reynolds stress and velocity moments. Most analyses read this level.
+\item[L3: forcing characterization.] Band energy, storm events (with a CDIP MOP reference for
+  PUV gaps), transport proxies, and tidal and subtidal currents.
+\item[L4: nonlinear and IG dynamics.] Band-passed surface elevation, the incident/reflected and
+  bound/free infragravity splits, bispectra, frequency-resolved moments and velocity PDFs.
+  \code{PUV\_L4\_xspec\_driver} adds pairwise infragravity cross-spectra for deployments with two
+  or more instruments; it is the only product that reads \code{LATLON}, and it must be rebuilt
+  whenever any member L4 changes.
 \end{description}
 
-\noindent
-Each driver errors with a clear message if the previous level's output is missing, so run them
-in sequence. Runtime is dominated by reading raw files over the network; cache locally first
-(\code{copy\_raw\_to\_local}).
+\paragraph{Failures.} Every driver keeps going when one record fails, then ends with an error
+naming each config that threw and each record it did not write, so \code{matlab -batch} exits
+nonzero. Seven of the 72 configured records have no L1 because the instrument failed in the
+field (SIO24B, SIO24C, SIO25A, SOL23/MOP651\_5m, TOR24S/MOP586\_15m, TOR24W/MOP586\_5m,
+TOR25S/MOP586\_5m). Their configs carry \code{knownFailed = '<cause>; <source>'}, and the drivers
+skip them with a \code{KNOWN FAILED} line, so an error at the end means a new failure.
+
+\paragraph{Rebuild order.} L3 and L4 are built against L2 as it stood at build time. After any
+L1 or L2 rerun, rebuild L3 and L4 (and \code{L4\_xspec}), and never index an L4 per-segment
+array with an L2 segment index: match on time with \code{shared/l4\_l2\_index\_map.m}. Equal
+segment counts do not prove alignment, and MATLAB silently accepts a logical mask shorter than
+the array it indexes. A script that recomputes part of an L4 must save the complete struct.
+
+\paragraph{Audits.} After changing configs or rebuilding, run
+\code{validation/audit\_registry\_loads.m} (every config builds),
+\code{validation/audit\_L1\_qcopts.m} (stored L1 options match the configs),
+\code{validation/audit\_L4\_coverage.m} (every L4 complete, aligned to its L2 and consistent
+with it), \code{validation/audit\_config\_provenance.m} (geometry values without a source) and
+\code{scripts/audit\_clock\_lag.m} (filename-clocked records at lag~0). These read \code{outputs/}.
 
 % ======================================================================
-\section{Quality control and data provenance}
+\section{Quality control and segment flags}
 \label{sec:qc}
 
-This is the part that most affects whether your results are trustworthy, so read it even if
-you skip the methods. The guiding principle is \textbf{channel decoupling}: the pressure,
-velocity, temperature, and tilt channels are judged independently, and one dead channel never
-discards data from a channel that is still good.
+The guiding principle is \textbf{channel decoupling}: pressure, velocity, temperature and tilt
+are judged independently, and one dead channel never discards data from a channel that is
+still good.
 
 \subsection{Why channel decoupling}
 
 A Nortek Vector has a Doppler velocity sensor and an auxiliary sensor block (pressure,
-thermistor, compass). These fail independently. The pipeline's original QC nulled an entire
-data row whenever \emph{any} channel failed, on the assumption that a compromised instrument
-gives unreliable velocity. That assumption is often false. At Torrey Pines in December 2023,
-one frame's pressure sensor and thermistor died during a storm while its Doppler channel
-stayed healthy (beam correlations 92--97\%); the old QC threw away the velocity anyway,
-including every hour of the largest waves in the deployment. Roughly 120~hours of
-storm-peak velocity were recoverable and had been discarded.
-
-The current pipeline judges each channel on its own evidence and records what it did, so a
-partial failure costs only the channel that actually failed.
+thermistor, compass, tilt), and the two fail independently. The original QC nulled an entire
+data row whenever any channel failed. At Torrey Pines in December 2023 (TOR23W/MOP586\_10m), one
+frame's pressure sensor and thermistor died during a storm while its Doppler channel stayed
+healthy (beam correlations 92--97\%); the old QC discarded the velocity anyway, and 120~hours
+of storm-peak velocity were recovered by the per-channel rework of July 2026
+(\code{docs/L1\_sensor\_block\_failure\_2026-07-09.md}).
 
 \subsection{Per-channel validity}
 
-L1 computes four per-sample validity masks, using the thresholds in \code{cfg.qcOpts}:
-
+\code{L1\_raw\_to\_qc/puv\_channel\_qc.m} computes per-sample masks:
 \begin{itemize}
-\item \textbf{Velocity} is valid when the minimum beam correlation is $\geq$ \code{corrMin}
-  and the frame is not toppled (see tilt, below). A dead pressure sensor or thermistor does
-  \emph{not} invalidate velocity.
-\item \textbf{Pressure} is valid inside $[\overline{P}/2,\, 2\overline{P}]$, where
-  $\overline{P}$ is a reference median from a healthy in-water window.
-\item \textbf{Temperature} is valid inside the physical range \code{Tvalid}, optionally with
-  a per-sample step gate (\code{maxJump}).
-\item \textbf{Tilt} is judged two ways. A \emph{variability} spike (rolling std above
-  \code{tiltStdMax}) is a noisy reading; an \emph{absolute} tilt beyond \code{tiltAbsMax}
-  ($30\degree$) means the frame has toppled or moved.
+\item \textbf{Velocity} is valid when the minimum beam correlation is at least \code{corrMin},
+  the frame is not toppled, and the tilt is stable (below). A dead pressure sensor or
+  thermistor does not invalidate velocity.
+\item \textbf{Pressure} is valid inside $[p_\text{ref}/2,\, 2p_\text{ref}]$, where $p_\text{ref}$
+  is the median of the in-water samples (above 0.5~dbar) in the first 10\% of the record, at
+  least 1000 samples. A reference taken early survives a sensor that saturates later, which a
+  whole-record median does not.
+\item \textbf{Temperature} is valid inside \code{Tvalid}, optionally with the step gate
+  \code{maxJump}.
+\item \textbf{Tilt} is judged two ways: a moving standard deviation above \code{tiltStdMax} is
+  an unstable reading; an absolute tilt beyond \code{tiltAbsMax} means the frame toppled or moved.
 \end{itemize}
 
 \noindent
-\textbf{Tilt is not an auxiliary channel.} Pressure and temperature say nothing about the
-Doppler measurement, so they cannot gate it. Tilt is different: it describes the measurement
-geometry. A toppled frame contaminates the velocity with its own motion, and no rotation
-repairs that, so an absolute tilt beyond $30\degree$ \emph{always} invalidates velocity ---
-regardless of the state of any other channel. A variability spike is trusted only when the
-sensor block it lives on is healthy; when the block has failed, the jittery tilt reading is
-discarded and a static tilt from the healthy part of the record is substituted for the
-rotation.
+Tilt describes the measurement geometry, so it is not treated like the other auxiliary
+channels. An absolute tilt beyond 30\degree\ always invalidates velocity, whatever the state of
+any other channel. A variability spike invalidates velocity only when the sensor block is
+trusted; when the block has failed, its jittery tilt reading is discarded and a static tilt from
+the healthy part of the record is used for the rotation instead.
 
-\subsection{The temperature discriminant}
+\subsection{The temperature test}
 \label{sec:tvalid}
 
-The thermistor matters more than it looks, because the instrument uses the measured sound
-speed --- which it computes from temperature --- to scale recorded velocity. A dead thermistor
-therefore biases every velocity linearly. The discriminant for ``failed'' is
-\emph{physical plausibility} (\code{Tvalid}), not a distance from the record mean. A
-distance-from-mean test would flag a genuine cold-upwelling event as a failure and corrupt its
-velocity; a physical-range test never does, because real seawater at a real temperature is
-always valid. This is why \code{Tvalid} should be set to the site's water range
-(\S\ref{sec:qcopts}): the narrower the physically-justified range, the more subtle failures it
-catches, with no risk to good data.
+The instrument computes sound speed from its measured temperature and uses it to scale
+velocity, so a failed thermistor biases velocity. The test for ``failed'' is physical
+plausibility (\code{Tvalid}), not distance from the record median. A distance test would flag a
+genuine cold-upwelling event and corrupt its velocity through the rescale; a range test does
+not, because a real seawater temperature is valid whatever the rest of the record did.
 
 \subsection{Sound-speed correction}
 
-Where the thermistor has failed but the velocity is good, the velocity is rescaled to remove
-the sound-speed bias, following the Nortek manual (N3015-030, \S2.4.9):
+Where the instrument's sound speed differs from the one implied by a valid temperature by more
+than \code{cFactorTol}, velocity is rescaled following the Nortek manual (N3015-030,
+\S2.4.9):
 \[
   V_\text{corrected} = V_\text{recorded}\,\frac{c_\text{true}}{c_\text{measured}} .
 \]
-The reference sound speed $c_\text{true}$ comes from a companion frame if the config supplies
-one (\code{cfg.soundSpeedRef}), otherwise from the instrument's own healthy
-temperature--sound-speed relation, evaluated at a reference temperature and never
-extrapolated beyond it. Where the thermistor is healthy the factor is exactly~1, so the
-correction is a no-op on good data --- a property, not a threshold.
+The reference sound speed comes from a companion frame if the config supplies one
+(\code{cfg.soundSpeedRef}), otherwise from the instrument's own healthy temperature--sound-speed
+relation at a reference temperature taken from in-water, plausible samples, never extrapolated.
+On healthy data the factor is exactly~1.
 
-\subsection{Provenance flags}
+\subsection{Segment flags}
 
-Nothing reconstructed or rescaled is ever presented as a clean measurement. Every L2 segment
-carries provenance so downstream analyses can filter:
+Nothing reconstructed or rescaled is presented as a clean measurement. Every L2 segment carries:
 
 \begin{center}
-\begin{tabular}{@{}l p{11cm}@{}}
+\begin{tabular}{@{}l p{10.5cm}@{}}
 \toprule
 Field & Meaning \\
 \midrule
-\code{segValid}      & Old-style ``all channels good'' flag; unchanged meaning, so existing
-  analyses keyed on it behave exactly as before. \\
-\code{segValid\_vel} & Velocity products (moments, mean flow, Reynolds stress) are usable. \\
-\code{segValid\_p}   & Pressure products ($H_s$, $S_\eta$, depth) are usable. \\
-\code{qc\_flag}      & QARTOD-style: 1~good, 2~not evaluated, 3~suspect (recovered or
-  sound-speed-rescaled), 4~fail (physically implausible). Anything reconstructed is~3,
-  never~1. \\
-\code{Hs\_source}    & \code{'measured'} / \code{'reconstructed'} / \code{'none'}. \\
-\code{vel\_c\_factor}, \code{vel\_c\_corrected} & The sound-speed factor applied (exactly~1 on
-  healthy data) and whether it was applied. \\
+\code{segValid}      & All channels good (the original meaning). \\
+\code{segValid\_vel} & Velocity products (moments, mean flow, Reynolds stress) usable. \\
+\code{segValid\_p}   & Pressure products ($H_s$, $S_\eta$, depth) usable. \\
+\code{qc\_flag}      & 1~good, 2~not evaluated, 3~suspect (recovered or sound-speed rescaled),
+  4~fail (physically implausible). Anything reconstructed is~3, never~1. \\
+\code{Hs\_source}    & \code{'measured'}, \code{'reconstructed'} or \code{'none'}. \\
+\code{vel\_c\_factor} & The sound-speed factor (exactly~1 on healthy data). \\
+\code{vel\_c\_corrected} & Whether the sound-speed rescale was applied. \\
+\code{qc\_record}    & Record-level Z flag (pressure against velocity-predicted pressure):
+  \code{ok}, \code{FLAG} or \code{insufficient}. It marks a record and drops nothing. \\
 \bottomrule
 \end{tabular}
 \end{center}
 
 \noindent
-To use clean-only forcing, filter on \qcflag{1}. To use the storm-peak velocity moments
-recovered from a sensor-block failure, take \qcflag{3} with \code{segValid\_vel} true, knowing
-they carry a few-percent scale uncertainty. A segment whose pressure is present but implausible
-(inflated depth from a drifting sensor) is flagged \qcflag{4} and contributes to nothing.
+For clean-only forcing, filter on \qcflag{1}. To use storm-peak velocity recovered from a
+sensor-block failure, take \qcflag{3} with \code{segValid\_vel} true and carry the few-percent
+scale uncertainty of the rescale. A segment whose pressure is present but implausible ($H_s/h$
+above 1.5, or depth more than 50\% from nominal) is \qcflag{4}.
 
-At L4 these flags travel per burst as \code{puv\_qc\_flag}, \code{puv\_segValid\_vel}, and
-\code{puv\_segValid\_p}; \qcflag{4} segments are dropped from every merged field.
+Two lists apply at reporting time and drop nothing from the files:
+\code{shared/excluded\_records.m} (RUBY22/MOP582\_30m, whose pressure sensor was deployed below
+its rated depth; RUBY22/MOP579\_6m) and \code{shared/heading\_disputed\_records.m}, whose
+directional quantities are uncertain by at least 10\degree.
 
 \subsection{Failure signatures}
 \label{sec:signatures}
 
-Three distinct failure modes appear in the archive. A one-pass scan of the \code{.sen} files
-classifies them without reading the (much larger) \code{.dat} files, because the
-\code{.sen} carries battery, sound speed, heading, and tilt:
+Three failure modes appear in the archive. A scan of the \code{.sen} files, which carry battery,
+sound speed, heading and tilt, separates the first two without reading the much larger
+\code{.dat}:
 
 \begin{center}
 \begin{tabular}{@{}l p{7.5cm} c@{}}
@@ -442,183 +498,299 @@ classifies them without reading the (much larger) \code{.dat} files, because the
 Signature & How to recognize it & Velocity recoverable? \\
 \midrule
 Sensor-block failure & Temperature implausible, sound speed steps, battery erratic; tilt stays
-  small & \textbf{Yes} (with the rescale) \\
-Toppled / moved frame & Temperature, sound speed, battery all normal; tilt grows past
-  $30\degree$ or drifts steadily & No \\
-Doppler failure & Beam correlation collapses to $\sim$5--10\%, amplitude drops; the auxiliary
+  small & Yes (with the rescale) \\
+Toppled or moved frame & Temperature, sound speed, battery normal; tilt passes 30\degree\ or
+  drifts steadily & No \\
+Doppler failure & Beam correlation collapses to about 5--10\%, amplitude drops; the auxiliary
   block looks fine & No \\
 \bottomrule
 \end{tabular}
 \end{center}
 
 \noindent
-The \code{.sen} scan cannot see a Doppler failure (beam correlation lives in the \code{.dat}),
-so ``healthy'' in that scan means the sensor block and frame are healthy, not that the data
-are necessarily good.
+Beam correlation lives in the \code{.dat}, so the \code{.sen} scan cannot see a Doppler failure.
+
+% ======================================================================
+\section{Provenance and the published catalog}
+\label{sec:prov}
+
+\paragraph{Sidecars.} Every output written by the drivers or the catalog rebuild carries a
+provenance block, embedded as a \code{prov} field and written beside the file as
+\code{<file>.prov.json} (\code{shared/save\_with\_provenance.m}, \code{build\_provenance.m}). It
+records a \code{build\_id}, the git commit and whether the tree was dirty (\code{'unknown (no
+git)'} in a checkout without \code{.git}), where each key function resolved, the parents'
+\code{build\_id}s, the external files with their SHA-256, the physical choices applied (for L3:
+$D_{50}$ and its source, settling-velocity constants, viscosity model, \code{Tvalid}, tide
+station and tidal source), any fallback taken, and the SHA-256 of the saved bytes. The drivers
+have stamped since 2026-10-15. In catalog 2026-10-14.1 the 65 L2, 65 L3, 65 L4 and 9
+\code{L4\_xspec} sidecars were written at build time and the 65 L1 sidecars were backfilled
+(their \code{backfilled} field says so).
+
+\paragraph{Server catalog.} \code{/Volumes/group/PUV\_data/Vector/Processed\_HLB/}, laid out
+\code{<DEPLOYMENT>/Level\{1,2,3,4\}\_QC/<label>\_*.mat} plus \code{L4\_xspec}, each file with its
+sidecar. Beside them: \code{manifest.csv} (size, \code{sha256}, \code{build\_id},
+\code{git\_hash}, \code{backfilled}, \code{catalog\_version\_first} per file), every previous
+manifest, a server \code{CHANGELOG.md} per catalog version, and a generated \code{README.md}.
+Catalog versions are \code{YYYY-MM-DD.N}. To tell which version a copy belongs to, look up its
+SHA-256 in the manifest.
+
+\paragraph{Publishing.} \code{scripts/copy\_to\_server.m} checks every file with
+\code{shared/check\_prov.m} before copying. It refuses outright a file with no provenance, bytes
+that differ from the sidecar, a config or derived value that no longer matches (including the
+tide station), or a parent rebuilt since. It refuses, until a change entry in
+\code{docs/catalog\_changes/} acknowledges it, a file whose level's code changed since the build,
+an external dependency that changed, a recorded fallback, or uncommitted code. An entry can be
+acknowledgement-only (\code{changes: false}) when the code changed but no output value did. Rule
+and format: \code{docs/catalog\_changes/README.md}.
+
+\paragraph{No writes into \code{outputs/} from elsewhere.} Only this pipeline writes
+\code{outputs/}. An edit from another repository, a notebook or by hand makes a file's bytes
+disagree with its sidecar, and the push refuses it. To change an output, change the code or
+config here and rebuild.
 
 % ======================================================================
 \section{Methods}
 \label{sec:methods}
 
+A longer methods text, with the history of each change, is in \code{docs/compile\_sections.pdf}.
+
 \subsection{L1: quality control and coordinate rotation}
 
-Raw burst files --- decoded from ASCII or binary (\S\ref{sec:vec}) --- are merged into a
-continuous 2~Hz series in chronological order. Clock drift is corrected linearly over each
-deployment from the drift measured at recovery. A battery-cutoff detector flags intermittent
-sampling by finding gaps beyond \code{cfg.qcOpts.cutoffGapSec} (default 1~s) between consecutive
-sensor records and discarding everything after the first such gap; a power-on glitch at the
-very start of the record is trimmed rather than treated as a cutoff. Per-channel QC
-(\S\ref{sec:qc}) is then applied. Samples with stable but non-zero tilt (e.g.\ a pipe bent during a storm) are retained
-and corrected by a sample-by-sample rotation using the measured pitch $\phi$ and roll $\theta$,
+Each raw file is read as one burst (ASCII or binary, \S\ref{sec:vec}). Clock drift measured at
+recovery is removed linearly over the deployment, and \code{clockOffsetHours} is added for
+filename-clocked records. A gap between sensor records longer than \code{cutoffGapSec} marks
+battery depletion and everything after the first such gap is discarded; a power-on glitch at the
+start is trimmed instead. Per-channel QC (\S\ref{sec:qc}) and the sound-speed correction follow.
+
+Where the median tilt exceeds 1\degree, velocity is rotated to the local vertical sample by sample
+with the measured pitch $\phi$ and roll $\theta$. The code applies roll first, then pitch:
 \[
   \mathbf{v}_\text{corrected}
-  = \mathbf{R}_\text{roll}(\theta)\,\mathbf{R}_\text{pitch}(\phi)\,\mathbf{v}_\text{raw},
+  = \mathbf{R}_\text{pitch}(\phi)\,\mathbf{R}_\text{roll}(\theta)\,\mathbf{v}_\text{raw},
 \]
-applied before the heading rotation so the velocity is returned to the local vertical frame
-before projection onto geographic coordinates. Velocity is then rotated from the instrument
-XYZ frame to the buoy frame ($+x$ west, $+y$ north, $+z$ up; left-handed, matching the MOP
-convention) using the deployment heading and the IGRF magnetic declination at the deployment
-location and epoch. The heading rotation is static (it uses the surveyed heading, not the
-live compass), so a failed compass never corrupts it.
+with $\mathbf{R}_\text{roll}$ a rotation about $x$ and $\mathbf{R}_\text{pitch}$ about $y$.
+Revisions of this guide before October 2026 wrote the product in the other order; the
+components in \code{PUV\_raw\_process.m} are those of the order above. Whether that order matches
+Nortek's pitch and roll convention has not been checked.
+
+Velocity is then rotated to the buoy frame ($+x$ west, $+y$ north, $+z$ up; left-handed, the
+CDIP MOP convention). XYZ records use the heading (the compass median, or the logged mount heading
+where the compass drifts; \S\ref{sec:config}) plus the IGRF magnetic declination at the deployment
+position and start date (\code{igrfmagm}, IGRF-14 where available, else IGRF-13 capped at 2025.0).
+Records stored in Nortek ENU coordinates, which are magnetic, have the same declination added
+(\code{enu\_to\_buoy\_frame.m}, since 2026-10-07; about 11.07\degree\ at San Diego).
+\code{PUV.rotation.coordSystem} and \code{.declinationApplied} record which path ran.
 
 \subsection{L2: spectral analysis}
 
-\paragraph{Segmentation.} The L1 series is divided into non-overlapping 1-hour segments (7200
-samples at 2~Hz), aligned to the top of the UTC hour. The 1-hour length matches the cadence of
-the CDIP MOP wave hindcast and gives the longer averaging window that segment-mean velocity
-benefits from (random Doppler error in $\overline{u}$ falls as $1/\sqrt{N}$, so the 7200-sample
-noise floor is $\approx 1.9\times$ smaller than a 2048-sample 17-minute window). A stationarity
-audit confirmed that bulk parameters are stable on the 1-hour scale at these sites. Segments
-with more than 10\% NaN in a channel group are dropped; smaller gaps are linearly interpolated.
-Velocity is rotated to a shore-normal frame ($+x$ onshore, $+y$ alongshore north) using the
-shore-normal angle from CDIP for the matching MOP station. Depth is
-$H = \overline{P}\times 10^4/(\rho g) + z_s$ with $\rho = 1025$~kg\,m$^{-3}$, $g = 9.81$~m\,s$^{-2}$,
-and $z_s$ the sensor height above the bed.
+\paragraph{Segmentation.} The L1 series is cut into non-overlapping 1-hour segments of 7200
+samples starting at the first UTC top of the hour, the cadence of the CDIP MOP hindcast. Random
+Doppler error in a segment mean falls as $1/\sqrt{N}$, so the 7200-sample mean has a noise floor
+$\sqrt{7200/2048} \approx 1.9$ times lower than the 2048-sample (17-minute) segments used before
+May 2026. Velocity and pressure products are kept separately when no more than 10\% of that
+channel is NaN. Remaining gaps are interpolated linearly in the interior and held at the nearest
+valid value at a segment edge (since 2026-10-09; before, edge gaps were extrapolated, which
+inflated infragravity and velocity statistics). Velocity is rotated to shore-normal ($+x$
+onshore, $+y$ alongshore north) with \code{instr.shorenormal} or the CDIP angle for
+\code{instr.mopStation}. Depth is $H = \overline{P}\times 10^4/(\rho g) + z_s$ with
+$\rho = 1025$~kg\,m$^{-3}$, $g = 9.81$~m\,s$^{-2}$, $\overline{P}$ in dbar, and $z_s$ the
+pressure-port height above the bed (\code{doffp}).
 
-\paragraph{Spectral estimation.} Power spectra use the multi-taper method of Thomson (1982)
-with time-bandwidth product $NW = 4$ ($K = 7$ Slepian tapers, $\approx 14$ degrees of freedom
-per bin). The 1-hour segment gives a native resolution $\Delta f \approx 2.8\times10^{-4}$~Hz.
-Pressure--velocity cross-spectra use the same tapers. Multi-taper is chosen for its
-bias--variance trade-off: at constant record length it matches Welch's effective bandwidth
-while preserving fine frequency structure that Welch averaging smears. (Welch remains available
-as a fallback.)
+\paragraph{Spectral estimation.} Spectra use the multitaper method of Thomson (1982) on the
+whole segment with $NW = 4$ (\code{shared/psd\_multitaper.m}). The code keeps the Slepian
+tapers whose concentration eigenvalue exceeds 0.99, which for $NW = 4$ is $K = 6$ (the seventh
+has eigenvalue 0.937), so each bin has about 12 degrees of freedom. Bins are spaced
+$\Delta f = 2.78\times10^{-4}$~Hz and the resolution bandwidth is
+$2NW/T = 2.2\times10^{-3}$~Hz. Auto- and cross-spectra use the same tapers, which keeps the
+directional moments consistent. Earlier revisions of this guide said $K = 7$; the code has kept
+six since it was written. Welch (\code{opts.spectralMethod = 'welch'}) remains available; the
+comparison that chose multitaper is \code{docs/multitaper\_writeup.pdf}.
 
-\paragraph{Pressure correction.} The pressure spectrum is converted to surface elevation with
-the linear-theory transfer function $K_p(f) = \cosh(kz_s)/\cosh(kH)$, where $k(f)$ solves
-$\omega^2 = gk\tanh(kH)$ by Newton's method, and $S_\eta = S_p / K_p^2$. Bins where
-$K_p < 0.1$ are zeroed to suppress high-frequency noise amplification; the resulting cutoff
-$f_\text{cut}$ is recorded.
+\paragraph{Pressure correction.} $K_p(f) = \cosh(kz_s)/\cosh(kH)$, with $k(f)$ from
+$\omega^2 = gk\tanh(kH)$ by Newton iteration, and $S_\eta = S_p / K_p^2$. Bins with
+$K_p < 0.1$ are set to zero; the cutoff $f_\text{cut}$ is stored.
 
-\paragraph{Bulk parameters.} Significant wave height is $H_s = 4\sqrt{m_0}$ with
-$m_0 = \int S_\eta\,df$, integrated separately over the sea--swell (0.04--0.25~Hz) and
-infragravity (0.004--0.04~Hz) bands. Peak period is $T_p = 1/f_p$ from the sea--swell spectral
-peak; $T_{m02} = \sqrt{m_0/m_2}$. Mean direction comes from the first-harmonic coefficients
-$a_1$, $b_1$ of the pressure--velocity cross-spectra. Energy flux is
-$F = \rho g \int c_g(f)\,S_\eta(f)\,df$.
+\paragraph{Bulk parameters.} $H_s = 4\sqrt{m_0}$, $m_0 = \int S_\eta\,df$, over the total
+(0.004--0.25~Hz), sea--swell (0.04--0.25~Hz) and infragravity (0.004--0.04~Hz) bands. $T_p$ is
+the period of the sea--swell spectral maximum. $T_{m02} = \sqrt{m_0/m_2}$ and the energy flux
+$F = \rho g \int c_g S_\eta\,df$ use the total band. The mean direction is
+$\operatorname{atan2}(\bar b_1, \bar a_1)$ from the first-harmonic moments of the
+pressure--velocity cross-spectra, weighted by $S_\eta$ over the sea--swell band.
 
-\paragraph{Near-bed velocity, stress, and moments.} Near-bed orbital velocity is obtained by
-scaling each velocity-spectrum bin by $\cosh(kH)/\cosh[k(H-z_s)]$ and inverse-transforming;
-$U_b$ (rms) and $A_w$ (orbital excursion) follow. Wave bed shear stress uses the Swart (1974)
-friction factor with $k_s = 2.5\,D_{50}$ ($D_{50} = 0.25$~mm by default, to be replaced with
-site grain size). Reynolds stresses and turbulent kinetic energy come from the detrended
-fluctuations. Velocity skewness $S_k$ and asymmetry $A_s$ (Hilbert form) characterize the
-wave nonlinearity relevant to sediment transport.
+\paragraph{Near-bed velocity, stress and moments.} Each bin of the velocity FFT is scaled from
+the sensor to the bed by $1/\cosh(kz_s)$ (linear theory, $u \propto \cosh kz$ with $z$ up from
+the bed) and inverse transformed; $U_b$ is the rms of $\sqrt{u_\text{bed}^2+v_\text{bed}^2}$ and
+$A_w$ the orbital excursion. Earlier revisions of this guide gave the factor as
+$\cosh(kH)/\cosh[k(H-z_s)]$, which the code's own header records as the original, wrong form.
+Wave bed shear stress uses the Swart (1974) friction factor with $T_p$, and roughness
+$k_s = 2.5\,D_{84}$ where the site has a measured grain-size distribution
+(\code{shared/site\_grain\_size.m}), otherwise the legacy $k_s = 10\,D_{50}$ with the
+placeholder $D_{50} = 0.25$~mm. In catalog 2026-10-14.1, 19 of 65 records use a measured
+distribution, 4 an assumed site default (217.4~$\mu$m) and 42 the placeholder. Reynolds
+stresses and turbulent kinetic energy come from the detrended velocities. Velocity skewness and
+asymmetry (Hilbert form, negative for the forward-pitched shoaling shape) are in the \code{vmom}
+sub-struct.
 
 \subsection{L3: wave forcing characterization}
+\label{sec:l3methods}
 
-The surface-elevation spectrum is integrated over infragravity (0.004--0.04~Hz), swell
-(0.04--0.10~Hz), and sea (0.10--0.25~Hz) bands, with a dominant-band flag by energy flux.
-Storm events are found by threshold exceedance ($H_s > 1.5$~m for $\geq$6~h, events within
-12~h merged); to characterize forcing during PUV gaps, hourly MOP model data are loaded for a
-window extending 7~days past the record, and storms present in MOP but absent from the PUV are
-flagged as gap-period storms. Transport proxies include the Shields parameter
-$\theta = \tau_b/[(\rho_s-\rho)gD_{50}]$ with the Soulsby--Whitehouse critical threshold and a
-mobilization flag, cumulative bottom energy flux, and the Rouse number classifying bedload vs.\
-suspended load. Tidal harmonic analysis (\code{t\_tide}, complex $u+iv$) uses the NOAA Scripps
-Pier tide prediction as the depth reference ($R = 0.995$ vs.\ $0.987$ for a fit to the noisy
-PUV pressure). Subtidal residual currents (observed minus tidal) capture wave-driven mean
-flow, including undertow.
+\paragraph{Bands and storms.} $S_\eta$ is integrated over infragravity (0.004--0.04~Hz), swell
+(0.04--0.10~Hz) and sea (0.10--0.25~Hz) bands, with a dominant-band flag by energy flux. Storms
+are exceedances of $H_s > 1.5$~m lasting at least 6~h, merged across gaps under 12~h (fixed in
+\code{PUV\_L3\_storms.m}). Hourly CDIP MOP output for a window 7~days beyond each end of the
+record flags storms that fell in PUV data gaps.
+
+\paragraph{Transport proxies.} Bottom energy flux $F_b = \rho g \int c_g S_\eta\,df$ over the
+sea--swell band, and its running sum. Shields parameter
+$\theta = \tau_b/[(\rho_s-\rho)gD_{50}]$ from the L2 wave stress, with the Soulsby--Whitehouse
+critical value and a mobilization flag. Kinematic viscosity comes from each segment's mean
+temperature (\code{shared/seawater\_nu.m}, with \code{Tvalid} screening the temperature), and
+settling velocity from Ferguson and Church (2004) with nominal-diameter constants $C_1 = 20$,
+$C_2 = 1.1$. The Rouse number uses the mean combined wave--current stress $\tau_m$ (Soulsby
+1997; since 2026-08-13, before which the wave-stress amplitude overstated suspension), and is
+also given at $D_{16}$, $D_{50}$ and $D_{84}$ where a measured distribution exists. Six
+settling-velocity formulas could not be distinguished against the TBR23 surveys; they spread
+about $\pm15$\% at 250~$\mu$m.
+
+\paragraph{Tides and currents.} The tidal depth reference is the NOAA prediction for the
+config's \code{cfg.tideStation} (\code{shared/noaa\_tide\_predictions.m}); every San Diego config
+uses 9410230 (La Jolla, Scripps Pier). A config with no station gets 9410230 only when its
+instruments lie in San Diego County; elsewhere L3 stops with an error. Catalina (CAT21A/B) also
+uses 9410230, about 110~km away, as a flagged approximation: the nearest harmonic station,
+9410079 Avalon, differs by 2.8~cm rms over the CAT21A record. The station used is stored at
+\code{L3.tidal.station} and in the provenance, and the push refuses an L3 whose station no longer
+matches its config. Tidal harmonic analysis (\code{t\_tide}, complex $u+iv$, seeded with
+\code{rng(0,'twister')} so the bootstrap is reproducible) runs on the segment-mean velocities
+over the span where velocity exists. Subtidal residuals (observed minus tidal) carry the
+wave-driven mean flow, including undertow. A failed NOAA download or a missing \code{t\_tide} is
+an error unless \code{opts.allowTtideFallback} or \code{opts.allowNoTides} is set.
+
+\subsection{L4: nonlinear and infragravity diagnostics}
+
+\code{PUV\_L4\_eta} band-passes pressure-derived surface elevation (total, swell, infragravity);
+\code{PUV\_L4\_reflection} splits infragravity motion into incident and reflected parts
+(Sheremet method); \code{PUV\_L4\_boundwave} separates bound from free infragravity with the
+Hasselmann second-order kernel, and \code{PUV\_L4\_reflection\_free} repeats the split on the free
+part, which gives the shoreline reflection that \code{L4.ref} alone overstates. The second-order
+theory over-predicts the bound part above $H_s/h \approx 0.10$, so filter on $H_s/h$ before
+using \code{bound\_frac}. \code{PUV\_L4\_bispectra} gives bicoherence, skewness and asymmetry
+($K = 6$ sub-segments per hour, 60 degrees of freedom, 95\% bicoherence level 0.316);
+\code{PUV\_L4\_moments} and \code{PUV\_L4\_velocity\_pdf} give frequency-resolved moment
+correlations and pooled velocity histograms. Full field lists are in
+\code{docs/pipeline\_levels.md}.
 
 % ======================================================================
 \section{Validation}
 \label{sec:validation}
 
-The pipeline has been validated against the CDIP MOP wave model and against an independent
-prior processing pipeline, and its mean-flow output has been tested against physical theory.
-
 \begin{itemize}
-\item \textbf{Against MOP.} PUV bulk wave heights agree well with MOP spectra shoaled to the
-  instrument depth by linear-theory energy conservation. Residual frequency-dependent biases
-  were traced to their sources (nonlinear shoaling, directional narrowing, bound long waves,
-  and MOP spectral-peak broadening) rather than left as unexplained scatter.
-\item \textbf{Head-to-head cross-validation.} On the legacy Ruby2D cross-shore array, the
-  pipeline reproduces an independent prior pipeline's bulk parameters at $R^2 = 0.93$--$0.98$,
-  confirming the L1--L2 chain end to end.
-\item \textbf{Mean cross-shore flow.} The segment-mean cross-shore velocity was tested across
-  38 instruments against three hypotheses --- real Stokes return flow, a constant calibration
-  offset, and random Doppler noise. The data match the Stokes return-flow prediction in sign,
-  magnitude, and response to averaging-window length, and are incompatible with the offset and
-  noise hypotheses. The segment-mean noise floor ($\sim$0.24~mm\,s$^{-1}$ at 1-hour averaging)
-  is well below every reported slope and modulation amplitude.
-\item \textbf{Binary decoder.} \code{read\_VEC} is verified bit-exact against the ASCII export
-  (\S\ref{sec:vec}). As an independent end-to-end check, every binary-decoded deployment's
-  hourly $H_s$ was compared to the CDIP MOP model: the modern 2~Hz records
-  (\code{TOR19W}/\code{TOR20W}/\code{IB19W}) give $R^2 = 0.88$--$0.94$ with 1--4~cm bias and
-  near-unit slope, and the older firmware-1.21 records ($R^2 = 0.65$--$0.87$, all biases under
-  9~cm) track the model well given their greater distance from the MOP transect and lower
-  Doppler SNR. The near-zero mean vertical velocity in every decoded record independently
-  confirms the decode and the coordinate rotation.
+\item \textbf{Against the MOP wave model.} PUV wave heights were compared with CDIP MOP spectra
+  shoaled to the instrument depth. Analyses of April--July 2026 found the systematic difference
+  organized by wave nonlinearity ($H_s/h$, Ursell number): the PUV has extra energy near the
+  second harmonic of the peak that the linear model does not carry, with bound infragravity
+  waves as its difference-frequency counterpart. A separate, real difference in directional
+  spread does not explain the energy difference. An earlier conclusion that the model broadens
+  the spectral peak was retracted in July 2026 as an artifact of comparing spectra on mismatched
+  frequency grids. These results were computed on the catalog as it stood in July and are
+  recorded, with the retractions, in \code{docs/compile\_sections.pdf}; current versions are
+  maintained with the paper that uses them.
+\item \textbf{Against an independent prior pipeline.} On Ruby2D MOP582\_6m (Torrey Pines,
+  October 2021 to February 2022; 2,322 matched hours, April 2026, 17-minute segments on the new
+  side) the new pipeline reproduced the legacy archived L2 with $R^2$ of 0.98 for $H_s$
+  (5~cm rms), 0.93 for mean direction, 0.88 for directional spread and 0.76 for $T_p$. Each fault
+  of the legacy code measured in isolation, and which legacy products are safe to reuse, is in
+  \code{docs/legacy\_pipeline\_defects.pdf}: $H_s$ and mean direction are usable, directional
+  spread and $b_2$ (hence radiation stress) are not.
+\item \textbf{Mean cross-shore flow.} In May 2026 the segment-mean cross-shore velocity of 38
+  instruments was tested against real Stokes return flow, a constant calibration offset and
+  random Doppler noise, and matched return flow in sign, magnitude and response to averaging
+  length. That run predates the heading corrections of 2026-05-14 (one included record had its
+  velocity sign reversed) and later rebuilds, and has not been repeated.
+\item \textbf{Binary decoder.} Besides the bit-exact match to ASCII (\S\ref{sec:vec}), the
+  binary-decoded deployments' hourly $H_s$ was compared with CDIP MOP in July 2026: $R^2$ of
+  0.88--0.94 with 1--4~cm bias for the modern 2~Hz records (TOR19W, TOR20W, IB19W), and
+  0.5--0.9 for the firmware-1.21 records, which sit farther from their MOP transects
+  (\code{docs/recopied\_data\_backlog.md}). Mean vertical velocity near zero in every decoded
+  record supports the decode and the rotation.
+\item \textbf{Tests.} \code{run\_all\_tests} runs 23 self-contained tests, including synthetic
+  closure tests of the pressure correction, the Z-test, channel QC, provenance, the tide station,
+  the gap fill and the known-failure handling.
 \end{itemize}
-
-\noindent
-The deeper validation writeups (\code{results\_validation.tex}, \code{multitaper\_writeup.tex})
-carry the full tables, figures, and hypothesis tests.
 
 % ======================================================================
 \section{Output reference}
 \label{sec:outputs}
 
-Outputs are \code{.mat} files, one per instrument per level, under
-\code{outputs/L\{n\}/\{deployment\}/}. The most-used fields:
+\paragraph{L1 (\code{PUV} struct).} \code{time} (UTC, stored without a time zone), \code{fs},
+\code{P} (dbar), \code{BuoyCoord.\{U,V,W\}} (buoy-frame velocity), \code{T}, \code{doffp},
+\code{rotation} (declination applied, coordinate system), and \code{PUV.qc} (\code{valid\_vel},
+\code{valid\_p}, \code{valid\_tilt}, \code{valid\_T}, \code{vel\_c\_factor},
+\code{vel\_c\_corrected}, \code{vel\_rotation\_static}, \code{opts}).
 
-\paragraph{L1 (\code{PUV} struct).} \code{time} (naive-UTC datetime), \code{fs}, \code{P}
-(dBar), \code{BuoyCoord.\{U,V,W\}} (geographic velocity), \code{T}, \code{doffp}, and the
-\code{PUV.qc} provenance sub-struct (\code{valid\_vel}, \code{valid\_p}, \code{valid\_tilt},
-\code{valid\_T}, \code{vel\_c\_factor}, \code{vel\_c\_corrected}, \code{vel\_rotation\_static}).
+\paragraph{L2 (\code{L2} struct, one entry per segment).} \code{time}, \code{Hs}, \code{Hs\_SS},
+\code{Hs\_IG}, \code{Tp}, \code{Tm02}, \code{meanDir}, \code{Ef}, \code{depth}, \code{Ub},
+\code{tau\_b}, \code{a1}/\code{b1}/\code{a2}/\code{b2}, \code{S\_eta}, the \code{vmom} sub-struct
+(\code{skewness}, \code{asymmetry}, \code{u\_uabs2}, \dots), \code{uMean}/\code{vMean},
+\code{Tmean}, \code{shorenormal}, and the flags of \S\ref{sec:qc}.
 
-\paragraph{L2 (\code{L2} struct, one row per segment).} \code{time}, \code{Hs},
-\code{Hs\_SS}, \code{Hs\_IG}, \code{Tp}, \code{Tm02}, \code{meanDir}, \code{Ef}, \code{depth},
-\code{Ub}, \code{tau\_b}, the \code{vmom} sub-struct (\code{skewness}, \code{asymmetry},
-\code{u\_uabs2}, \dots), \code{uMean}/\code{vMean}, and the provenance fields of
-\S\ref{sec:qc} (\code{segValid}, \code{segValid\_vel}, \code{segValid\_p}, \code{qc\_flag},
-\code{Hs\_source}).
+\paragraph{L3 and L4.} L3 holds the band, storm, transport (\code{shields}, \code{mobilized},
+\code{Fb}, \code{rouse}, \code{ws}, \code{nu}, \code{tau\_m}) and tidal (\code{tidal.depth\_pred},
+\code{tidal.station}, \code{tidal.depth\_source}) fields; L4 holds \code{eta}, \code{ref},
+\code{bispectra}, \code{boundwave}, \code{reflection\_free}, \code{moments} and \code{pdf}.
+\code{docs/pipeline\_levels.md} gives the full struct shapes.
 
-\paragraph{Coordinate conventions.} After L1 rotation: $+x$ west, $+y$ north, $+z$ up. After
-L2 shore-normal rotation: $+x$ onshore, $+y$ alongshore north; onshore flux is $q_x > 0$.
-Pressure is stored in dBar.
+\paragraph{Conventions.} After L1: $+x$ west, $+y$ north, $+z$ up, true north. After L2
+rotation: $+x$ onshore, $+y$ alongshore north; onshore flux is $q_x > 0$. Pressure in dbar,
+depths in m, times UTC. Config headings are magnetic; the declination is added at L1.
+
+% ======================================================================
+\section{Known limitations}
+\label{sec:limits}
+
+\begin{itemize}
+\item \textbf{Disputed headings.} 12 records keep a compass heading more than 10\degree\ from the
+  logged mount heading (\code{shared/heading\_disputed\_records.m}); their directional quantities
+  are uncertain by at least that much.
+\item \textbf{Grain size.} 42 of 65 records use the placeholder $D_{50}$; bed stress, Shields,
+  mobilization, settling velocity and Rouse on those records will move when measured values
+  arrive. L4 does not depend on $D_{50}$.
+\item \textbf{Fixed \code{doffp}.} The bed can move tens of centimeters during a deployment (logged
+  changes up to 23~cm). That moves depth and depth-normalized quantities ($H_s/h$, Ursell) by
+  about 3\% and bed stress by under 0.3\%. A PUV cannot measure its own \code{doffp}. IB18W and
+  IB19S carry values whose source is unknown.
+\item \textbf{Off-bed pressure QC is off} until the next deliberate L1 rebuild; no L2 segment in
+  the catalog is affected.
+\item \textbf{Catalina tidal depth} is La Jolla's (\S\ref{sec:l3methods}).
+\item \textbf{Unsourced geometry.} 69 \code{doffp}/\code{latlon}/\code{shorenormal} values had no
+  on-line source at the last audit (2026-07-28); treat them as unverified.
+\end{itemize}
 
 % ======================================================================
 \section{Troubleshooting and where to look next}
 \label{sec:troubleshooting}
 
 \begin{itemize}
-\item \textbf{A driver errors that the previous level is missing.} Run L1$\rightarrow$L4 in
-  order; each reads the level below it.
-\item \textbf{Network reads are slow.} Cache raw files with \code{copy\_raw\_to\_local(cfg)};
-  the drivers use \code{raw\_cache/} automatically.
-\item \textbf{A deployment recovers little velocity during a storm.} Check the failure
-  signature (\S\ref{sec:signatures}) from the \code{.sen}: a sensor-block failure is
-  recoverable, a topple is not. Confirm \code{cfg.qcOpts.Tvalid} is set to the site range.
-\item \textbf{Recovered ($\qcflag{3}$) data in an analysis.} Decide deliberately: filter to
-  \qcflag{1} for clean-only, or include \qcflag{3} knowing the scale uncertainty.
+\item \textbf{A driver ends with an error.} Read the list it prints: configs that threw and
+  records not written. Known field failures are skipped and do not cause it.
+\item \textbf{A config change seems to have no effect, or a deployment vanished from a batch.}
+  Run \code{validation/audit\_registry\_loads.m}; batch loops skip a config that throws.
+\item \textbf{L3 stops on tides.} Check \code{t\_tide} is on the path, \code{cfg.tideStation} is
+  set, and NOAA is reachable.
+\item \textbf{Network reads are slow.} Cache raw files with \code{copy\_raw\_to\_local(cfg)}.
+\item \textbf{Little velocity survives a storm.} Check the failure signature
+  (\S\ref{sec:signatures}): a sensor-block failure is recoverable, a topple is not. Confirm
+  \code{Tvalid} is set to the site range.
+\item \textbf{Recovered (\qcflag{3}) data in an analysis.} Filter to \qcflag{1} for clean-only,
+  or include \qcflag{3} knowing the scale uncertainty.
 \end{itemize}
 
 \noindent
-Deeper references:
-\code{docs/pipeline\_levels.md} (level-by-level detail and output-struct shapes),
-\code{PIPELINE\_NOTES.md} (design decisions, coordinate conventions, known issues),
-\code{docs/OUTSTANDING\_channel\_decoupling.md} and
-\code{docs/L1\_sensor\_block\_failure\_2026-07-09.md} (the channel-decoupling work in full),
+Further reading: \code{README.md} (current requirements, provenance, catalog),
+\code{CHANGELOG.md}, \code{docs/NEW\_DEPLOYMENT.md}, \code{docs/pipeline\_levels.md} (status and
+struct shapes), \code{PIPELINE\_NOTES.md} (design decisions and known issues),
+\code{docs/catalog\_changes/} (what each rebuild changed),
+\code{docs/L1\_sensor\_block\_failure\_2026-07-09.md} and
+\code{docs/OUTSTANDING\_channel\_decoupling.md} (the channel-decoupling work),
 \code{config/CONFIG\_REVIEW\_NOTES.md} (per-deployment review items).
 
 \vfill

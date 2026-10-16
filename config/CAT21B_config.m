@@ -22,6 +22,16 @@ function cfg = CAT21B_config()
     cfg.name        = 'CAT21B';
     cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector/recopied/Catalina_2021';
     cfg.outputDir   = fullfile(fileparts(mfilename('fullpath')), '..', 'outputs');
+    cfg.qcOpts.Tvalid = [9 26];  % SD coastal range, not a Catalina-specific value; matches the canonical L1 (rerun_*_2026_07_11 injection)
+    % Tide station: KNOWN APPROXIMATION, pending Holden's decision (2026-10-15).
+    % 9410230 (La Jolla) is what every catalog L3 for this site was built with
+    % (hardcoded in toolbox getztide2.m), 110 km from Pebbly Beach. The nearest
+    % NOAA harmonic station with hourly predictions is 9410079 Avalon, Santa
+    % Catalina Island (33.345, -118.325; 1.9 km away; NOAA mdapi
+    % stations.json?type=tidepredictions). 9410092 Catalina Harbor is a
+    % subordinate station with no hourly predictions. Switching to 9410079
+    % changes L3.tidal.depth_pred and needs an L3 rebuild + change entry.
+    cfg.tideStation = '9410230';
     cfg.fs          = 2;  % Hz
 
     k = 0;

@@ -79,7 +79,7 @@ fprintf('   fraction of the injected effect the matched metric recovers.\n');
 
 %% ---- Detection floor on real data -------------------------------------
 fprintf('\nDETECTION FLOOR on a real PUV record (TBR23/MOP586_7m)\n');
-S = load('/Users/holden/Documents/Scripps/Research/PUV_Pipeline/outputs/L2/TBR23/MOP586_7m_L2.mat');
+S = load(fullfile(fileparts(fileparts(mfilename('fullpath'))), 'outputs', 'L2', 'TBR23', 'MOP586_7m_L2.mat'));
 L2 = S.L2; valid = find(L2.segValid);
 sel = valid(round(linspace(1, numel(valid), 200)));
 

@@ -1,7 +1,7 @@
 # Channel-decoupling rerun — TOR23W + TBR23 results (2026-07-10)
 
 L1+L2 re-run for both deployments with the per-channel QC and the San Diego site bound
-`Tvalid = [9 26]`, from the local raw cache. Written to `outputs/rerun_2026-07-10/` (parallel
+`Tvalid = [9 26]`, from the local raw cache. Written to `outputs/rerun_2026-07-10/` (parallel [removed 2026-09-21 after the storage audit; file manifest at `docs/archive_snapshot_manifests/`]
 tree; canonical `outputs/` untouched). Scripts: `scripts/rerun_channel_decoupling_2026_07_10.m`,
 `scripts/compare_rerun_2026_07_10.m`. Canonical L2 baseline: the 2026-06-05 Z-fixed build.
 
@@ -91,7 +91,7 @@ forcing-record completeness, not new transport data.
 ## 6. Promoted to canonical + L4 rebuilt (end-to-end verified)
 
 Canonical `outputs/L1,L2/{TOR23W,TBR23}` promoted from the rerun (backup at
-`outputs/_pre_channeldecoupling_backup_2026-07-10/`). PUV L4 (`L4_TP_*.mat`) rebuilt via the
+`outputs/_pre_channeldecoupling_backup_2026-07-10/`). PUV L4 (`L4_TP_*.mat`) rebuilt via the [removed 2026-09-21 after the storage audit; file manifest at `docs/archive_snapshot_manifests/`]
 qc-aware `build_L4_site` (Altimeter_Pipeline `l4-qc-propagation-2026-07`; L4 backup at
 `Altimeter_Pipeline/outputs/_L4_backup_2026-07-10/`).
 

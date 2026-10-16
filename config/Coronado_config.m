@@ -50,6 +50,7 @@ function cfg = Coronado_config(deployment_name)
     cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector/recopied';
 
     cfg.qcOpts.Tvalid = [9 26];
+    cfg.tideStation = '9410230';  % NOAA CO-OPS La Jolla (Scripps Institution Wharf), harmonic station; tidal depth in PUV_L3_currents. Same station every catalog L3 used through 2026-10-15 (then hardcoded in toolbox getztide2.m)
     % Firmware-1.21 recorders leave one benign 3-4 s gap in nearly every
     % hourly file; raise the battery-cutoff gap threshold above them so a
     % hiccup is not mistaken for the instrument dying (see PUV_raw_process).
@@ -83,6 +84,7 @@ function cfg = Coronado_config(deployment_name)
             cfg.instruments(k).serialNum     = 1181;
             cfg.instruments(k).deployYear    = 2017;
             cfg.instruments(k).doffp         = 0.58;   % m, at deployment (0.42 on recovery)
+            cfg.instruments(k).heading       = 21.6;   % magnetic; SoCal_instruments_2016-2017.xls 'All Data' row 32, "PUV-Coronado, 2nd Deployment" S/N V1181: "unchanged" (inherits row 31: "21.6 deg (mag)"). Compass steps 12.6 -> 4.7 at constant tilt, so not used; +x as logged, no 180 (PUV direction 4.4 deg from onshore)
 
         case 'COR17D'   % 4th deployment of winter 2017-18, S/N 1181
             cfg.instruments(k).rawSubfolder  = 'Coronado4thDeployment_2018';
@@ -90,6 +92,7 @@ function cfg = Coronado_config(deployment_name)
             cfg.instruments(k).serialNum     = 1181;
             cfg.instruments(k).deployYear    = 2018;
             cfg.instruments(k).doffp         = 0.72;   % m, at deployment (0.76 on recovery)
+            % heading DISPUTED (|log - compass| > 10 deg; value left on the compass median; reported via shared/heading_disputed_records.m): SoCal_instruments_2017-2018.xls 'All Data' row 40, S/N V1181: '""' (inherits row 37: "28.9 deg (mag)"); compass median 49.0
 
         otherwise
             error('Coronado_config:unknownDeployment', ...

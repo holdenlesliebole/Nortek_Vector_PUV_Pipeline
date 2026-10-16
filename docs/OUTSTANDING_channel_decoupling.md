@@ -4,7 +4,7 @@
 > 31/32 deployments validated safe (nStg==nCan + qc3 recovered) and were promoted to canonical
 > `outputs/{L1,L2}` and synced to Reefbreak (`Processed_HLB`). RUBY22/MOP579_6m recovered +1106
 > velocity segments (2nd instrument after MOP586_10m with the sensor-block-failure pattern).
-> **Open items now tracked in `docs/todo.md` (2026-07-12 section):** (1) regenerate L3/L4 from the
+> **Open items as of 2026-07-12 (historical; current status in `CHANGELOG.md` and `docs/pipeline_levels.md`):** (1) regenerate L3/L4 from the
 > new L2 and push (rerun was L1→L2 only); (2) SIO24A HELD (regression, 1426→376 valid — diagnose);
 > (3) a few anomalous boundary segments. This supersedes the "Required before the rerun" note below.
 >

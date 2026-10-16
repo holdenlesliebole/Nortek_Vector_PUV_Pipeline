@@ -21,6 +21,8 @@ function cfg = IB18W_config()
     cfg.name        = 'IB18W';
     cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector/recopied';
     cfg.outputDir   = fullfile(fileparts(mfilename('fullpath')), '..', 'outputs');
+    cfg.qcOpts.Tvalid = [9 26];  % San Diego coastal; matches the canonical L1 (rerun_*_2026_07_11 injection)
+    cfg.tideStation = '9410230';  % NOAA CO-OPS La Jolla (Scripps Institution Wharf), harmonic station; tidal depth in PUV_L3_currents. Same station every catalog L3 used through 2026-10-15 (then hardcoded in toolbox getztide2.m)
     cfg.fs          = 2;  % Hz, from .hdr
 
     k = 0;

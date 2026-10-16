@@ -1,8 +1,44 @@
 # PUV Pipeline Processing Levels
 
-Updated: July 28, 2026
+Updated: 2026-10-14
 
-> **2026-07-28 — timestamps and site geometry corrected. Read this before
+> **Current state, 2026-10 (catalog version 2026-10-14.1).** All 65 records
+> were rebuilt at L2-L4 on 2026-10-12/14 from one code version, plus all 9
+> `L4_xspec` files. L1 was not rebuilt in that pass. What changed, by level:
+>
+> - **L1.** ENU records now add the magnetic declination (about 11.07 deg at
+>   San Diego; SOL24, LPL24, LPL25A rebuilt 2026-10-07). Nine XYZ records whose
+>   compass drifts or steps at constant tilt take the field-log mount heading
+>   (COR16B, TOR16A-D, TOR17A, TOR17C, TOR24S/MOP586_5m and _7m), and SIO24A
+>   is decoded from `.VEC`; those 10 were rebuilt L1-L4 on 2026-10-07. Twelve
+>   other records whose logged and compass headings differ by more than 10 deg
+>   keep the compass value and are listed in `shared/heading_disputed_records.m`.
+>   A vertical-transit (off-bed) pressure detector exists in
+>   `puv_channel_qc` but is OFF until the next deliberate L1 rebuild.
+> - **L2-L4.** Gap fills no longer extrapolate past a segment edge
+>   (`fillmissing ... 'EndValues','nearest'` at every site). In the catalog L2
+>   Hs moved by at most 3.5 cm except one segment (IB19S/MOP045_7m,
+>   2019-04-22 19:30, 15.6 cm); Ub and u_rms moved about 4% median and 25% at
+>   the 95th percentile on edge-gap segments.
+> - **L3.** Settling velocity uses Ferguson & Church (2004) nominal-diameter
+>   constants (C1 20, C2 1.1); viscosity comes from each segment's measured
+>   temperature (`shared/seawater_nu`); Rouse numbers are also given at D16,
+>   D50 and D84 where a measured grain-size distribution exists. Settling
+>   velocity fell 8-24% (median 16%) across the 65 records. t_tide is seeded,
+>   so tidal and subtidal currents are reproducible.
+> - **L4.** 29 L4 files built from superseded L2s were rebuilt on 2026-10-08;
+>   `validation/audit_L4_coverage.m` now checks content (L4.eta.depth against
+>   L2.depth), not only time alignment.
+> - **Provenance.** Every L2, L3, L4 and xspec file carries a sidecar
+>   `<file>.prov.json` written at build time; the 65 L1 sidecars were
+>   backfilled and say so. See README "Provenance and the published catalog".
+>
+> Numbers above are from `docs/catalog_changes/2026-10-13_combined_rebuild.md`
+> and `CHANGELOG.md`. The two July blocks below
+> are kept as the record of those fixes; their "complete and verified" status
+> lines describe the catalog as it stood in July.
+
+> **2026-07-28 (historical): timestamps and site geometry corrected. Read this before
 > using any pre-2023 record or any `L4_xspec`.**
 >
 > - **L1 timestamps.** The clock recovered from `MMDDHHMM` filenames was Pacific
@@ -30,25 +66,29 @@ Updated: July 28, 2026
 > sub-products, 0 stripped metadata, 0 alignment problems, 50/50 configs
 > building.
 
-> **2026-07-26 — L4 repaired and re-verified.** Two defects found on 07-26 are
+> **2026-07-26 (historical): L4 repaired and re-verified.** Two defects found on 07-26 are
 > fixed: `bispectra` was missing on 23 of 65 records, and 3 records
 > (SIO25B/SIO_6m, TOR24S/MOP586_7m, TOR24W/MOP586_10m) had an L4 built against a
 > superseded L2 whose segment grid had gained a leading segment. Both traced to
 > the same cause — L4 built against a different L2 snapshot — not to a bug in any
 > L4 module. `validation/audit_L4_coverage.m` now reports all 65 records complete
-> and time-aligned. Full account in `docs/todo.md`.
+> and time-aligned.
 
-**Catalog size:** 65 instrument-records across 46 deployments, present and
-verified at every level L1–L4; 9 deployments also carry `L4_xspec`. The "33/40"
+**Catalog size:** 65 instrument-records across 46 deployments, present at
+every level L1–L4; 9 deployments also carry `L4_xspec`. Audits on 2026-10-14:
+L4 content against L2 65/65, L1 qc.opts against config 65/65, registry 50/50
+configs building. The "33/40"
 figures that appeared in earlier revisions of this file predate the pre-2023
 archive additions (CAT21A/B, RUBY22, IB18W, IB19S, then TOR19W/TOR20W/IB19W) and
 have been updated in place below.
 
 **Why 65 and not 72.** The registry configures **72** instrument-records; 7 have
 no L1/L2 because the instrument genuinely failed in the field, so the catalog is
-65. `PUV_L{1..4}_run_all` reports these as `fail` ("missing L1 or L2 file") on
-every run — that is expected, not a regression. Each is documented with its cause
-in `docs/deployment_database_overview.md`:
+65. Each config flags them with `instruments(k).knownFailed` (cause and
+source), and since 2026-10-15 the drivers skip them with a `KNOWN FAILED` line
+instead of counting them as failures; `validation/audit_registry_loads.m` lists
+them as known. Each is documented with its cause in
+`docs/deployment_database_overview.md`:
 
 | record | cause |
 |---|---|
@@ -93,13 +133,28 @@ selected by `instr.rawFormat` or auto-detected. See `L1_raw_to_qc/read_VEC.m`.
   L1 rebuild)
 - Variability-based tilt QC + tilt correction rotation
 - Pitch/roll/pressure/correlation QC
-- Coordinate rotation to buoy frame (+x West, +y North, +z Up)
+- Coordinate rotation to buoy frame (+x West, +y North, +z Up). XYZ records:
+  true bearing of +x = heading + declination (IGRF, `igrfmagm`). ENU records
+  (2026-10-07): Nortek ENU is magnetic, so `enu_to_buoy_frame` adds the
+  declination; `PUV.rotation.coordSystem` and `.declinationApplied` stamp which
+  path ran, so a pre-fix ENU L1 is detectable.
+- Heading source (2026-10-07): the config `heading` is the field-log mount
+  heading where the compass drifts or steps at constant tilt, else NaN (compass
+  median). Records with log and compass more than 10 deg apart are listed in
+  `shared/heading_disputed_records.m` (12 of 45 with a usable log value);
+  directional analyses exclude them or report both.
+- QC options come from `l1_qc_opts(cfg)` and are stored at `PUV.qc.opts`;
+  `validation/audit_L1_qcopts.m` compares them with the config. The off-bed
+  detector (`cfg.qcOpts.offBedDbar`) is absent from every config, so OFF.
 - Output struct: `PUV.{time, P, BuoyCoord, InstrCoord, T, ...}`
 
-**Status:** Complete and verified. 65 instrument-records processed across 46
+**Status (2026-10-14):** 65 records. 10 rebuilt on 2026-10-07 (9 heading
+records, SIO24A) and 3 ENU records the same day; the rest date from the July
+reruns. L1 provenance sidecars are backfilled (built before stamping existed).
+**Status (July 2026, historical):** Complete and verified. 65 instrument-records processed across 46
 deployments. Records that were dropped are documented hardware failures
-(battery, tilt, kelp, corrosion), correctly rejected — not a bug. See `todo.md`
-"Verified L1 QC behavior" for the per-instrument explanations.
+(battery, tilt, kelp, corrosion), correctly rejected — not a bug. Per-instrument explanations are in
+`docs/deployment_database_overview.md` and in each config's `knownFailed` entry.
 
 ---
 
@@ -111,7 +166,9 @@ deployments. Records that were dropped are documented hardware failures
 - **Segmentation: 7200 samples = 1 hour @ 2 Hz, non-overlapping**, aligned
   to UTC top-of-hour boundaries (matches MOP/CDIP cadence). Legacy 17-min
   (2048-sample) segments can be re-enabled by passing `opts.segLen = 2048`.
-- Multi-taper PSD (DPSS, NW=4, K=7 tapers) via `shared/psd_multitaper.m`;
+- Multi-taper PSD (DPSS, NW=4) via `shared/psd_multitaper.m`, which keeps the
+  tapers with eigenvalue > 0.99: K = 6 (the seventh is 0.937), about 12 degrees
+  of freedom per bin (revisions before 2026-10-15 said K = 7);
   same tapers used for auto- and cross-spectra so directional coefficients
   are consistent (this was a critical bug in the legacy pipeline — see
   `pipeline_comparison_legacy.md`)
@@ -126,6 +183,10 @@ deployments. Records that were dropped are documented hardware failures
 - Velocity moments (skewness, asymmetry via Hilbert transform, |u|³,
   u·|u|², a², a³, a_spike) via `shared/compute_velocity_moments.m`
 - Mean currents per segment (uMean, vMean)
+- Gap filling within a segment holds the edge value (`'EndValues','nearest'`,
+  2026-10-09); before, a NaN run at a segment edge became a linear ramp, which
+  inflated IG and velocity statistics (synthetic 400-sample edge gap: L4 IG
+  variance about 70x, L2 velocity rms about 6x; `validation/test_fillmissing_endvalues.m`)
 - QC diagnostics: nanMaxFrac=0.10 rejection; per-segment Z (pressure vs
   velocity-predicted pressure) and Q (P–U coherence)
 - **Record-level Z flag** (2026-07-27): `L2.qc_record.ztest_SS/_IG` via
@@ -136,7 +197,9 @@ deployments. Records that were dropped are documented hardware failures
   transducer, median Z = 8.9e-05), 2 too thin to judge, 62 passing at median
   Z = 0.9738.
 
-**Status:** Complete, verified 8/8 product checks, 65 instrument-records
+**Status (2026-10-14):** 65 records rebuilt 2026-10-12/14 with the edge-gap
+fix, each with a provenance sidecar.
+**Status (July 2026, historical):** Complete, verified 8/8 product checks, 65 instrument-records
 processed at 1-hour cadence. Output: `outputs/L2/{deployment}/{label}_L2.mat`.
 
 ---
@@ -159,24 +222,85 @@ processed at 1-hour cadence. Output: `outputs/L2/{deployment}/{label}_L2.mat`.
 - MOP gap-filling for missing PUV hours
 
 ### L3c — Transport Proxies
-- Bottom energy flux Fb = ρg·cg·Ub² (spectral integral)
-- Shields parameter time series (configurable D50)
-- Rouse number time series
+- Bottom energy flux Fb = ρg ∫ cg(f) S_eta(f) df over the sea-swell band
+  (`PUV_L3_transport.m`; revisions before 2026-10-15 wrote ρg·cg·Ub²)
+- Shields parameter time series (configurable D50), from the **wave** stress
+  amplitude `L2.tau_b` — the correct quantity for wave mobilization
+- Wave-current combined bed shear stress (Soulsby 1997): `tau_c`, `tau_m`, `tau_max`
+- Rouse number time series, computed from **`tau_m`**, the mean combined stress
 - Mobilization fraction (% time above critical Shields)
 - Cumulative bottom energy flux
+- Per segment (2026-10-09): kinematic viscosity `L3.nu` from the segment's
+  `L2.Tmean` (`shared/seawater_nu`, Sharqawy et al. 2010, S = 33.5 psu); a
+  segment outside `opts.Tvalid` or NaN takes the record median, a record with
+  no usable temperature takes 17 C (counted in `transport_params.T_source`).
+  The drivers pass the config's `l1_qc_opts(cfg).Tvalid` (fixed 2026-10-14;
+  before that the drivers used [-2 40], while the catalog rebuild script
+  already passed the config value). Settling velocity `L3.ws`, critical Shields
+  `L3.theta_cr` and `L3.tau_cr` follow per segment.
+- Settling velocity: Ferguson & Church (2004) with nominal-diameter constants
+  C1 = 20, C2 = 1.1 (`settling_velocity` default `natural_nominal`), because
+  the measured grain sizes come from laser diffraction. Stamped as
+  `transport_params.ws_C1/ws_C2/ws_shape`. History: smooth-sphere C2 = 0.4
+  until 2026-08-13, C2 = 1.0 until 2026-10-09. A pre-registered test against
+  the TBR23 surveys could not distinguish six formulas; the spread across them
+  is about +-15% at 250 um.
+- Per-fraction Rouse numbers `rouse_D16/_D50/_D84` where `site_grain_size`
+  has a measured distribution (`transport_params.D_source`).
+- Grain size: 19 of 65 records use a measured D50 (TBR23/Torrey sites), 4 an
+  assumed site default (217.4 um) and 42 the 250 um placeholder in
+  `L2.params.D50` (tally from the L3 sidecars, 2026-10-14).
+
+> **Rouse changed on 2026-08-13.** It was previously computed from the
+> oscillatory wave stress amplitude, which is the wrong stress: the Rouse profile
+> assumes a steady boundary layer with diffusivity `kappa*u_star*z` over the water
+> column, whereas the wave boundary layer is centimetres thick, and an amplitude
+> is not a mean. Both errors inflated `u_star`, so the old field **overstated
+> suspension** (median 4.8 against a corrected 41.5 at MOP580 5 m). The field was
+> regenerated across all L3; no downstream code consumed it, and `shields`,
+> `mobilized`, `Fb` and `Fb_cum` are bit-identical. See `docs/audit.md`
+> (2026-08-13) and the entrainment/suspension/advection split documented in
+> `shared/wave_current_stress.m`.
 
 ### L3d — Current Decomposition
 - t_tide tidal harmonic analysis on uMean/vMean
 - Subtidal (wave-driven) residual currents
 - Undertow magnitude
 - Tidal validation against NOAA Scripps Pier gauge (R=0.995, UTC confirmed)
+- t_tide runs with `rng(0,'twister')` (2026-10-09; the caller's RNG state is
+  restored), because its bootstrap error estimate decides which constituents
+  enter the prediction; unseeded, two runs of one record differed by
+  0.003-0.007 m/s. Stamped at `L3.tidal.ttide_rng`.
+- Tidal depth (`L3.tidal.depth_pred`) comes from NOAA predictions for station
+  9410230 (La Jolla, Scripps Pier) through the lab toolbox's `getztide2`,
+  for every site; when the download fails the code falls back to a t_tide fit
+  and records `L3.tidal.depth_source = 't_tide'`. The catalog rebuild refused
+  any record without NOAA depth (TOR24W/MOP586_10m had silently used the
+  fallback). The plain drivers do not refuse it. For a site far from La Jolla
+  the NOAA prediction is the wrong tide.
+- The t_tide fit covers only the span where velocity exists (2026-10-09).
 
-**Status:** Complete and batch-processed across all 65 instrument-records.
+**Status (2026-10-14):** all 65 L3 rebuilt in full on 2026-10-12/14 (bands,
+storms, transport, currents) with the changes above, NOAA tidal depth on 65/65.
 Output: `outputs/L3/{deployment}/{label}_L3.mat`.
 
 ---
 
-## L4: Nonlinear-Wave / IG Dynamics (BUILT — all 65 records, 2026-07-26)
+## L4: Nonlinear-Wave / IG Dynamics (built for all 65 records; rebuilt 2026-10-12/14)
+
+**Status (2026-10-14):** all 65 L4 and 9 `L4_xspec` rebuilt with the edge-gap
+fill fix and provenance. On 2026-10-07, 29 of 65 L4 files did not match their
+own L2 (`L4.eta.depth - L2.depth` up to 3.2 cm), because they were built
+before the July L1/L2 reruns; they held spurious IG values (Hs_IG up to
+19.9 m). They were rebuilt on 2026-10-08, and `audit_L4_coverage` now checks
+content. Open: IB19S/MOP045_7m segment 2019-04-22 19:30 had L4 Hs_IG 3.88 m
+against L2's 0.757 m with 424 missing pressure samples in the window (before
+the fill fix); still open, not yet explained.
+
+`L4_xspec` depends on every member L4. Rebuild it whenever any member L4
+changes. `scripts/run_L4_refresh_watchdog.sh` does this once after all its
+MATLAB launches (stage `xspecprov`), since a launch killed for a hang never
+reached its own xspec step (left IB19S, IB18W and RUBY22 xspec stale twice).
 
 **Input:** L1 + L2 `.mat` files
 **Output:** Per-instrument nonlinear-wave and IG diagnostics

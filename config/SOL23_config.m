@@ -15,6 +15,8 @@ function cfg = SOL23_config()
     cfg.name        = 'SOL23';
     cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector';
     cfg.outputDir   = fullfile(fileparts(mfilename('fullpath')), '..', 'outputs');
+    cfg.qcOpts.Tvalid = [9 26];  % San Diego coastal; matches the canonical L1 (rerun_*_2026_07_11 injection)
+    cfg.tideStation = '9410230';  % NOAA CO-OPS La Jolla (Scripps Institution Wharf), harmonic station; tidal depth in PUV_L3_currents. Same station every catalog L3 used through 2026-10-15 (then hardcoded in toolbox getztide2.m)
     cfg.fs          = 2;  % Hz
 
     k = 0;
@@ -24,6 +26,7 @@ function cfg = SOL23_config()
     % Battery depleted. Found and recovered 12/08/2025 with bent pipe.
     k = k + 1;
     cfg.instruments(k).label          = 'MOP651_5m';
+    cfg.instruments(k).knownFailed    = 'battery depleted, no valid pressure; instrument lost 2 yr, recovered 12/08/2025 with a bent pipe; this file''s header and docs/deployment_database_overview.md (SOL23 MOP651_5m row)';
     cfg.instruments(k).filePrefix     = '5M_65102';
     cfg.instruments(k).rawSubfolder   = 'Solana20231115-20240128MOP651';
     cfg.instruments(k).mopStation     = 'D0651';
@@ -31,7 +34,7 @@ function cfg = SOL23_config()
     cfg.instruments(k).depth_nominal  = 5;
     cfg.instruments(k).serialNum      = 17045;
     cfg.instruments(k).latlon         = [32.98754, -117.27687];
-    cfg.instruments(k).heading        = 96.7;
+    cfg.instruments(k).heading        = 96.7;      % magnetic; DeploymentNotes2023-2024.xls 'All Data' row 64, S/N 17045: "+X onshore, 96.7deg. magnetic."
     cfg.instruments(k).clockDrift     = NaN;       % battery depleted
     cfg.instruments(k).doffp          = 0.88;
 
@@ -46,7 +49,7 @@ function cfg = SOL23_config()
     cfg.instruments(k).depth_nominal  = 7;
     cfg.instruments(k).serialNum      = 16310;
     cfg.instruments(k).latlon         = [32.98734, -117.27816];
-    cfg.instruments(k).heading        = 56.0;
+    cfg.instruments(k).heading        = 56.0;      % magnetic; DeploymentNotes2023-2024.xls 'All Data' row 67, S/N 16310: "+X onshore, 56.0deg. magnetic." (diver; onboard compass reads 64.0 before the 12/28/2023 storm)
     cfg.instruments(k).clockDrift     = NaN;
     cfg.instruments(k).doffp          = 1.09;
 
@@ -61,7 +64,7 @@ function cfg = SOL23_config()
     cfg.instruments(k).depth_nominal  = 7;
     cfg.instruments(k).serialNum      = 17036;
     cfg.instruments(k).latlon         = [32.99064, -117.27897];
-    cfg.instruments(k).heading        = 69.6;
+    cfg.instruments(k).heading        = 69.6;      % magnetic; DeploymentNotes2023-2024.xls 'All Data' row 70, S/N 17036: "+X onshore, 69.6deg. magnetic." (diver; onboard compass reads 79.3 before the tip logged in row 72, "Started to slightly tilt around 12 28 2023 22:04")
     cfg.instruments(k).clockDrift     = NaN;
     cfg.instruments(k).doffp          = 1.08;
 

@@ -354,28 +354,8 @@ function PUV = PUV_raw_process(instr, cfg)
     %   tiltAbsMax   = 30 deg — absolute tilt beyond which data is unreliable
     %   tiltWindow   = 120 samples (60 sec at 2 Hz) — window for rolling std
 
-    % --- Per-channel QC options (channel decoupling, 2026-07-09). Thresholds unchanged
-    % from the historical pipeline; only their propagation between channels has changed.
-    qcOpts = struct( ...
-        'corrMin',     70, ...      % Nortek minimum beam correlation, %
-        'Tvalid',      [-2 40], ... % PRIMARY thermistor-failure discriminant: plausible
-        ...                         % seawater temperature, degC. Default is a wide absolute
-        ...                         % bound (catches freezing / firmware garbage anywhere);
-        ...                         % SET TO THE SITE'S RANGE (SD coastal ~[9 26]) to catch
-        ...                         % subtler within-bounds failures.
-        'maxJump',     Inf, ...     % optional rate gate: |T[i]-T[i-1]| beyond this = sensor
-        ...                         % glitch. Inf = off. Never fires on genuine drift.
-        'cFactorTol',  0.002, ...   % below this, no sound-speed rescale is applied
-        'tiltStdMax',  2, ...       % deg, rolling-std tilt-variability threshold
-        'tiltAbsMax',  30, ...      % deg, absolute tilt = toppled; ALWAYS gates velocity
-        'tiltWindow',  120);        % samples for the rolling std (60 s at 2 Hz)
-    % TmaxDev / TrefHours (deviation-from-median test, first-48h reference) are REMOVED:
-    % they conflated genuine seasonal range with sensor failure and corrupted good velocity
-    % at the seasonal tails. See docs/OUTSTANDING_channel_decoupling.md and puv_channel_qc.m.
-    if isfield(cfg,'qcOpts')
-        fn = fieldnames(cfg.qcOpts);
-        for q = 1:numel(fn), qcOpts.(fn{q}) = cfg.qcOpts.(fn{q}); end
-    end
+    % --- Per-channel QC options: defaults overlaid with cfg.qcOpts (see l1_qc_opts.m).
+    qcOpts = l1_qc_opts(cfg);
 
     tiltStdMax = qcOpts.tiltStdMax;   % used by the diagnostic plot below; the per-channel
     tiltAbsMax = qcOpts.tiltAbsMax;   % QC decisions are made in puv_channel_qc.m from qcOpts
@@ -648,7 +628,10 @@ function PUV = PUV_raw_process(instr, cfg)
     % For a tilted instrument:
     %   R_pitch rotates around the Y axis by pitch angle
     %   R_roll  rotates around the X axis by roll angle
-    %   [U;V;W]_corrected = R_roll * R_pitch * [U;V;W]_measured
+    %   [U;V;W]_corrected = R_pitch * R_roll * [U;V;W]_measured
+    %   (roll applied first, then pitch: the components in the loop below are
+    %   those of R_pitch*R_roll. Comments before 2026-10-15 said R_roll*R_pitch.
+    %   Whether this order matches Nortek's pitch/roll convention is unchecked.)
     %
     % The pitch/roll values from SEN are at 1 Hz (duplicated to 2 Hz),
     % so the correction is applied sample-by-sample.
@@ -691,7 +674,7 @@ function PUV = PUV_raw_process(instr, cfg)
             cp = cos(p_rad(ii)); sp = sin(p_rad(ii));
             cr = cos(r_rad(ii)); sr = sin(r_rad(ii));
 
-            % R_roll * R_pitch (extrinsic rotation)
+            % R_pitch * R_roll (roll first, then pitch)
             U_tc(ii) =  cp      * U(ii) + sp*sr   * V(ii) + sp*cr   * W(ii);
             V_tc(ii) =              cr   * V(ii) -    sr   * W(ii);
             W_tc(ii) = -sp      * U(ii) + cp*sr   * V(ii) + cp*cr   * W(ii);
@@ -755,14 +738,15 @@ function PUV = PUV_raw_process(instr, cfg)
         V_true = uv(2,:).';   % +y NORTH
 
     elseif coordSystem == "ENU"
-        % ENU: instrument compass already rotated to East-North-Up.
-        % U = East, V = North, W = Up (no z-flip needed).
-        % Convert to MOP convention: +x WEST = -East, +y NORTH = North.
-        U_true = -U;          % +x WEST
-        V_true =  V;          % +y NORTH
+        % ENU: the instrument rotated to East-North-Up on board using its
+        % MAGNETIC compass, so U = magnetic East, V = magnetic North, W = Up
+        % (no z-flip needed). Add declination, then convert to the MOP
+        % convention +x WEST, +y NORTH (true). Omitted before 2026-10-07.
+        [U_true, V_true] = enu_to_buoy_frame(U, V, magDeclination);
         % W already +z UP in ENU — no flip.
         theta_mag = NaN;      % heading not used for ENU rotation
-        fprintf('  ENU coordinates — no heading rotation needed\n');
+        fprintf('  ENU coordinates — declination %+.2f deg applied, no heading rotation\n', ...
+            magDeclination);
 
     else
         error('PUV_raw_process:unknownCoordSys', ...
@@ -798,6 +782,10 @@ function PUV = PUV_raw_process(instr, cfg)
     PUV.LATLON         = instr.latlon;
     PUV.rotation.sensor = theta_mag;      % actual heading used (may be auto-computed)
     PUV.rotation.mag    = magDeclination;
+    % Stamp (2026-10-07): an L1 without these fields predates the ENU
+    % declination fix, and its ENU velocities are in MAGNETIC coordinates.
+    PUV.rotation.coordSystem        = char(coordSystem);
+    PUV.rotation.declinationApplied = true;   % XYZ via heading, ENU via enu_to_buoy_frame
     PUV.doffp           = instr.doffp;     % pressure sensor height above bed (m)
     PUV.label            = instr.label;
     PUV.deploymentName   = cfg.name;

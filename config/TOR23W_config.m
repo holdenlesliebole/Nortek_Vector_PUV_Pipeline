@@ -23,6 +23,7 @@ function cfg = TOR23W_config()
     % reading below ~9 C at Torrey Pines is not real water) without mis-flagging genuine
     % seasonal/upwelling temperatures. See docs/PUV_Pipeline_Guide.pdf sec 5.
     cfg.qcOpts.Tvalid = [9 26];
+    cfg.tideStation = '9410230';  % NOAA CO-OPS La Jolla (Scripps Institution Wharf), harmonic station; tidal depth in PUV_L3_currents. Same station every catalog L3 used through 2026-10-15 (then hardcoded in toolbox getztide2.m)
     cfg.outputDir   = fullfile(fileparts(mfilename('fullpath')), '..', 'outputs');
     cfg.fs          = 2;  % Hz
 
@@ -39,7 +40,7 @@ function cfg = TOR23W_config()
     cfg.instruments(k).depth_nominal  = 5;
     cfg.instruments(k).serialNum      = 17047;
     cfg.instruments(k).latlon         = [32.92514, -117.26221];
-    cfg.instruments(k).heading        = 76.5;
+    cfg.instruments(k).heading        = 76.5;      % magnetic; DeploymentNotes2023-2024.xls 'All Data' row 9, S/N 17047: "+X onshore, 76.5deg. magnetic."
     cfg.instruments(k).clockDrift     = NaN;       % battery depleted
     cfg.instruments(k).doffp          = 0.60;
 
@@ -54,7 +55,7 @@ function cfg = TOR23W_config()
     cfg.instruments(k).depth_nominal  = 7;
     cfg.instruments(k).serialNum      = 17042;
     cfg.instruments(k).latlon         = [32.92505, -117.26320];
-    cfg.instruments(k).heading        = 79.4;
+    cfg.instruments(k).heading        = 79.4;      % magnetic; DeploymentNotes2023-2024.xls 'All Data' row 14, S/N 17042: "+X onshore, 79.4deg. magnetic."
     cfg.instruments(k).clockDrift     = NaN;
     cfg.instruments(k).doffp          = 0.90;
 
@@ -69,7 +70,7 @@ function cfg = TOR23W_config()
     cfg.instruments(k).depth_nominal  = 5;
     cfg.instruments(k).serialNum      = 17043;
     cfg.instruments(k).latlon         = [32.93056, -117.26319];
-    cfg.instruments(k).heading        = 68.2;
+    cfg.instruments(k).heading        = 68.2;      % magnetic; DeploymentNotes2023-2024.xls 'All Data' row 20, S/N 17043: "+X onshore, 68.2deg. magnetic."
     cfg.instruments(k).clockDrift     = 5.0;       % 5 sec faster than internet time
     cfg.instruments(k).doffp          = 0.65;
 
@@ -84,7 +85,7 @@ function cfg = TOR23W_config()
     cfg.instruments(k).depth_nominal  = 7;
     cfg.instruments(k).serialNum      = 16739;
     cfg.instruments(k).latlon         = [32.93048, -117.26420];
-    cfg.instruments(k).heading        = 77.2;
+    cfg.instruments(k).heading        = 77.2;      % magnetic; DeploymentNotes2023-2024.xls 'All Data' row 31, S/N 16739: "+X onshore, 77.2deg. magnetic."
     cfg.instruments(k).clockDrift     = 6.0;       % 6 sec faster than internet time
     cfg.instruments(k).doffp          = 0.67;
 
@@ -99,7 +100,7 @@ function cfg = TOR23W_config()
     cfg.instruments(k).depth_nominal  = 10;
     cfg.instruments(k).serialNum      = 16306;
     cfg.instruments(k).latlon         = [32.93035, -117.26572];
-    cfg.instruments(k).heading        = 75.3;
+    cfg.instruments(k).heading        = 75.3;      % magnetic; DeploymentNotes2023-2024.xls 'All Data' row 42, S/N 16306: "+X onshore, 75.3deg. magnetic."
     cfg.instruments(k).clockDrift     = NaN;
     cfg.instruments(k).doffp          = 1.00;
 
@@ -115,7 +116,7 @@ function cfg = TOR23W_config()
     cfg.instruments(k).depth_nominal  = 15;
     cfg.instruments(k).serialNum      = 15277;
     cfg.instruments(k).latlon         = [32.93005, -117.26950];
-    cfg.instruments(k).heading        = 40.0;
+    cfg.instruments(k).heading        = 40.0;      % magnetic; DeploymentNotes2023-2024.xls 'All Data' row 53, S/N 15277: "+X onshore, 40.0deg. magnetic."
     cfg.instruments(k).clockDrift     = NaN;       % "2 week clock drift!?" - ambiguous
     cfg.instruments(k).doffp          = 1.00;
 

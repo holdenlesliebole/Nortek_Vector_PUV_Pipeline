@@ -15,6 +15,8 @@ function cfg = Solana_config(deployment_name)
     cfg.name      = deployment_name;
     cfg.fs        = 2;  % Hz
     cfg.outputDir = fullfile(fileparts(mfilename('fullpath')), '..', 'outputs');
+    cfg.qcOpts.Tvalid = [9 26];  % San Diego coastal; matches the canonical L1 (rerun_*_2026_07_11 injection)
+    cfg.tideStation = '9410230';  % NOAA CO-OPS La Jolla (Scripps Institution Wharf), harmonic station; tidal depth in PUV_L3_currents. Same station every catalog L3 used through 2026-10-15 (then hardcoded in toolbox getztide2.m)
 
     % Approximate lat/lon for Solana Beach MOP 654.5 at 7m depth
     sol_latlon = [32.991, -117.279];

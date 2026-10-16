@@ -50,6 +50,14 @@ function cfg = TEMPLATE_config()
     % control" and docs/PUV_Pipeline_Guide.pdf.
     cfg.qcOpts.Tvalid = [22 31];   % <<< EDIT to your site range (degC)
 
+    % ---- Tide station (REQUIRED outside San Diego) -------------------------
+    % NOAA CO-OPS station id for the L3 tidal depth prediction. Pick the nearest
+    % HARMONIC station (type "R"); subordinate stations have no hourly
+    % predictions. List: https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json?type=tidepredictions
+    % Without it, L3 defaults to La Jolla 9410230 for San Diego sites and
+    % ERRORS anywhere else. Example: Honolulu = '1612340'.
+    cfg.tideStation = '1612340';   % <<< EDIT
+
     k = 0;
 
     % ======================================================================

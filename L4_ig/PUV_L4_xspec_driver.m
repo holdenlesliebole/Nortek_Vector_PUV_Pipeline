@@ -5,6 +5,9 @@
 %   saves outputs/L4_xspec/{deployment}/xspec.mat (one struct per
 %   deployment).
 %
+%   The file carries provenance (shared/save_with_provenance) whose parents
+%   are every member L4 file.
+%
 %   To process a different deployment, change deployment_name below.
 % Author: Holden Leslie-Bole, 2026
 
@@ -60,7 +63,8 @@ fprintf('\nDone in %.1f s. %d pairs, %d IG-band freq bins.\n', ...
 
 %% ======================== SAVE ========================
 outFile = fullfile(outDir, 'xspec.mat');
-save(outFile, 'L4xs', '-v7.3');
+save_with_provenance(outFile, 'L4_xspec', 'L4xs', L4xs, ...
+    struct('level', repmat({'L4'}, 1, numel(L4list)), 'path', L4list(:)'));
 fprintf('Saved: %s\n', outFile);
 
 %% ======================== SUMMARY ========================

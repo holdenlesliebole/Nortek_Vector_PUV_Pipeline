@@ -4,6 +4,12 @@
 %   instrument in the deployment, runs PUV_L4_eta → PUV_L4_reflection →
 %   PUV_L4_bispectra, and saves one L4 .mat file per instrument.
 %
+%   Each saved file carries provenance (shared/save_with_provenance): an
+%   embedded .prov block and a <file>.prov.json sidecar, as scripts/copy_to_server
+%   requires. Instruments flagged knownFailed in the config are skipped.
+%   The provenance parent of an L4 is its L2 (as in the catalog rebuilds and
+%   copy_to_server's lineage check), although L4 also reads the L1.
+%
 %   To process a different deployment, change deployment_name below and
 %   re-run.
 % Author: Holden Leslie-Bole, 2026
@@ -49,22 +55,30 @@ if ~exist(outDir, 'dir'), mkdir(outDir); end
 
 %% ======================== PROCESS EACH INSTRUMENT ========================
 nInstr = numel(cfg.instruments);
+failed = {};   % labels of records not written
 fprintf('\n=== L4 IG / Bound-Wave Dynamics: %s (%d instruments) ===\n', deployment_name, nInstr);
 
 for k = 1:nInstr
     instr = cfg.instruments(k);
     fprintf('\n[%d/%d] Processing %s - %s\n', k, nInstr, cfg.name, instr.label);
+    [isKF, kfWhy] = known_failed(instr);
+    if isKF
+        fprintf('  KNOWN FAILED, skipped (instruments(%d).knownFailed): %s\n', k, kfWhy);
+        continue
+    end
 
     l1File = fullfile(l1Dir, [instr.label '_processed.mat']);
     l2File = fullfile(l2Dir, [instr.label '_L2.mat']);
     if ~isfile(l1File)
         warning('PUV_L4_driver:noL1File', ...
             'L1 file not found: %s — skipping.', l1File);
+        failed{end+1} = instr.label; %#ok<SAGROW>
         continue
     end
     if ~isfile(l2File)
         warning('PUV_L4_driver:noL2File', ...
             'L2 file not found: %s — skipping.', l2File);
+        failed{end+1} = instr.label; %#ok<SAGROW>
         continue
     end
 
@@ -114,10 +128,11 @@ for k = 1:nInstr
         L4.builtAt        = datetime('now');
 
         outFile = fullfile(outDir, [instr.label '_L4.mat']);
-        save(outFile, 'L4', '-v7.3');
+        save_with_provenance(outFile, 'L4', 'L4', L4, struct('level', 'L2', 'path', l2File), instr);
         fprintf('  Saved: %s\n', outFile);
 
     catch ME
+        failed{end+1} = instr.label; %#ok<SAGROW>
         warning('PUV_L4_driver:instrumentFailed', ...
             'FAILED: %s\nReason: %s', instr.label, ME.message);
         for s = 1:length(ME.stack)
@@ -127,3 +142,10 @@ for k = 1:nInstr
 end
 
 fprintf('\nDone. L4 processing for %s complete.\n', deployment_name);
+
+% Fail loudly: a record that failed or had no input must not end the run looking
+% like success (each record runs in try/catch so the others still run).
+if ~isempty(failed)
+    error('PUV_L4_driver:failures', '%d of %d record(s) not written for %s: %s (details above)', ...
+        numel(failed), nInstr, deployment_name, strjoin(failed, ', '));
+end

@@ -6,6 +6,10 @@
 %   PUV_L4_reflection_free, and writes one _L4.mat per instrument.
 %   Already-processed instruments are skipped (idempotent).
 %
+%   Each saved file carries provenance (shared/save_with_provenance): an
+%   embedded .prov block and a <file>.prov.json sidecar, as scripts/copy_to_server
+%   requires. Instruments flagged knownFailed in the config are skipped.
+%
 %   BISPECTRA IS OFF BY DEFAULT. It is by far the slowest module (~2.3 s per
 %   valid segment serial, ~0.57 s with a parallel pool), so a full-catalog batch
 %   would run for hours. Records built by this script therefore carry every L4
@@ -42,6 +46,7 @@ fprintf('========================================\n');
 
 resultStatus = cell(nDeploy, 1);
 resultNInstr = zeros(nDeploy, 1);
+problems     = {};   % config errors and failed records, reported at the end
 builtWithoutBisp = {};
 
 for d = 1:nDeploy
@@ -54,6 +59,7 @@ for d = 1:nDeploy
     catch ME
         fprintf('  ERROR loading config: %s\n', ME.message);
         resultStatus{d} = 'config_error';
+        problems{end+1} = sprintf('%s: config error: %s', dName, ME.message); %#ok<SAGROW>
         continue
     end
 
@@ -73,10 +79,18 @@ for d = 1:nDeploy
     nProcessed = 0;
     nSkipped   = 0;
     nFailed    = 0;
+    failedLabs = {};   % labels of records not written (named in the final error)
+    nKnown     = 0;
 
     for k = 1:nInstr
         instr = cfg.instruments(k);
         outFile = fullfile(outDir, [instr.label '_L4.mat']);
+        [isKF, kfWhy] = known_failed(instr);
+        if isKF
+            fprintf('  [%d/%d] %s — KNOWN FAILED, skipped: %s\n', k, nInstr, instr.label, kfWhy);
+            nKnown = nKnown + 1;
+            continue
+        end
 
         if isfile(outFile)
             fprintf('  [%d/%d] %s — already processed, skipping\n', k, nInstr, instr.label);
@@ -89,6 +103,7 @@ for d = 1:nDeploy
         if ~isfile(l1File) || ~isfile(l2File)
             fprintf('  [%d/%d] %s — missing L1 or L2 file, skipping\n', k, nInstr, instr.label);
             nFailed = nFailed + 1;
+            failedLabs{end+1} = instr.label; %#ok<SAGROW>
             continue
         end
 
@@ -120,7 +135,7 @@ for d = 1:nDeploy
             if isfield(L2, 'mopStation'), L4.mopStation = L2.mopStation; end
             L4.builtAt        = datetime('now');
 
-            save(outFile, 'L4', '-v7.3');
+            save_with_provenance(outFile, 'L4', 'L4', L4, struct('level', 'L2', 'path', l2File), instr);
             nProcessed = nProcessed + 1;
             if ~runBispectra
                 builtWithoutBisp{end+1} = sprintf('%s/%s', cfg.name, instr.label); %#ok<SAGROW>
@@ -128,10 +143,12 @@ for d = 1:nDeploy
         catch ME
             warning('PUV_L4_run_all:failed', '%s/%s: %s', dName, instr.label, ME.message);
             nFailed = nFailed + 1;
+            failedLabs{end+1} = instr.label; %#ok<SAGROW>
         end
     end
 
-    resultStatus{d} = sprintf('%d ok, %d skip, %d fail', nProcessed, nSkipped, nFailed);
+    resultStatus{d} = sprintf('%d ok, %d skip, %d known-failed, %d fail', nProcessed, nSkipped, nKnown, nFailed);
+    if nFailed > 0, problems{end+1} = sprintf('%s: %d record(s) failed: %s', dName, nFailed, strjoin(failedLabs, ', ')); end %#ok<SAGROW>
     fprintf('\n  Summary: %s\n', resultStatus{d});
 end
 
@@ -162,4 +179,13 @@ if ~isempty(builtWithoutBisp)
                 '  and check the L4 grid still matches L2 first --\n' ...
                 '  see shared/l4_l2_index_map.m. Then confirm with\n' ...
                 '  validation/audit_L4_coverage.m\n\n']);
+end
+
+% Fail loudly. Every deployment and record runs inside try/catch so one failure
+% cannot abort the batch, but a config that throws or a record that fails must
+% not end the run looking like success (TOR18A, 2026-07-27, was invisible for a
+% day this way). An error here makes `matlab -batch` exit nonzero.
+if ~isempty(problems)
+    error('PUV_L4_run_all:failures', '%d problem(s); details in the log above:\n  %s', ...
+        numel(problems), strjoin(problems, '\n  '));
 end

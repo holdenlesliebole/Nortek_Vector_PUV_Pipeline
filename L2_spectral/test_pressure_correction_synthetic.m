@@ -12,7 +12,7 @@ function test_pressure_correction_synthetic()
 %
 % Author: Holden Leslie-Bole, 2026-06-06
 
-addpath('/Users/holden/Documents/Scripps/Research/PUV_Pipeline/shared');
+addpath(fullfile(fileparts(fileparts(mfilename('fullpath'))), 'shared'));   % this checkout's shared/
 g = 9.81;
 
 a = 0.50; f0 = 0.08; H = 8.0; z_s = 0.50;          % wave amp, freq, depth, sensor height

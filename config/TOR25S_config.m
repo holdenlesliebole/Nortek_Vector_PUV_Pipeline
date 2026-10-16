@@ -20,6 +20,8 @@ function cfg = TOR25S_config()
     cfg.name        = 'TOR25S';
     cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector';
     cfg.outputDir   = fullfile(fileparts(mfilename('fullpath')), '..', 'outputs');
+    cfg.qcOpts.Tvalid = [9 26];  % San Diego coastal; matches the canonical L1 (rerun_*_2026_07_11 injection)
+    cfg.tideStation = '9410230';  % NOAA CO-OPS La Jolla (Scripps Institution Wharf), harmonic station; tidal depth in PUV_L3_currents. Same station every catalog L3 used through 2026-10-15 (then hardcoded in toolbox getztide2.m)
     cfg.fs          = 2;  % Hz
 
     k = 0;
@@ -28,6 +30,7 @@ function cfg = TOR25S_config()
     % Flat layout in Torrey20250326-20250601/
     k = k + 1;
     cfg.instruments(k).label          = 'MOP586_5m';
+    cfg.instruments(k).knownFailed    = 'no valid pressure data; pipe bent, kelp blockage; docs/deployment_database_overview.md (TOR25S MOP586_5m row)';
     cfg.instruments(k).filePrefix     = '5M_58602';
     cfg.instruments(k).rawSubfolder   = 'Torrey20250326-20250601';
     cfg.instruments(k).mopStation     = 'D0586';
@@ -50,7 +53,7 @@ function cfg = TOR25S_config()
     cfg.instruments(k).depth_nominal  = 10;
     cfg.instruments(k).serialNum      = 16737;
     cfg.instruments(k).latlon         = [32.93035, -117.26572];   % surveyed; DeploymentNotes2024-2025.xls 'All Data' "Torrey Pines 10m MOP586 PUV Vector" -- same jetted pipe reused, was [32.930 -117.266] (47 m off)
-    cfg.instruments(k).heading        = NaN;
+    cfg.instruments(k).heading        = NaN;   % auto-compute. compass median 235.9 kept. NOT DISPUTED: the only log value, DeploymentNotes2024-2025.xls 'All Data' row 36, S/N 16737: "+X onshore, 286.6deg magnetic using new compass on 6/5/2025.", puts waves 44 deg off the shore-normal (compass: 6.4 deg; reciprocal: from shore). PUV-only check, see shared/heading_disputed_records.m
     cfg.instruments(k).clockDrift     = NaN;
     cfg.instruments(k).doffp          = 0.86;      % meters (86 cm, redeploy 3/5/2025)
 
@@ -65,7 +68,7 @@ function cfg = TOR25S_config()
     cfg.instruments(k).depth_nominal  = 15;
     cfg.instruments(k).serialNum      = 17047;
     cfg.instruments(k).latlon         = [32.93005, -117.26950];   % surveyed; DeploymentNotes2024-2025.xls 'All Data' "Torrey Pines 15m MOP586 PUV Vector" -- same jetted pipe reused, was [32.930 -117.270] (47 m off)
-    cfg.instruments(k).heading        = NaN;
+    cfg.instruments(k).heading        = NaN;   % auto-compute. DISPUTED (|log - compass| > 10 deg; value left on the compass median; reported via shared/heading_disputed_records.m): DeploymentNotes2024-2025.xls 'All Data' row 40, S/N 17047: "+X onshore, 34.2deg magnetic using new compass on 6/5/2025."; compass median 46.1
     cfg.instruments(k).clockDrift     = NaN;
     cfg.instruments(k).doffp          = 0.80;      % meters (80 cm, redeploy 3/5/2025)
 

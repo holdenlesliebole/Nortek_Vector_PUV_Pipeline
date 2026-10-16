@@ -257,8 +257,8 @@ for i = 1:nSeg
     if nanFrac > opts.nanMaxFrac
         continue
     end
-    uBuoy = fillmissing(uBuoy, 'linear');
-    vBuoy = fillmissing(vBuoy, 'linear');
+    uBuoy = fillmissing(uBuoy, 'linear', 'EndValues', 'nearest');
+    vBuoy = fillmissing(vBuoy, 'linear', 'EndValues', 'nearest');
 
     [U_sn, ~] = apply_shorenormal_rotation(uBuoy, vBuoy, L2.shorenormal);
     U_sn = detrend(U_sn);

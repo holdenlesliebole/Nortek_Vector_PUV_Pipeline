@@ -1,7 +1,9 @@
-function L3 = PUV_L3_transport(L3, L2)
+function L3 = PUV_L3_transport(L3, L2, opts)
 % PUV_L3_TRANSPORT  Level 3c: transport proxy metrics.
 %
 %   L3 = PUV_L3_transport(L3, L2)
+%   L3 = PUV_L3_transport(L3, L2, opts)   opts.Tvalid: plausible water temperature
+%        range (degC) for the viscosity; default [-2 40] (l1_qc_opts default)
 %
 %   Computes sediment transport proxies from L2 wave and velocity products.
 %   These are universal metrics that characterize transport potential
@@ -16,12 +18,17 @@ function L3 = PUV_L3_transport(L3, L2)
 %     Shields parameter: dimensionless bed stress / grain weight
 %     Mobilization flag: above critical Shields threshold
 %     Cumulative bottom flux: running integral of Fb over deployment
-%     Rouse number: suspension vs bedload classification
+%     Rouse number: suspension vs bedload classification (D50), plus
+%       rouse_D16 / rouse_D50 / rouse_D84 from site_grain_size fractions
+%     Per segment (2026-10-09): T_used, nu (seawater_nu), ws, theta_cr, tau_cr
 % Author: Holden Leslie-Bole, 2026
 
+if nargin < 3 || isempty(opts), opts = struct(); end
+if ~isfield(opts, 'Tvalid') || isempty(opts.Tvalid), opts.Tvalid = [-2 40]; end
 g   = 9.81;
 rho = 1025;
 rho_s = 2650;  % quartz sand density
+T_FALLBACK = 17;   % degC; only when the record has no usable temperature at all
 
 % --- D50 source: only use site_grain_size's per-site D50 when L2.tau_b
 % was computed with the matching per-site methodology (bedstress_method ==
@@ -53,8 +60,45 @@ nanVec = NaN(nSeg, 1);
 L3.Fb          = nanVec;  % bottom energy flux (W/m)
 L3.shields     = nanVec;  % Shields parameter
 L3.mobilized   = false(nSeg, 1);  % above critical Shields
-L3.rouse       = nanVec;  % Rouse number
+% Retired fields. This function APPENDS to the L3 it is handed, so a field that
+% is simply no longer written survives from whatever produced the file before.
+% Anything retired must be removed explicitly or it silently persists as stale
+% derived state. `rouse_legacy` existed only briefly on 2026-08-13 and was
+% dropped: a knowingly-wrong Rouse number sitting beside the correct one is a
+% trap for anyone reading L3 later.
+RETIRED = {'rouse_legacy'};
+for r = RETIRED
+    if isfield(L3, r{1}), L3 = rmfield(L3, r{1}); end
+end
+
+L3.rouse       = nanVec;  % Rouse number (from tau_m; see note below)
+L3.tau_c       = nanVec;  % current-related bed shear stress (Pa)
+L3.tau_m       = nanVec;  % Soulsby (1997) MEAN combined wave-current stress (Pa)
+L3.tau_max     = nanVec;  % Soulsby (1997) MAX combined wave-current stress (Pa)
 L3.Fb_cum      = nanVec;  % cumulative bottom flux (J/m)
+
+% -----------------------------------------------------------------------------
+% ROUSE SEMANTICS CHANGED 2026-08-13. L3.rouse previously came from L2.tau_b, the
+% oscillatory WAVE stress amplitude 0.5*rho*f_w*Ub^2. That is the wrong stress for
+% a Rouse number: the profile assumes a steady boundary layer with diffusivity
+% kappa*u_star*z over the water column, whereas the wave boundary layer is only
+% centimetres thick, and an amplitude is not a mean. Both errors inflate u_star,
+% so the old field OVERSTATES suspension.
+%
+% L3.rouse now uses tau_m from WAVE_CURRENT_STRESS. The superseded value is NOT
+% carried alongside it: a field that is known to be wrong is a trap in a shared
+% product, and anyone reading L3 later would have to know which of two Rouse
+% numbers to trust. Rollback and audit are served instead by the pre-change
+% backups in outputs/_pre_rouse_backup_2026-08-13/, by transport_params.code_version,
+% and by the entry in docs/audit.md.
+%
+% SAFE TO CHANGE: an audit on 2026-08-13 found NO consumer of L3.rouse anywhere in
+% the research tree. L4 pulls shields and mobilized only; rouse appeared solely in
+% two regen comparison lists. No existing scientific result depends on this field.
+%
+% L3.shields and L3.mobilized are UNCHANGED and were never wrong. The wave stress
+% amplitude IS the correct quantity for a wave-mobilization Shields number.
+% -----------------------------------------------------------------------------
 
 % Transport-relevant velocity products (from L2, copied for convenience)
 L3.Ub          = L2.Ub;
@@ -67,12 +111,53 @@ f = L2.f;
 df = f(2) - f(1);
 iSS = f >= 0.04 & f <= 0.25;
 
-% Settling velocity for Rouse number
-ws = settling_velocity(D50, rho_s, rho, 1e-6);
+% Kinematic viscosity PER SEGMENT from the measured bed temperature (2026-10-09;
+% was a constant 1e-6, i.e. water at ~23 C). shared/seawater_nu (Sharqawy et al.
+% 2010, S = 33.5 psu) is the single source. Fallbacks, counted and stamped: a
+% segment whose L2.Tmean is NaN or outside opts.Tvalid takes the record median
+% of the usable Tmean; a record with no usable Tmean takes 17 C.
+Tseg = nanVec;
+if isfield(L2, 'Tmean'), Tseg = L2.Tmean(:); end
+usable = isfinite(Tseg) & Tseg >= opts.Tvalid(1) & Tseg <= opts.Tvalid(2);
+if any(usable), Trec = median(Tseg(usable)); recSource = 'record median Tmean';
+else,           Trec = T_FALLBACK;          recSource = sprintf('%g C (record has no usable Tmean)', T_FALLBACK); end
+T_used = Tseg; T_used(~usable) = Trec;
+nu = seawater_nu(T_used);                      % [nSeg x 1] m^2/s
+L3.T_used = T_used;
+L3.nu     = nu;
 
-% Critical Shields parameter (Soulsby-Whitehouse)
-Dstar = D50 * ((rho_s/rho - 1) * g / 1e-12)^(1/3);  % dimensionless grain size
-theta_cr = 0.30 / (1 + 1.2*Dstar) + 0.055 * (1 - exp(-0.020*Dstar));
+% Settling velocity per segment, with settling_velocity's default constants
+% (natural_nominal, Ferguson & Church C1 = 20, C2 = 1.1 since 2026-10-09). The
+% constants actually used are returned by settling_velocity and stamped.
+[ws, ws_C1, ws_C2, ws_shape] = settling_velocity(D50, rho_s, rho, nu);
+L3.ws = ws;
+
+% Critical Shields parameter (Soulsby & Whitehouse 1997) per segment: nu enters
+% through D*, so theta_cr, tau_cr, shields-vs-threshold and mobilized all move
+% with temperature.
+[theta_cr, Dstar] = soulsby_whitehouse_theta_cr(D50, rho_s, rho, nu, g);
+L3.theta_cr = theta_cr;
+L3.tau_cr   = theta_cr * (rho_s - rho) * g * D50;   % Pa, per segment
+
+% Per-fraction settling velocity for Rouse numbers at D16, D50 and D84 from
+% site_grain_size, when the site has an entry.
+Dfrac = [NaN NaN NaN]; D_source = 'not available (no site_grain_size entry)';
+if ~isempty(bsLabel) && exist('site_grain_size','file') == 2
+    try
+        gsF = site_grain_size(bsLabel);
+        Dfrac = [gsF.D16 gsF.D50 gsF.D84]; D_source = char(gsF.status);
+    catch
+    end
+end
+wsFrac = NaN(nSeg, 3);
+for q = 1:3
+    if isfinite(Dfrac(q)), wsFrac(:, q) = settling_velocity(Dfrac(q), rho_s, rho, nu); end
+end
+L3.rouse_D16 = nanVec; L3.rouse_D50 = nanVec; L3.rouse_D84 = nanVec;
+
+% Drag coefficient converting the burst-mean flow to a current-related stress.
+% Applied to the mean velocity at sensor height. ASSUMPTION, not measured.
+Cd_current = 2.5e-3;
 
 for i = 1:nSeg
     if ~validIdx(i), continue; end
@@ -103,14 +188,27 @@ for i = 1:nSeg
     tau = L2.tau_b(i);
     if ~isnan(tau)
         L3.shields(i) = tau / ((rho_s - rho) * g * D50);
-        L3.mobilized(i) = L3.shields(i) > theta_cr;
+        L3.mobilized(i) = L3.shields(i) > theta_cr(i);
+    end
+
+    % --- Combined wave-current bed shear stress (Soulsby 1997) ---
+    % tau_max governs entrainment; tau_m governs the time-averaged diffusivity
+    % and is therefore what belongs in a Rouse exponent.
+    uM = L2.uMean(i); vM = L2.vMean(i);
+    if ~isnan(uM) && ~isnan(vM)
+        tau_cur = rho * Cd_current * (uM^2 + vM^2);
+        L3.tau_c(i) = tau_cur;
+        if ~isnan(tau)
+            [L3.tau_m(i), L3.tau_max(i)] = wave_current_stress(tau_cur, tau);
+        end
     end
 
     % --- Rouse number ---
-    if ~isnan(tau) && tau > 0
-        ustar = sqrt(tau / rho);
-        kappa = 0.41;  % von Karman constant
-        L3.rouse(i) = ws / (kappa * ustar);
+    if ~isnan(L3.tau_m(i)) && L3.tau_m(i) > 0
+        L3.rouse(i) = rouse_number(ws(i), L3.tau_m(i), rho);
+        if isfinite(wsFrac(i,1)), L3.rouse_D16(i) = rouse_number(wsFrac(i,1), L3.tau_m(i), rho); end
+        if isfinite(wsFrac(i,2)), L3.rouse_D50(i) = rouse_number(wsFrac(i,2), L3.tau_m(i), rho); end
+        if isfinite(wsFrac(i,3)), L3.rouse_D84(i) = rouse_number(wsFrac(i,3), L3.tau_m(i), rho); end
     end
 end
 
@@ -128,14 +226,35 @@ L3.Fb_cum = cumsum(Fb_clean) * dt_sec;
 L3.transport_params.D50        = D50;
 L3.transport_params.D50_source = D50_source;
 L3.transport_params.rho_s      = rho_s;
-L3.transport_params.theta_cr   = theta_cr;
-L3.transport_params.ws         = ws;
-L3.transport_params.tau_cr     = theta_cr * (rho_s - rho) * g * D50;
+% Per-segment values are in L3.ws, L3.theta_cr, L3.nu and L3.T_used; the scalars
+% here are their medians over valid segments, for summaries and back-compatibility.
+vv = validIdx(:) & isfinite(ws);
+L3.transport_params.theta_cr   = median(theta_cr(vv));
+L3.transport_params.ws         = median(ws(vv));
+L3.transport_params.ws_C1      = ws_C1;
+L3.transport_params.ws_C2      = ws_C2;
+L3.transport_params.ws_shape   = ws_shape;   % as returned by settling_velocity, not a copy of the default
+L3.transport_params.ws_basis   = ['F&C2004 nominal-diameter values; D from laser diffraction treated as nominal; ' ...
+                                  'TBR23 transport cannot discriminate (Paper_1/results/ws_choice_test_20261009)'];
+L3.transport_params.nu_model   = 'seawater_nu (Sharqawy et al. 2010 + UNESCO EOS-80), S = 33.5 psu, per segment from L2.Tmean';
+L3.transport_params.nu_median  = median(nu(vv));
+L3.transport_params.T_source   = struct('segment_Tmean', sum(usable(:) & validIdx(:)), ...
+                                        'record_fallback', sum(~usable(:) & validIdx(:)), ...
+                                        'record_fallback_value', Trec, 'record_fallback_source', recSource);
+L3.transport_params.Tvalid     = opts.Tvalid;
+L3.transport_params.tau_cr     = L3.transport_params.theta_cr * (rho_s - rho) * g * D50;
+L3.transport_params.Dstar      = median(Dstar(vv));
+L3.transport_params.D16_D50_D84 = Dfrac;
+L3.transport_params.D_source   = D_source;
+L3.transport_params.Cd_current = Cd_current;
+L3.transport_params.rouse_stress = 'tau_m (Soulsby 1997 wave-current mean)';
+L3.transport_params.code_version = 'PUV_L3_transport/2026-10-09';   % per-segment nu, F&C nominal, per-fraction Rouse
 
 %% Summary
 fprintf('  L3c transport proxies:\n');
-fprintf('    D50 = %.3f mm (source: %s), ws = %.4f m/s, theta_cr = %.4f, tau_cr = %.3f Pa\n', ...
-    D50*1000, D50_source, ws, theta_cr, L3.transport_params.tau_cr);
+fprintf('    D50 = %.3f mm (source: %s), median ws = %.4f m/s, theta_cr = %.4f, tau_cr = %.3f Pa, nu = %.3e (T from Tmean on %d segs, fallback on %d)\n', ...
+    D50*1000, D50_source, L3.transport_params.ws, L3.transport_params.theta_cr, L3.transport_params.tau_cr, ...
+    L3.transport_params.nu_median, L3.transport_params.T_source.segment_Tmean, L3.transport_params.T_source.record_fallback);
 fprintf('    Fb:     median = %.0f W/m, max = %.0f W/m\n', ...
     median(L3.Fb(validIdx), 'omitnan'), max(L3.Fb(validIdx), [], 'omitnan'));
 fprintf('    Shields: median = %.3f, max = %.3f\n', ...
@@ -144,21 +263,17 @@ fprintf('    Mobilized: %d/%d segments (%.0f%%)\n', ...
     sum(L3.mobilized(validIdx)), sum(validIdx), ...
     100*sum(L3.mobilized(validIdx))/sum(validIdx));
 
-% Rouse classification
+% Rouse classification (from tau_m -- see the note at the top of this file)
 rouse_valid = L3.rouse(validIdx & ~isnan(L3.rouse));
 if ~isempty(rouse_valid)
-    fprintf('    Rouse: median = %.2f  —  ', median(rouse_valid));
-    if median(rouse_valid) < 0.8
-        fprintf('wash load dominated\n');
-    elseif median(rouse_valid) < 1.2
-        fprintf('full suspension\n');
-    elseif median(rouse_valid) < 2.5
-        fprintf('graded suspension\n');
-    elseif median(rouse_valid) < 7.5
-        fprintf('bedload (saltation)\n');
-    else
-        fprintf('no significant motion\n');
-    end
+    % Label via the shared classifier so the bands cannot drift apart.
+    % NOTE the top band is "no suspension", NOT "no motion": the Rouse number
+    % says nothing about whether the bed moves, only whether it goes into
+    % suspension. Mobilization is the Shields test reported above, and at this
+    % site the bed is typically mobilized while not suspended, which is exactly
+    % the wide bedload window expected in shallow water.
+    [~, reg] = rouse_number(median(rouse_valid) * 0.41 * sqrt(1/rho), 1, rho);
+    fprintf('    Rouse: median = %.2f  —  %s\n', median(rouse_valid), reg{1});
 end
 
 fprintf('    Cumulative Fb: %.2e J/m over deployment\n', ...

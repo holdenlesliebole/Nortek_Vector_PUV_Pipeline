@@ -44,6 +44,7 @@ function cfg = Cardiff_config(deployment_name)
     cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector/recopied';
 
     cfg.qcOpts.Tvalid = [9 26];
+    cfg.tideStation = '9410230';  % NOAA CO-OPS La Jolla (Scripps Institution Wharf), harmonic station; tidal depth in PUV_L3_currents. Same station every catalog L3 used through 2026-10-15 (then hardcoded in toolbox getztide2.m)
     % Firmware-1.21 recorders leave one benign 3-4 s gap in nearly every
     % hourly file; raise the battery-cutoff gap threshold above them so a
     % hiccup is not mistaken for the instrument dying (see PUV_raw_process).
@@ -80,6 +81,7 @@ function cfg = Cardiff_config(deployment_name)
             cfg.instruments(k).serialNum     = 1049;
             cfg.instruments(k).deployYear    = 2015;   % spans into Jan 2016
             cfg.instruments(k).doffp         = 0.54;   % m, at deployment (0.59 on recovery)
+            % heading DISPUTED (|log - compass| > 10 deg; value left on the compass median; reported via shared/heading_disputed_records.m): SoCal_instruments_2015.xls 'All Data' row 49, "PUV-Cardiff, 1st Deployment" S/N V1049: "74 deg (62.2mag)"; compass median 47.6
 
         case 'CDF15C'   % 3rd deployment of winter 2015-16, S/N 1053
             cfg.instruments(k).rawSubfolder  = 'Cardiff1053_2016';
@@ -87,6 +89,7 @@ function cfg = Cardiff_config(deployment_name)
             cfg.instruments(k).serialNum     = 1053;
             cfg.instruments(k).deployYear    = 2016;
             cfg.instruments(k).doffp         = 0.55;   % m, at deployment (0.54 on recovery)
+            % heading DISPUTED (|log - compass| > 10 deg; value left on the compass median; reported via shared/heading_disputed_records.m): SoCal_instruments_2015.xls 'All Data' row 52, "PUV-Cardiff, 3rd Deployment" S/N V1053: "74 deg (62.2mag)"; compass median 47.4
 
         otherwise
             error('Cardiff_config:unknownDeployment', ...

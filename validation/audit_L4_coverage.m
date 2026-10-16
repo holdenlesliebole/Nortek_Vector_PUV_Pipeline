@@ -18,11 +18,32 @@
 %   L4.LATLON and L4.shorenormal, and `shorenormal` is the record of which
 %   rotation was applied.
 %
+%   CONTENT IS CHECKED TOO (added 2026-10-08). Time alignment does not prove
+%   an L4 was built from the L2 now on disk: 29 of 65 L4 files had the right
+%   segment grid but carried L4.eta.depth from an earlier L2, off by 0.5 mm to
+%   3.2 cm, and this audit reported 0 problems. L4.eta.depth is a straight copy
+%   of L2.depth (PUV_L4_eta.m), so on a content-current record the two agree
+%   EXACTLY. The check takes max |L4.eta.depth - L2.depth| over time-matched
+%   segments (via l4_l2_index_map) and calls a record stale above 1e-9 m, or
+%   where the NaN pattern differs. It also prints one informational count of
+%   L4s whose builtAt is older than the L2 file's mtime. L2 carries no build
+%   stamp and bulk re-saves move the mtime, so that count is not a verdict.
+%
 %   Run from PUV_Pipeline/:
 %     >> run validation/audit_L4_coverage
+%   Point it at another tree (e.g. a backup) by setting auditRoot first:
+%     >> auditRoot = 'outputs/_pre_heading_ws_backup_2026-10-07';
+%     >> run validation/audit_L4_coverage
+%   It only reads.
 
-startup_puv;
-root = fullfile(fileparts(fileparts(mfilename('fullpath'))), 'outputs');
+startup_puv;   % assigns `root` in this workspace, so set ours AFTER it
+if exist('auditRoot', 'var') && ~isempty(auditRoot)
+    root = auditRoot;
+else
+    root = fullfile(fileparts(fileparts(mfilename('fullpath'))), 'outputs');
+end
+fprintf('audit root: %s\n', root);
+staleTol = 1e-9;   % m; L4.eta.depth is copied from L2.depth, so current = exact
 reg  = deployment_registry(); names = sort(keys(reg));
 want = {'eta','ref','bispectra','boundwave','moments','reflection_free','pdf'};
 meta = {'label','deploymentName','LATLON','doffp','shorenormal'};
@@ -36,7 +57,10 @@ seen      = containers.Map('KeyType','char','ValueType','logical');
 missList  = {};
 metaList  = {};
 alignList = {};
+contList  = {};
+stampList = {};
 nRec      = 0;
+nCurrent  = 0;
 
 for d = 1:numel(names)
     try, fn = reg(names{d}); cfg = fn(); catch, continue; end
@@ -100,11 +124,33 @@ for d = 1:numel(names)
             note = ['align check failed: ' ME.message];
             alignList{end+1} = [rec ' -- ' note]; %#ok<SAGROW>
         end
+
+        % --- content: is this L4 built from the L2 now on disk? ---
+        [isCur, cnote] = l4_content_current(L2, L4, staleTol);
+        nCurrent = nCurrent + isCur;
+        if ~isCur, contList{end+1} = [rec ' -- ' cnote]; end %#ok<SAGROW>
+        note = [note ' | content ' tern(isCur, 'current', 'STALE')];
+
+        % --- build stamp vs the L2 file's mtime (independent lead) ---
+        if isfield(L4, 'builtAt') && isdatetime(L4.builtAt)
+            t2 = datetime(fl(k).datenum, 'ConvertFrom', 'datenum');
+            b4 = L4.builtAt; b4.TimeZone = '';
+            if b4 < t2
+                stampList{end+1} = sprintf('%s -- L4 builtAt %s < L2 mtime %s', rec, ...
+                    datestr(b4, 'yyyy-mm-dd HH:MM'), datestr(t2, 'yyyy-mm-dd HH:MM')); %#ok<SAGROW>
+            end
+        else
+            stampList{end+1} = [rec ' -- L4 has no builtAt stamp']; %#ok<SAGROW>
+        end
         fprintf('  %s\n', note);
     end
 end
 
 fprintf('\n%d records inspected\n', nRec);
+if nRec == 0
+    error('audit_L4_coverage:noRecords', ['No L2/L4 pairs found under %s. An empty ' ...
+        'audit is not a clean audit.'], root);
+end
 fprintf('\nmissing sub-products (%d):\n', numel(missList));
 for i = 1:numel(missList), fprintf('  %s\n', missList{i}); end
 fprintf('\nrecords with stripped METADATA (%d):\n', numel(metaList));
@@ -113,5 +159,37 @@ if isempty(metaList), fprintf('  none\n'); end
 
 fprintf('\nalignment problems (%d):\n', numel(alignList));
 for i = 1:numel(alignList), fprintf('  %s\n', alignList{i}); end
+
+fprintf('\nCONTENT: %d/%d content-current (L4.eta.depth == L2.depth to %g m)\n', ...
+    nCurrent, nRec, staleTol);
+fprintf('content-stale records (%d):\n', numel(contList));
+for i = 1:numel(contList), fprintf('  %s\n', contList{i}); end
+if isempty(contList), fprintf('  none\n'); end
+% Informational only. L2 carries no build stamp, and bulk L2 re-saves move the
+% mtime without moving the content: on 2026-10-08 this fired on 20 live records
+% and 9 backups, with the content check confirming 1 of 29. Not a verdict.
+fprintf('\n(info) L4 builtAt older than its L2 file mtime: %d/%d records; see content check for staleness\n', ...
+    numel(stampList), nRec);
+
+function [isCur, note] = l4_content_current(L2, L4, tol)
+% L4.eta.depth is copied verbatim from L2.depth at build time, so any
+% difference on a time-matched segment means L4 was built from another L2.
+isCur = false;
+if ~isfield(L4, 'eta') || ~isfield(L4.eta, 'depth')
+    note = 'no L4.eta.depth to compare'; return
+end
+o.source = 'eta';
+l4map = l4_l2_index_map(L2, L4, o);
+m = ~isnan(l4map);
+if ~any(m), note = 'no time-matched segments'; return, end
+d2 = L2.depth(m); d4 = L4.eta.depth(l4map(m));
+d2 = d2(:); d4 = d4(:);
+nanDiff = sum(isnan(d2) ~= isnan(d4));
+f = ~isnan(d2) & ~isnan(d4);
+mx = max([0; abs(d4(f) - d2(f))]);
+isCur = (mx <= tol) && nanDiff == 0;
+note = sprintf('max|L4.eta.depth - L2.depth| = %.3g m over %d segments, NaN-pattern mismatches %d', ...
+    mx, sum(f), nanDiff);
+end
 
 function s = tern(c, a, b), if c, s = a; else, s = b; end, end

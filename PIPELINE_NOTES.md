@@ -28,7 +28,8 @@ Related directories:
 - Raw data (read-only): `/Volumes/group/PUV_data/Vector/`
 - Deployment notes: `/Volumes/group/DeploymentNotes/`
 - Old first-gen code (archived): `Beach_Change_Observation/Vector/PUVs/`
-- Paper 1 analysis: `Paper 1/DataCodes/`
+- Paper 1 analysis: `Paper_1/DataCodes/` (reads the outputs; never writes them,
+  see "No writes into outputs/ from outside the pipeline" below)
 
 ---
 
@@ -45,7 +46,7 @@ Related directories:
 - **Input**: L1 `.mat` files
 - **Script**: `PUV_L2_driver.m` → `PUV_L2_spectral.m`
 - **Processing**: 1-hour (7200-sample @ 2 Hz) UTC-aligned segments, detrend,
-  Wu pressure correction, multi-taper PSD (DPSS NW=4, K=7), Hs/Tp/energy flux,
+  Wu pressure correction, multi-taper PSD (DPSS NW=4, K=6 kept), Hs/Tp/energy flux,
   bed velocity (IFFT method), Reynolds stress, velocity moments, shore-normal
   rotation (cached for L4), optional MOP comparison
 - **Output**: `outputs/L2/{deployment}/{label}_L2.mat` per instrument
@@ -61,7 +62,9 @@ Related directories:
   - **L3b storm/event detection** — storm events from Hs time series,
     event metrics, calm/recovery windows, MOP gap-filling
   - **L3c transport proxies** — bottom energy flux Fb, Shields/Rouse time
-    series (configurable D50), mobilization fraction
+    series (configurable D50), mobilization fraction, wave-current combined
+    stress (`tau_c`/`tau_m`/`tau_max`, Soulsby 1997). Shields uses the **wave**
+    stress; Rouse uses **`tau_m`** (corrected 2026-08-13, see `docs/audit.md`)
   - **L3d current decomposition** — t_tide harmonic analysis on uMean/vMean,
     subtidal residual currents, undertow (validated vs NOAA Scripps gauge)
 - **Output**: `outputs/L3/{deployment}/{label}_L3.mat` per instrument
@@ -100,7 +103,8 @@ was abandoned because tidal artifacts persisted after fitting. The earlier
 iteration of this pipeline then used 17-min (2048-sample) segments to get finer
 temporal resolution. The current pipeline returns to 1-hour segments — but with
 detrending instead of tidal fitting, MOP/CDIP-aligned boundaries, and a
-multi-taper estimator (NW=4, 7 DPSS tapers).
+multi-taper estimator (NW=4; `psd_multitaper` keeps the 6 DPSS tapers with
+eigenvalue > 0.99, about 12 degrees of freedom per bin; earlier text said 7).
 **Do not reintroduce tidal fitting or 3-hour segments.**
 
 The 17-min mode is still available as a fallback by passing `opts.segLen = 2048`.
@@ -138,7 +142,8 @@ instrument prepared for a season with its site and its Vector config `.dep`
 filename, so they establish that a deployment happened even when its data cannot
 be found. `VectorPUV_Winter2020-2021Checkout.xlsx` is what confirmed the missing
 Catalina S/N 15033 deployment ("Catalina Island, ~8meter depth",
-`CatalinaIsland_September2020.dep`) — see the Catalina block in `docs/todo.md`.
+`CatalinaIsland_September2020.dep`) — see the header of `config/CAT21A_config.m`, which also
+explains why that deployment is not in this catalog.
 `TBR23_Notes.xlsx` (local) was the only machine-readable source before
 DeploymentNotes was discovered — its format is the template for new deployments.
 
@@ -146,11 +151,11 @@ Read the sheets with pandas + xlrd; the columns that matter are
 `Deployment Latitude/Longitude(NAD83)`, `Deployment Depth below sand (cm)`
 (this is `doffp`), `Heading (Magnetic)`, `Clock Drift (seconds)` and
 `Position Notes`. Two traps when searching them: mid-deployment rows are often
-labelled only **"Redeploy"** with no site name, so filtering `Sensor Assignment`
+labeled only **"Redeploy"** with no site name, so filtering `Sensor Assignment`
 on the site or on "vector" silently drops them; and a `doffp` may be quoted to
 the **altimeter face** rather than the PUV pressure port, which is a different
 reference surface (2023-24 altimeter faces run 105–116 cm against 63–79 cm for
-pressure ports, so a mislabelled value is usually obvious from magnitude).
+pressure ports, so a mislabeled value is usually obvious from magnitude).
 
 ### Coordinate precision is a provenance signal (2026-07-28)
 Sort every configured `latlon` by its number of decimal places. A surveyed GPS
@@ -263,6 +268,107 @@ function** (`toolbox/aero/aero/igrfmagm.m`) — so **Aerospace Toolbox is requir
 We use `igrfmagm`, not `wrldmagm` (also Aerospace): `wrldmagm` is limited to a
 5-year WMM lifespan and errors on older deployment dates.
 `igrfmagm(height_km, lat, lon, decYr, 13)` — height in km, IGRF model epoch 13.
+
+---
+
+## Decisions of 2026-10 (catalog version 2026-10-14.1)
+
+Each entry gives the reason. The code-level list is `CHANGELOG.md`; the
+catalog-level account with measured impacts is
+`docs/catalog_changes/2026-10-13_combined_rebuild.md`.
+
+### ENU records add the magnetic declination (2026-10-07)
+The Vector's ENU output is referenced to magnetic north; its user configuration
+has no declination field. The XYZ branch of `PUV_raw_process` adds the
+declination through the heading, but the ENU branch did not, so the three ENU
+records (SOL24, LPL24, LPL25A) sat about 11.07 deg counterclockwise of every
+XYZ record. `enu_to_buoy_frame.m` now adds it, and L1 stamps
+`rotation.coordSystem` and `rotation.declinationApplied`. Closure test:
+`validation/test_enu_declination_closure.m`.
+An open finding that this fix did not explain: every Solana and LPL record,
+ENU and XYZ alike, sits 1.7 to 6.6 deg clockwise of MOP in mean direction.
+
+### Heading source rule (2026-10-07; supersedes the TOR16 `headingFix`)
+Two sources give an XYZ record's heading: the compass (median over the record,
+used when the config heading is NaN) and the mount heading a diver logged.
+Diver minus compass over the 9 records with both and no known problem: mean
+-3.3 deg, sd 4.8 deg. The rule:
+- Use the logged heading where the compass drifts or steps at constant tilt
+  (the compass, not the mount, moved): COR16B, TOR16A-D, TOR17A, TOR17C, and
+  TOR24S/MOP586_5m and _7m. The heading is chosen without reference to MOP.
+- Otherwise keep the compass. Where log and compass differ by more than 10 deg
+  (about 2 sd), list the record in `shared/heading_disputed_records.m`
+  (12 of 45 with a usable log value). The flag is applied at reporting time;
+  it changes no L1-L4 value.
+- The earlier MOP-referenced `headingFix` for TOR16B/C/D is retired, since it
+  made any later PUV-versus-MOP direction comparison circular.
+Every heading line in the configs cites workbook, row, serial and the cell's
+wording.
+
+### Gap fills hold the edge value (2026-10-09)
+`fillmissing(x,'linear')` defaults to `EndValues='extrap'`, so a NaN run at a
+segment edge became a straight-line ramp through the last two samples. Detrend
+and the IG band turned that ramp into variance: a synthetic 400-sample edge gap
+inflated L4 IG variance about 70x and L2 velocity rms about 6x. All fill sites
+in L2-L4 now use `'EndValues','nearest'`, which holds both within 10%
+(`validation/test_fillmissing_endvalues.m`). A 2026-10-09 scan found 2,371 of
+14,301 L4 gap segments off by more than 50%, across 21 records, mostly at the
+pre-2019 hourly-file seams.
+
+### Settling velocity and viscosity (2026-10-09)
+`settling_velocity` defaults to Ferguson & Church (2004) with the
+nominal-diameter constants C1 = 20, C2 = 1.1 (their p. 937), because the
+measured grain sizes come from laser diffraction, which reports an
+equivalent-sphere diameter. The previous defaults were C1 18, C2 1.0
+(2026-08-13 to 10-09) and the smooth-sphere C2 0.4 before that.
+A pre-registered test against the TBR23 surveys could not tell six settling
+formulas apart (`Paper_1/results/ws_choice_test_20261009/`), so the choice
+rests on the measurement method, not on a fit. The spread among published
+formulas is about +-15% at 250 um. Kinematic viscosity moved from a constant
+1.0e-6 m2/s (water near 23 C) to `seawater_nu(T)` per segment from `L2.Tmean`.
+`soulsby_whitehouse_theta_cr` and `seawater_nu` moved into `shared/`; the
+former had been reached through the MATLAB path from Paper_1.
+
+### t_tide seeded; NOAA tidal depth required in the catalog (2026-10-09)
+t_tide's default confidence intervals are a bootstrap, and the prediction keeps
+only constituents above the SNR threshold, so the output depended on the
+caller's RNG state. Each t_tide call now runs under `rng(0,'twister')` and
+restores the caller's state. The tidal depth prediction comes from NOAA
+station 9410230 (La Jolla) via the lab toolbox's `getztide2`; the t_tide depth
+fit is a fallback that was taken silently on TOR24W/MOP586_10m. The catalog
+rebuild refuses a record whose `L3.tidal.depth_source` is not `'NOAA'`; the
+plain drivers record the source but do not refuse.
+
+### Provenance stamps and the push gate (2026-10-09)
+The 2026-10-07 audits found 29 L4 files built from superseded L2s, a QC bound
+injected by a rerun script instead of the config, a stale settling-velocity
+default in 63 L3 files, a rerun that ran another checkout's code, and two
+silent CDIP fallbacks. None of it was recorded in the files. Every output now
+gets a provenance block (`shared/build_provenance`, embedded as `prov` and
+written as `<file>.prov.json` with the sha256 of the saved bytes), and
+`scripts/copy_to_server.m` checks each file with `shared/check_prov` before
+publishing. Only `scripts/rerun_heading_ws_2026_10_07.m` (stage `combined`,
+`xspecprov`) and `scripts/backfill_provenance.m` write stamps so far; the
+`PUV_L*_driver`/`run_all` scripts do not, so their outputs are refused by the
+push gate (HARD: no provenance). The gate compares code by directory
+(`L3_forcing`, `L3_transport` and `shared` for L3), so any edit there, including
+a driver-only edit, SOFT-refuses every L3 at the next push until a change entry
+acknowledges it.
+
+### No writes into outputs/ from outside the pipeline (2026-10-09)
+Paper_1 once rewrote the TBR23 `L4.ref` in place, and the next rebuild silently
+reverted it. A file whose bytes differ from its sidecar's `file_sha256` is now
+refused at push time. To change an output, change pipeline code or config and
+rebuild. Rule and entry format: `docs/catalog_changes/README.md`.
+
+### Off-bed (vertical-transit) pressure QC is off (2026-10-09/13)
+`puv_channel_qc` can fail `valid_p` while the sensor is in vertical transit (a
+10-s mean more than `offBedDbar` from the 30-min median, dilated 60 s). The
+[pMed/2, 2 pMed] bounds pass a descent once it is half-way down (SIO24A: 3.1
+dBar at a 6 m site for 61 s). It changes no L2 segment catalog-wide, and
+switching it on would make every stored L1 `qc.opts` disagree with its config,
+so `offBedDbar` is absent from the defaults (absent = off) until the next
+deliberate L1 rebuild sets `cfg.qcOpts.offBedDbar = 1.0`.
 
 ---
 
@@ -616,7 +722,7 @@ now refuses to push an incomplete L4 at all.
   pipes, burial-during-storms, knocked-over instruments; battery, kelp,
   corrosion), correctly rejected — not a bug. Fix candidates and per-instrument
   explanations in `docs/deployment_database_overview.md` (a superseded 2026-04-05
-  snapshot — its counts are stale) and `docs/todo.md`.
+  snapshot — its counts are stale) and the `knownFailed` entries in the configs.
 - Catalog: deployments across 8 sites (Torrey nearshore + offshore/LPL-mouth,
   SIO Pier, Solana, LPL lagoon, Imperial Beach, Cardiff, Coronado, Catalina) —
   current status in `docs/pipeline_levels.md`; the 2026-04-05
@@ -629,7 +735,7 @@ now refuses to push an incomplete L4 at all.
   also nanMaxFrac=0.10 rejection
 - 1-hour (7200 @ 2 Hz) UTC-aligned segments, detrend, Wu pressure correction
   (17-min still available via `opts.segLen = 2048`)
-- **Spectral method: full multi-taper** (NW=4, 7 DPSS tapers, nfft=2048,
+- **Spectral method: full multi-taper** (NW=4, 6 DPSS tapers kept [7 in the original text; corrected 2026-10-15], nfft=2048,
   df ≈ 0.001 Hz). Welch with Hanning still available via
   `opts.spectralMethod = 'welch'`. See `docs/multitaper_writeup.pdf` for
   comparison and recommendation rationale.

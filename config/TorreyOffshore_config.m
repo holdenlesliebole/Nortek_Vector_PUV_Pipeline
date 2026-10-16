@@ -101,6 +101,7 @@ function cfg = TorreyOffshore_config(deployment_name)
     cfg.rawDataRoot = row{1};
 
     cfg.qcOpts.Tvalid       = [9 26];   % San Diego coastal
+    cfg.tideStation = '9410230';  % NOAA CO-OPS La Jolla (Scripps Institution Wharf), harmonic station; tidal depth in PUV_L3_currents. Same station every catalog L3 used through 2026-10-15 (then hardcoded in toolbox getztide2.m)
     cfg.qcOpts.cutoffGapSec = 60;       % clear the benign per-file firmware-1.21 hiccups
 
     k = 1;
@@ -108,45 +109,51 @@ function cfg = TorreyOffshore_config(deployment_name)
     cfg.instruments(k).mopStation    = 'D0591';
     cfg.instruments(k).mopLine       = 591;
     cfg.instruments(k).latlon        = [32.93443, -117.26544];
-    % Heading: normally NaN = auto-compute from the .sen compass. Three
-    % deployments need an explicit override -- see headingFix below.
+    % Heading: NaN = auto-compute from the .sen compass, EXCEPT where the field
+    % log records the mount heading and the compass is shown not to track
+    % orientation (logHeading below).
     cfg.instruments(k).heading       = NaN;    % XYZ; auto-compute from .sen compass
 
-    % ---- HEADING OVERRIDES (added 2026-07-27) -------------------------------
-    % Three 2016-17 deployments were processed with a compass heading that does
-    % not reflect the instrument's true orientation. Divers mount these units in
-    % near-zero visibility and the housing is close to rotationally symmetric, so
-    % a misalignment of any angle is possible; the compass reading additionally
-    % failed to capture it (a physically rotated instrument with a working
-    % compass would still rotate correctly, so the compass itself was stuck,
-    % obstructed, or magnetically disturbed).
+    % ---- LOGGED HEADINGS (2026-10-07; replaces the 2026-07-27 headingFix) -----
+    % Rule: use the field-log mount heading where the onboard compass DRIFTS or
+    % STEPS at constant tilt (in-water daily heading range > 5 deg with daily
+    % pitch and roll ranges each <= 2 deg). The criterion uses the compass and
+    % tilt only, never MOP. It selects TOR16A-D, TOR17A and TOR17C here.
+    % Evidence (outputs/validation/heading_audit_2026-10-07/): TOR16A's compass
+    % runs 53.8 -> 136.9 deg over ~35 d at constant tilt while the PUV-MOP
+    % direction offset does not follow it (slope +0.02; a real rotation gives
+    % -1, confirmed at -0.983 by injecting the same drift).
     %
-    % TWO INDEPENDENT ESTIMATES OF EACH OFFSET, agreeing to <= 1.5 deg:
-    %   (a) the L1 compass heading relative to the clean TOR16A deployment
-    %       (88.8 deg, same site, and for TOR16C the SAME instrument S/N 824)
-    %   (b) the circular median of (PUV wave direction - MOP wave direction),
-    %       shore-relative, over the swell band
+    % Convention: the logged value is the magnetic bearing of +x, used as is
+    % (no 180 added). Set by the PUV-only check that the wave direction then
+    % sits within 4.3 deg of onshore for all six, every hour within +-90 deg;
+    % the opposite convention lands 171.7-176.6 deg away.
     %
-    %   deploy   L1 sensor   (a) vs TOR16A   (b) vs MOP   applied
-    %   TOR16B     198.0        109.2          110.7      -110.7  (empirical)
-    %   TOR16C     268.4        179.6          179.2      -180.0  (exact)
-    %   TOR16D     265.2        176.4          177.4      -180.0  (exact)
-    %
-    % C and D are set to EXACTLY 180 so the correction is independent of MOP --
-    % 180 is a discrete, physically meaningful misalignment and both independent
-    % estimates land within 3.6 deg of it. B has no such round value, so its
-    % correction is the empirical offset; it is corroborated by the compass
-    % estimate (109.2) but is partly MOP-referenced. See the caveat in
-    % ../../PUV_paper/docs/findings_consequences_2026-07-25.md.
-    %
-    % Detected by validation/sweep_heading_flips.m; controls confirm the two
-    % flips fixed in May 2026 (TBR23/MOP580_5m, TOR24S/MOP586_7m) now read clean.
-    headingFix = containers.Map( ...
-        {'TOR16B','TOR16C','TOR16D'}, ...
-        {198.0 - 110.7,  268.4 - 180.0,  265.2 - 180.0});
-    if isKey(headingFix, deployment_name)
-        cfg.instruments(k).heading = mod(headingFix(deployment_name), 360);
+    % The 2026-07-27 headingFix (TOR16B 87.3 = 198.0-110.7, TOR16C 88.4 =
+    % 268.4-180, TOR16D 85.2 = 265.2-180) was MOP-referenced and is retired,
+    % so no record carries two heading sources. The 180 deg in C and D was
+    % the compass reading 180 deg off, not the mount: the logged 82.3 is
+    % within 6.1 deg of both fixes.
+    logHeading = containers.Map( ...
+        {'TOR16A','TOR16B','TOR16C','TOR16D','TOR17A','TOR17C'}, ...
+        {82.3, ...   % TOR16A: SoCal_instruments_2016-2017.xls 'All Data' row 27, "PUV-Torrey, 1st Deployment" S/N V0824: "82.3 deg (mag)"
+         82.3, ...   % TOR16B: same workbook row 28, "PUV-Torrey, 2nd Deployment" S/N V1049: "unchanged" (inherits row 27: "82.3 deg (mag)")
+         82.3, ...   % TOR16C: same workbook row 29, "PUV-Torrey, 3rd Deployment" S/N V0824: "unchanged" (inherits row 27: "82.3 deg (mag)")
+         82.3, ...   % TOR16D: same workbook row 30, "PUV-Torrey, 4th Deployment" S/N V1049: "unchanged" (inherits row 27: "82.3 deg (mag)")
+         66.7, ...   % TOR17A: SoCal_instruments_2017-2018.xls 'All Data' row 33, "PUV-Torrey (Nortek Vector ADV), 1st Deployment" S/N V1049: "66.7 deg (mag)"
+         66.7});     % TOR17C: same workbook row 35, "... 3rd Deployment" S/N V1049: '""' (ditto; inherits row 33: "66.7 deg (mag)")
+    if isKey(logHeading, deployment_name)
+        cfg.instruments(k).heading = logHeading(deployment_name);
     end
+    % DISPUTED, value left on the compass median (|log - compass| > 10 deg, but
+    % the compass does not drift, so the rule above does not apply). Reported
+    % via shared/heading_disputed_records.m; L1-L4 unaffected.
+    %   TOR14B  log 101.5 vs compass 89.9 : SoCal_instruments_2014.xls 'All Data' row 41, V0475: "113.3 deg (101.5mag)"
+    %   TOR14C  log 101.5 vs compass 76.1 : same workbook row 42, V0806: "113.3 deg (101.5mag)"
+    %   TOR15A  log 63.6 vs compass 48.7  : SoCal_instruments_2015.xls 'All Data' row 55, V1181: "75 deg (63.6mag)"
+    %   TOR15D  log 43.0 vs compass 26.8  : same workbook row 59, V0824: "55 deg (43.0mag)"
+    %   TOR17B  log 66.7 vs compass 87.6  : SoCal_instruments_2017-2018.xls 'All Data' row 34, V0806: '""' (inherits row 33: "66.7 deg (mag)")
+    %   TOR17D  log 66.7 vs compass 100.3 : same workbook row 36, V0806: '""' (inherits row 33: "66.7 deg (mag)")
     % ------------------------------------------------------------------------
     cfg.instruments(k).clockDrift    = NaN;     % handled by the filename clock recovery
 
@@ -210,7 +217,7 @@ function cfg = TorreyOffshore_config(deployment_name)
     % the record. The 0.59 applied here is correct only at the start. Treat
     % TOR15B depth, Hs/h and any nonlinearity metric as unreliable, and do not
     % use it in a depth-dependent analysis without reconstructing a time-varying
-    % doffp. (A time-varying doffp is a parked pipeline extension — docs/todo.md.)
+    % doffp. (A time-varying doffp is a parked pipeline extension, not built.)
     cfg.instruments(k).depth_nominal = 9;
     cfg.instruments(k).rawFormat     = 'VEC';
     cfg.instruments(k).clockSource   = 'filename';

@@ -38,6 +38,7 @@ function cfg = TOR19W_config()
     % [-2 40] so a failing thermistor is caught while genuine seasonal range
     % (this record spans a full winter) is not flagged.
     cfg.qcOpts.Tvalid = [9 26];
+    cfg.tideStation = '9410230';  % NOAA CO-OPS La Jolla (Scripps Institution Wharf), harmonic station; tidal depth in PUV_L3_currents. Same station every catalog L3 used through 2026-10-15 (then hardcoded in toolbox getztide2.m)
 
     k = 0;
 

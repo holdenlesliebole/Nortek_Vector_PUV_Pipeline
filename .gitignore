@@ -4,6 +4,13 @@
 # MATLAB
 *.asv
 *.mex*
+# data files anywhere (outputs, caches, scratch); the one tracked .mat is a lookup table
+*.mat
+!shared/moplist.mat
+# partial copies left by an interrupted backup or sidecar write
+*.part
+# session scratch
+scratch/
 
 # Raw instrument data (cached locally, not versioned)
 raw_cache/
@@ -55,3 +62,9 @@ wu-thornton-1986-wave-numbers-of-linear-progressive-waves.pdf
 docs/puv_pipeline_slides.pdf
 # One-off San Diego diagnostic dump (hardcoded local paths + SD sample data)
 docs/diagnostics_2026-07-09/
+
+# real directory lives in ~/LocalData (outside iCloud sync); this path is a symlink
+outputs
+
+# Talk slides are built locally and not versioned (2026-10-15)
+docs/puv_pipeline_slides*

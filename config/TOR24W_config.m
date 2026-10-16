@@ -11,6 +11,8 @@ function cfg = TOR24W_config()
     cfg.name        = 'TOR24W';
     cfg.rawDataRoot = '/Volumes/group/PUV_data/Vector/Torrey20241125-20250220';
     cfg.outputDir   = fullfile(fileparts(mfilename('fullpath')), '..', 'outputs');
+    cfg.qcOpts.Tvalid = [9 26];  % San Diego coastal; matches the canonical L1 (rerun_*_2026_07_11 injection)
+    cfg.tideStation = '9410230';  % NOAA CO-OPS La Jolla (Scripps Institution Wharf), harmonic station; tidal depth in PUV_L3_currents. Same station every catalog L3 used through 2026-10-15 (then hardcoded in toolbox getztide2.m)
     cfg.fs          = 2;  % Hz
 
     k = 0;
@@ -18,6 +20,7 @@ function cfg = TOR24W_config()
     % ---- MOP 586, 5m ----
     k = k + 1;
     cfg.instruments(k).label          = 'MOP586_5m';
+    cfg.instruments(k).knownFailed    = 'no valid pressure data; pipe bent by kelp 12/22/2024, too buried to recover (field email 2/27/2025); docs/deployment_database_overview.md (TOR24W MOP586_5m row)';
     cfg.instruments(k).filePrefix     = '5M_58602';
     cfg.instruments(k).rawSubfolder   = 'MOP586-5m16739';
     cfg.instruments(k).mopStation     = 'D0586';
@@ -53,7 +56,7 @@ function cfg = TOR24W_config()
     cfg.instruments(k).depth_nominal  = 10;
     cfg.instruments(k).serialNum      = 16737;
     cfg.instruments(k).latlon         = [32.93035, -117.26572];   % surveyed; DeploymentNotes2024-2025.xls 'All Data' "Torrey Pines 10m MOP586 PUV Vector" -- same jetted pipe reused, was [32.930 -117.266] (47 m off)
-    cfg.instruments(k).heading        = NaN;
+    cfg.instruments(k).heading        = NaN;   % auto-compute. DISPUTED (|log - compass| > 10 deg; value left on the compass median; reported via shared/heading_disputed_records.m): DeploymentNotes2024-2025.xls 'All Data' row 34, S/N 16737: "+X onshore, ???deg. magnetic. KVH Compass failed. 59.5deg previously measured."; compass median 71.9
     cfg.instruments(k).clockDrift     = NaN;
     cfg.instruments(k).doffp          = 0.78;      % meters (78 cm from notes)
 

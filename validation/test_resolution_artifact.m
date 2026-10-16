@@ -13,7 +13,7 @@ if ~exist('read_MOPline2','file'), addpath(toolboxPath); end
 fprintf('\n========== PHASE 1b: RESOLUTION ARTIFACT ==========\n');
 
 %% ---- Load a real L2 ---------------------------------------------------
-L2f = '/Users/holden/Documents/Scripps/Research/PUV_Pipeline/outputs/L2/TBR23/MOP586_7m_L2.mat';
+L2f = fullfile(fileparts(fileparts(mfilename('fullpath'))), 'outputs', 'L2', 'TBR23', 'MOP586_7m_L2.mat');
 S = load(L2f); L2 = S.L2;
 fprintf('\nL2: %s / %s\n', L2.deploymentName, L2.label);
 fprintf('   f grid: %d bins, df = %.3e Hz, band [%.3f %.3f] Hz\n', ...
