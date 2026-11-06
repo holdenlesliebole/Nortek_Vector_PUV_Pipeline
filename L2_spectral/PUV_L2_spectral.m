@@ -72,6 +72,7 @@ if ~isfield(opts, 'fIG'),        opts.fIG        = [0.004, 0.04]; end
 if ~isfield(opts, 'fSS'),        opts.fSS        = [0.04, 0.25];  end
 if ~isfield(opts, 'fQ'),         opts.fQ         = [0.05, 0.20];  end  % wind-wave band for P-U coherence Q-test (Elgar)
 if ~isfield(opts, 'storeXspec'),  opts.storeXspec = false;        end  % retain full complex P-U cross-spectrum L2.Spu [nf x nSeg] (off by default to keep file size down; scalar phase_PU is always stored)
+if ~isfield(opts, 'bedstressPeriod'), opts.bedstressPeriod = 'Tb';     end  % period in the orbital excursion A_w = Ub*T/(2 pi) for tau_b: 'Tb' (spectral near-bed period, default since 2026-11-05) or 'Tp' (peak period, the earlier behavior)
 if ~isfield(opts, 'doRotate'),       opts.doRotate       = true;          end
 if ~isfield(opts, 'nanMaxFrac'),     opts.nanMaxFrac     = 0.10;          end
 if ~isfield(opts, 'spectralMethod'), opts.spectralMethod = 'mtm_full';     end  % 'welch', 'mtm_hybrid', 'mtm_full'
@@ -245,6 +246,7 @@ L2.Ub       = nanVec;
 L2.tau_b    = nanVec;
 L2.fric_w   = nanVec;
 L2.Aw       = nanVec;
+L2.Tb       = nanVec;   % spectral near-bed orbital period 2*pi*A_b/u_b (s), see shared/near_bed_period.m; stored regardless of opts.bedstressPeriod
 L2.uMean    = nanVec;
 L2.vMean    = nanVec;
 L2.wMean    = nanVec;
@@ -637,12 +639,22 @@ for i = 1:nSeg
     % Uses per-site ks = 2.5*D84 from site_grain_size when available;
     % falls back to legacy bed_stress(ks = 10*D50) for sites without an
     % entry. Decided once before the segment loop (useKs flag above).
+    % The period in A_w = Ub*T/(2 pi) is opts.bedstressPeriod: 'Tb' (default) is
+    % the spectral near-bed period; 'Tp' is the peak period. L2.Tp is stored either way.
+    L2.Tb(i) = near_bed_period(Suu, Svv, f, H, PUV.doffp, fCut, opts.fSS);
+    switch opts.bedstressPeriod
+        case 'Tb', Tbed = L2.Tb(i);
+        case 'Tp', Tbed = bulk.Tp;
+        otherwise
+            error('PUV_L2_spectral:badBedstressPeriod', ...
+                'opts.bedstressPeriod must be ''Tb'' or ''Tp'', got ''%s''.', char(string(opts.bedstressPeriod)));
+    end
     if useKs
         [L2.tau_b(i), L2.fric_w(i), L2.Aw(i)] = ...
-            bed_stress_ks(L2.Ub(i), bulk.Tp, ks_m, opts.rho);
+            bed_stress_ks(L2.Ub(i), Tbed, ks_m, opts.rho);
     else
         [L2.tau_b(i), L2.fric_w(i), L2.Aw(i)] = ...
-            bed_stress(L2.Ub(i), bulk.Tp, opts.D50, opts.rho);
+            bed_stress(L2.Ub(i), Tbed, opts.D50, opts.rho);
     end
 
     % --- Reynolds stress ---
@@ -727,6 +739,7 @@ L2.params.hourAligned           = true;
 % Bed-stress provenance (set in the BED-STRESS METHODOLOGY block above)
 bsMethods = {'bed_stress_legacy', 'bed_stress_ks'};
 L2.params.bedstress_method      = bsMethods{useKs + 1};
+L2.params.bedstress_period      = opts.bedstressPeriod;   % 'Tb' or 'Tp'
 L2.params.bedstress_ks_m        = ks_m;
 L2.params.bedstress_D84_m       = D84_used;
 L2.params.bedstress_D50_m_used  = D50_used;

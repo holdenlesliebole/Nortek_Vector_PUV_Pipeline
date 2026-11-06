@@ -6,6 +6,16 @@ What each change did to the published catalog, with measured sizes, is in
 catalog version. Changes before 2026-10-07 are recorded in `PIPELINE_NOTES.md`
 and the dated `docs/RESULTS_*.md` logs.
 
+## Unreleased (2026-11-05, bed-stress period)
+
+- **tau_b uses the spectral near-bed period T_b.** `PUV_L2_spectral` stores `L2.Tb`
+  (`shared/near_bed_period.m`: T_b = 2 pi A_b / u_b from S_ubed = (Suu+Svv)/cosh(k z_s)^2 over
+  0.04 Hz to min(0.25 Hz, fCut)) and forms A_w = U_b T_b / (2 pi) for `tau_b`, `fric_w`, `Aw`.
+  `opts.bedstressPeriod` is `'Tb'` (default) or `'Tp'` (earlier behavior); `L2.Tp` is unchanged.
+  `scripts/apply_per_site_ks_to_L2.m` takes `'period'` the same way. TBR23 L2 and L3 rebuilt:
+  every other L2 field is bit-identical to the pre-switch build; mean tau_b rises ~1-3 %.
+  Not yet applied to other deployments; their L2 files still carry the T_p stress.
+
 ## Unreleased (2026-10-16, Solana)
 
 Change entry: `docs/catalog_changes/2026-10-16_solana_sol25a_heading_sol26a.md`.
