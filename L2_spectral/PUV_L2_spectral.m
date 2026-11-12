@@ -22,7 +22,7 @@ function L2 = PUV_L2_spectral(PUV, instr, opts)
 %     - Z-test (pressure vs velocity spectral consistency)
 %     - Radiation stress tensor (Sxx, Syy, Sxy; Herbers & Guza 1989)
 %     - Near-bed orbital velocity (IFFT linear wave theory)
-%     - Bed shear stress (Swart 1974)
+%     - Bed shear stress (amplitude, Swart 1974 rough-flow f_w; see bed_stress_ks)
 %     - Reynolds stress and TKE
 %     - Velocity moments (skewness, asymmetry)
 %
@@ -242,7 +242,8 @@ L2.depth    = nanVec;
 L2.fCut     = nanVec;
 L2.uBed_rms = nanVec;
 L2.vBed_rms = nanVec;
-L2.Ub       = nanVec;
+L2.Ub       = nanVec;   % RMS near-bed orbital speed (m/s)
+L2.ubr      = nanVec;   % amplitude of the representative wave sqrt(2)*Ub (m/s); the velocity in tau_b = 0.5 rho f_w ubr^2
 L2.tau_b    = nanVec;
 L2.fric_w   = nanVec;
 L2.Aw       = nanVec;
@@ -296,7 +297,7 @@ L2.Syy = nanVec;
 L2.Sxy = nanVec;
 
 %% ======================== BED-STRESS METHODOLOGY ========================
-% Wave-induced bed shear stress uses Swart (1974) piecewise f_w. The
+% Wave-induced bed shear stress uses the Swart (1974) rough-flow f_w (amplitude u_br = sqrt(2)*Ub, 2026-11-11). The
 % Nikuradse equivalent sand-grain roughness ks is set per-site from
 % site_grain_size when an entry exists for this PUV label:
 %   ks = 2.5 * D84  (Wiberg & Smith 1991; Soulsby 1997 §4.2.2; Nielsen 1992)
@@ -633,9 +634,10 @@ for i = 1:nSeg
     [uBed, vBed] = bed_velocity_ifft(uSeg, vSeg, fs, H, PUV.doffp, opts.g);
     L2.uBed_rms(i) = rms(uBed);
     L2.vBed_rms(i) = rms(vBed);
-    L2.Ub(i)       = sqrt(mean(uBed.^2 + vBed.^2));
+    L2.Ub(i)       = sqrt(mean(uBed.^2 + vBed.^2));   % RMS near-bed orbital speed (m/s)
+    L2.ubr(i)      = sqrt(2) * L2.Ub(i);              % amplitude of the representative wave (m/s), the velocity in tau_b
 
-    % --- Bed stress (Swart 1974 piecewise f_w) ---
+    % --- Bed stress (Swart 1974 rough-flow f_w, amplitude u_br = sqrt(2)*Ub; corrected 2026-11-11) ---
     % Uses per-site ks = 2.5*D84 from site_grain_size when available;
     % falls back to legacy bed_stress(ks = 10*D50) for sites without an
     % entry. Decided once before the segment loop (useKs flag above).

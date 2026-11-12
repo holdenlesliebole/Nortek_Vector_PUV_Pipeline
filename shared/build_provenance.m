@@ -109,7 +109,7 @@ end
 function kf = default_key_functions(level)
     switch level
         case 'L1',       kf = {'PUV_raw_process','l1_qc_opts','enu_to_buoy_frame','read_VEC'};
-        case 'L2',       kf = {'PUV_L2_spectral','site_grain_size','bed_stress_ks'};
+        case 'L2',       kf = {'PUV_L2_spectral','site_grain_size','bed_stress_ks','bed_stress'};
         case 'L3',       kf = {'PUV_L3_transport','PUV_L3_storms','settling_velocity','rouse_number','site_grain_size'};
         case 'L4',       kf = {'PUV_L4_eta','PUV_L4_bispectra','PUV_L4_boundwave','PUV_L4_reflection'};
         case 'L4_xspec', kf = {'PUV_L4_xspec'};

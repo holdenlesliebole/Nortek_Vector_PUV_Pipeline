@@ -6,6 +6,25 @@ What each change did to the published catalog, with measured sizes, is in
 catalog version. Changes before 2026-10-07 are recorded in `PIPELINE_NOTES.md`
 and the dated `docs/RESULTS_*.md` logs.
 
+## Unreleased (2026-11-11, bed-stress amplitude and Swart rough-flow friction factor)
+
+- **Defect corrected in `shared/bed_stress_ks.m` and `shared/bed_stress.m`.** The three-branch
+  friction factor labeled Swart (1974) used `f_w = 0.0521 r^-0.187` for `r > 70` (more than 99 % of
+  TBR23 segments). That is Soulsby's smooth-bed turbulent formula (argument: wave Reynolds number)
+  applied to relative roughness, 20 % to 40 % above the rough-bed forms at the observed r. The RMS
+  near-bed speed was also used as if it were the amplitude. Now `u_br = sqrt(2) Ub`,
+  `A = u_br T / (2 pi)`, `f_w = min(0.3, 0.00251 exp(5.21 r^-0.19))` (Swart 1974 in the form of Soulsby
+  and Whitehouse 1997, Eq. 13), `tau_b = 0.5 rho f_w u_br^2`. Both routines still take the RMS speed
+  `Ub` as first argument and convert inside; `Aw` is now the amplitude excursion. Roughness rules
+  unchanged (`2.5 D84` and legacy `10 D50`).
+- `PUV_L2_spectral` stores `L2.ubr = sqrt(2) L2.Ub` (m/s). `bed_stress` added to the L2 key-function
+  list in `build_provenance.m`, so a change to either routine changes the L2 code stamp.
+- `tests/test_bed_stress_swart.m`: hand-derived f_w at r = 1, 10, 100, 300, 1000 and one worked
+  case; registered in `validation/run_all_tests.m`.
+- Rebuilt for TBR23 only (L2 and L3). All other deployments' L2 and L3 still carry the old stress
+  (and, apart from TBR23, the T_p period) and are NOT rebuilt; their products and anything that
+  reads them (Paper 2, Altimeter L4, validation) are stale with respect to this change.
+
 ## Unreleased (2026-11-05, bed-stress period)
 
 - **tau_b uses the spectral near-bed period T_b.** `PUV_L2_spectral` stores `L2.Tb`

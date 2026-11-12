@@ -54,6 +54,7 @@ function R = run_all_tests(varargin)
         'test_L3_driver_tvalid',              'validation',   'm',  ''
         'test_sediment_modules_20260813',     'validation',   'm',  ''
         'test_ws_to_D_20261014',              'validation',   'm',  ''
+        'test_bed_stress_swart',              'tests',        'm',  ''
         'test_bispectral_bound',              'validation',   'm',  ''
         'test_shoal_bin_synthetic',           'validation',   'm',  ''
         'test_provenance',                    'validation',   'm',  'L3deps'
