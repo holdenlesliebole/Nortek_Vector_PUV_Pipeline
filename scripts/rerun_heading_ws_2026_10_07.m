@@ -201,7 +201,7 @@ if strcmp(stage, 'combined')
     nMiss = 0;
     for r = 1:size(combinedRecs,1)
         [dep, lab, lv] = combinedRecs{r,:};
-        if ~any(strcmp(lv, {'L3','L3L4','L2L3L4'})), error('PREFLIGHT: %s/%s levels "%s" not one of L3, L3L4, L2L3L4', dep, lab, lv); end
+        if ~any(strcmp(lv, {'L3','L3L4','L2L3','L2L3L4'})), error('PREFLIGHT: %s/%s levels "%s" not one of L3, L3L4, L2L3, L2L3L4', dep, lab, lv); end   % 'L2L3' added 2026-11-11 (TBR23 bed-stress rebuild: L2 from L1 then L3, no L4)
         f1 = l1path(outRoot, dep, lab); f2 = fullfile(outRoot,'L2',dep,[lab '_L2.mat']); f3 = fullfile(outRoot,'L3',dep,[lab '_L3.mat']);
         for f = {f1, f2, f3}, if ~isfile(f{1}), error('PREFLIGHT: missing %s', f{1}); end, end
         if isempty(read_prov(f1)), fprintf('  %s/%s: L1 has no provenance sidecar\n', dep, lab); nMiss = nMiss + 1; end

@@ -61,6 +61,12 @@ function cfg = TOR23W_config()
 
     % ---- MOP 586, 5m ----
     % Deployed 11/14/2023 - 02/13/2024 (stopped logging 01/17/2024)
+    % Beam steps (HLB ruling 2026-11-14; docs/SPEC_L1_beam_step_correction_2026-11-13.md sec. 12):
+    % 15 double-step samples (k = +2, beam 2), 2023-12-29 05:54 to 13:50 UTC, cannot be corrected
+    % because Delta is not estimable from |k| = 2 edges alone. Flag them unconfirmed so L2 gaps
+    % them. They lie in invalid storm hours of the toppled frame: no L2 or L3 number changes.
+    cfg.instruments(k).beamStep.flagWhenNoDelta = true;
+
     k = k + 1;
     cfg.instruments(k).label          = 'MOP586_5m';
     cfg.instruments(k).filePrefix     = '5M_58602';
@@ -103,6 +109,13 @@ function cfg = TOR23W_config()
     cfg.instruments(k).heading        = 75.3;      % magnetic; DeploymentNotes2023-2024.xls 'All Data' row 42, S/N 16306: "+X onshore, 75.3deg. magnetic."
     cfg.instruments(k).clockDrift     = NaN;
     cfg.instruments(k).doffp          = 1.00;
+    % Velocity cutoff (HLB decision 2026-11-13; docs/SPEC_L1_beam_step_correction_2026-11-13.md
+    % sec. 11 item 4). From L2 segment 1097 (0-based; midpoint 2023-12-30 15:29:59.5 UTC) the
+    % velocity passes L1 QC but is implausible: wave velocity Ub(10 m)/Ub(15 m) reads 0.39 in all
+    % 26 paired hours, against 1.30-1.46 (5-95%, median 1.38, 1,029 hours) before, during a storm
+    % (morphology_ml deep_transport_map step 2 plan sec. 11.2). Pressure had already failed.
+    % L2 treats the velocity as gaps from this time on; pressure is untouched.
+    cfg.instruments(k).velInvalidFrom = datetime(2023,12,30,15,29,0, 'TimeZone', 'UTC');
 
     % ---- MOP 586, 15m ----
     % Deployed 11/14/2023 - 02/13/2024

@@ -37,6 +37,7 @@ function registry = deployment_registry()
 %     SIO25A-E = SIO Pier 2025 (A-E chronological)
 %     SOL24    = Solana winter 2024-25
 %     SOL25A-B = Solana 2025 (A=spring, B=winter)
+%     SOL26A   = Solana spring 2026
 %     LPL23    = Los Penasquitos 2023-24
 %     LPL24-25 = Los Penasquitos subsequent deployments
 % Author: Holden Leslie-Bole, 2026
@@ -73,6 +74,7 @@ function registry = deployment_registry()
     registry('SOL24')  = @() Solana_config('SOL24');     % Dec 2024-Feb 2025 (ENU)
     registry('SOL25A') = @() Solana_config('SOL25A');    % Mar-May 2025
     registry('SOL25B') = @() Solana_config('SOL25B');    % Dec 2025-Feb 2026
+    registry('SOL26A') = @() Solana_config('SOL26A');    % Feb-May 2026
 
     % --- Los Penasquitos Lagoon (single instrument) ---
     registry('LPL23')  = @() LPL_config('LPL23');       % Dec 2023-Feb 2024

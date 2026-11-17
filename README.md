@@ -288,7 +288,7 @@ or from a shell, exiting nonzero on any failure:
 matlab -batch "cd /path/to/PUV_Pipeline; startup_puv; run_all_tests"
 ```
 
-`validation/run_all_tests.m` runs 23 tests (synthetic closure tests in
+`validation/run_all_tests.m` runs 24 tests (synthetic closure tests in
 `L1_raw_to_qc/`, `L2_spectral/` and `validation/`, plus a shell test of the
 watchdog with a stand-in for MATLAB), prints PASS, FAIL or SKIP per test and
 the total, and lists the tests it did not run with the reason. Three tests

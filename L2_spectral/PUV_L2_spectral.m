@@ -22,7 +22,7 @@ function L2 = PUV_L2_spectral(PUV, instr, opts)
 %     - Z-test (pressure vs velocity spectral consistency)
 %     - Radiation stress tensor (Sxx, Syy, Sxy; Herbers & Guza 1989)
 %     - Near-bed orbital velocity (IFFT linear wave theory)
-%     - Bed shear stress (Swart 1974)
+%     - Bed shear stress (amplitude, Swart 1974 rough-flow f_w; see bed_stress_ks)
 %     - Reynolds stress and TKE
 %     - Velocity moments (skewness, asymmetry)
 %
@@ -72,6 +72,7 @@ if ~isfield(opts, 'fIG'),        opts.fIG        = [0.004, 0.04]; end
 if ~isfield(opts, 'fSS'),        opts.fSS        = [0.04, 0.25];  end
 if ~isfield(opts, 'fQ'),         opts.fQ         = [0.05, 0.20];  end  % wind-wave band for P-U coherence Q-test (Elgar)
 if ~isfield(opts, 'storeXspec'),  opts.storeXspec = false;        end  % retain full complex P-U cross-spectrum L2.Spu [nf x nSeg] (off by default to keep file size down; scalar phase_PU is always stored)
+if ~isfield(opts, 'bedstressPeriod'), opts.bedstressPeriod = 'Tb';     end  % period in the orbital excursion A_w = Ub*T/(2 pi) for tau_b: 'Tb' (spectral near-bed period, default since 2026-11-05) or 'Tp' (peak period, the earlier behavior)
 if ~isfield(opts, 'doRotate'),       opts.doRotate       = true;          end
 if ~isfield(opts, 'nanMaxFrac'),     opts.nanMaxFrac     = 0.10;          end
 if ~isfield(opts, 'spectralMethod'), opts.spectralMethod = 'mtm_full';     end  % 'welch', 'mtm_hybrid', 'mtm_full'
@@ -167,6 +168,44 @@ end
 
 W = PUV.BuoyCoord.W;
 
+%% ============ VELOCITY GAPS FROM L1 FLAGS AND CONFIG CUTOFFS (2026-11-13) ============
+% Decided by HLB 2026-11-13 (docs/SPEC_L1_beam_step_correction_2026-11-13.md, sec. 11):
+%   (a) samples L1 flagged qc.vel_beamstep_unconfirmed (step-like runs the beam-step
+%       correction could not confirm and left as recorded) are treated as GAPS: they count
+%       toward each segment's NaN fraction and are filled by the existing fill rule;
+%   (b) instr.velInvalidFrom (datetime, UTC; source on its config line) invalidates the
+%       velocity from that time to the end of the record: a per-record cutoff for a known
+%       velocity failure that the per-channel L1 QC passes (TOR23W MOP586_10m).
+% Velocity only: pressure is untouched. Both count in segValid (joint) as well, so no
+% consumer of the old joint flag can pick up a gapped hour.
+velGap = false(numel(U_sn), 1);
+velGapInfo = struct('nUnconfirmed', 0, 'velInvalidFrom', NaT, 'nCutoff', 0);
+if isfield(PUV, 'qc') && isfield(PUV.qc, 'vel_beamstep_unconfirmed')
+    uc = logical(PUV.qc.vel_beamstep_unconfirmed(:));
+    velGap = velGap | uc;
+    velGapInfo.nUnconfirmed = sum(uc);
+end
+if isfield(instr, 'velInvalidFrom') && ~isempty(instr.velInvalidFrom) && ~isnat(instr.velInvalidFrom)
+    tcut = instr.velInvalidFrom;
+    tL1  = PUV.time(:);
+    if isempty(tL1.TimeZone) && ~isempty(tcut.TimeZone)
+        tcut = datetime(tcut, 'TimeZone', 'UTC');  tcut.TimeZone = '';
+    elseif ~isempty(tL1.TimeZone) && isempty(tcut.TimeZone)
+        tcut.TimeZone = 'UTC';
+    end
+    cut = tL1 >= tcut;
+    velGap = velGap | cut;
+    velGapInfo.velInvalidFrom = instr.velInvalidFrom;
+    velGapInfo.nCutoff = sum(cut);
+    fprintf('  Velocity cutoff (instr.velInvalidFrom): %d samples from %s on set to gaps\n', ...
+        sum(cut), string(instr.velInvalidFrom));
+end
+if any(velGap)
+    U_sn(velGap) = NaN;  V_sn(velGap) = NaN;  W(velGap) = NaN;
+    fprintf('  Velocity gaps from L1 flags/cutoff: %d samples (%d beam-step unconfirmed)\n', ...
+        sum(velGap), velGapInfo.nUnconfirmed);
+end
+
 %% ======================== PRE-ALLOCATE ========================
 nfft     = opts.nfft;
 noverlap = round(nfft * opts.overlap);
@@ -241,10 +280,12 @@ L2.depth    = nanVec;
 L2.fCut     = nanVec;
 L2.uBed_rms = nanVec;
 L2.vBed_rms = nanVec;
-L2.Ub       = nanVec;
+L2.Ub       = nanVec;   % RMS near-bed orbital speed (m/s)
+L2.ubr      = nanVec;   % amplitude of the representative wave sqrt(2)*Ub (m/s); the velocity in tau_b = 0.5 rho f_w ubr^2
 L2.tau_b    = nanVec;
 L2.fric_w   = nanVec;
 L2.Aw       = nanVec;
+L2.Tb       = nanVec;   % spectral near-bed orbital period 2*pi*A_b/u_b (s), see shared/near_bed_period.m; stored regardless of opts.bedstressPeriod
 L2.uMean    = nanVec;
 L2.vMean    = nanVec;
 L2.wMean    = nanVec;
@@ -294,7 +335,7 @@ L2.Syy = nanVec;
 L2.Sxy = nanVec;
 
 %% ======================== BED-STRESS METHODOLOGY ========================
-% Wave-induced bed shear stress uses Swart (1974) piecewise f_w. The
+% Wave-induced bed shear stress uses the Swart (1974) rough-flow f_w (amplitude u_br = sqrt(2)*Ub, 2026-11-11). The
 % Nikuradse equivalent sand-grain roughness ks is set per-site from
 % site_grain_size when an entry exists for this PUV label:
 %   ks = 2.5 * D84  (Wiberg & Smith 1991; Soulsby 1997 §4.2.2; Nielsen 1992)
@@ -353,7 +394,7 @@ for i = 1:nSeg
     nanFrac_vel = sum(isnan(uSeg) | isnan(vSeg)) / segLen;
     nanFrac_p   = sum(isnan(pSeg)) / segLen;
     if hasQC
-        nanFrac_old = sum(~PUV.qc.valid_joint(idx)) / segLen;   % the historical mask, verbatim
+        nanFrac_old = sum(~PUV.qc.valid_joint(idx) | velGap(idx)) / segLen;   % historical mask, plus 2026-11-13 velocity gaps
     else
         nanFrac_old = sum(isnan(pSeg) | isnan(uSeg) | isnan(vSeg)) / segLen;
     end
@@ -631,18 +672,29 @@ for i = 1:nSeg
     [uBed, vBed] = bed_velocity_ifft(uSeg, vSeg, fs, H, PUV.doffp, opts.g);
     L2.uBed_rms(i) = rms(uBed);
     L2.vBed_rms(i) = rms(vBed);
-    L2.Ub(i)       = sqrt(mean(uBed.^2 + vBed.^2));
+    L2.Ub(i)       = sqrt(mean(uBed.^2 + vBed.^2));   % RMS near-bed orbital speed (m/s)
+    L2.ubr(i)      = sqrt(2) * L2.Ub(i);              % amplitude of the representative wave (m/s), the velocity in tau_b
 
-    % --- Bed stress (Swart 1974 piecewise f_w) ---
+    % --- Bed stress (Swart 1974 rough-flow f_w, amplitude u_br = sqrt(2)*Ub; corrected 2026-11-11) ---
     % Uses per-site ks = 2.5*D84 from site_grain_size when available;
     % falls back to legacy bed_stress(ks = 10*D50) for sites without an
     % entry. Decided once before the segment loop (useKs flag above).
+    % The period in A_w = Ub*T/(2 pi) is opts.bedstressPeriod: 'Tb' (default) is
+    % the spectral near-bed period; 'Tp' is the peak period. L2.Tp is stored either way.
+    L2.Tb(i) = near_bed_period(Suu, Svv, f, H, PUV.doffp, fCut, opts.fSS);
+    switch opts.bedstressPeriod
+        case 'Tb', Tbed = L2.Tb(i);
+        case 'Tp', Tbed = bulk.Tp;
+        otherwise
+            error('PUV_L2_spectral:badBedstressPeriod', ...
+                'opts.bedstressPeriod must be ''Tb'' or ''Tp'', got ''%s''.', char(string(opts.bedstressPeriod)));
+    end
     if useKs
         [L2.tau_b(i), L2.fric_w(i), L2.Aw(i)] = ...
-            bed_stress_ks(L2.Ub(i), bulk.Tp, ks_m, opts.rho);
+            bed_stress_ks(L2.Ub(i), Tbed, ks_m, opts.rho);
     else
         [L2.tau_b(i), L2.fric_w(i), L2.Aw(i)] = ...
-            bed_stress(L2.Ub(i), bulk.Tp, opts.D50, opts.rho);
+            bed_stress(L2.Ub(i), Tbed, opts.D50, opts.rho);
     end
 
     % --- Reynolds stress ---
@@ -727,6 +779,7 @@ L2.params.hourAligned           = true;
 % Bed-stress provenance (set in the BED-STRESS METHODOLOGY block above)
 bsMethods = {'bed_stress_legacy', 'bed_stress_ks'};
 L2.params.bedstress_method      = bsMethods{useKs + 1};
+L2.params.bedstress_period      = opts.bedstressPeriod;   % 'Tb' or 'Tp'
 L2.params.bedstress_ks_m        = ks_m;
 L2.params.bedstress_D84_m       = D84_used;
 L2.params.bedstress_D50_m_used  = D50_used;
@@ -736,6 +789,7 @@ L2.params.bedstress_gs_status   = gs_status;
 % L2/L3 validation figures. mopStation = CDIP MOP model point (California);
 % refStation = any CDIP station id — a directional buoy (e.g. '233p1') or a
 % MOP point — read generically via cdip_station_reference at other sites.
+L2.velGap = velGapInfo;   % 2026-11-13: L1 beam-step unconfirmed samples and config cutoff, as gaps
 if isfield(instr, 'mopStation')
     L2.mopStation = instr.mopStation;
 else

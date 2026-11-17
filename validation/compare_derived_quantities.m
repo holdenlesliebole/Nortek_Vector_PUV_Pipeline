@@ -645,6 +645,9 @@ else
 end
 
 R.seg = seg;
+% Matched hours, so per-segment results can be plotted as time series:
+% .seg_time is the MOP hour, .seg_idx the matched L2 segment index.
+R.seg_time = MOP.time(keep); R.seg_idx = idxPUV; R.shorenormal = double(MOP.shorenormal);
 
 if opts.verbose
     fprintf('  CLOSURE  Ub(this path) / L2.Ub = %.3f  (R = %.3f)\n', R.closure_ratio, R.closure_R);

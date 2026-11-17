@@ -143,6 +143,10 @@ selected by `instr.rawFormat` or auto-detected. See `L1_raw_to_qc/read_VEC.m`.
   median). Records with log and compass more than 10 deg apart are listed in
   `shared/heading_disputed_records.m` (12 of 45 with a usable log value);
   directional analyses exclude them or report both.
+- Time-varying heading (2026-10-16): where the mount itself turned during the
+  deployment (compass and tilt step together), `instr.headingSmoothHours` rotates
+  each sample by the compass heading smoothed over that window
+  (`xyz_heading_series.m`, circular mean). Used by SOL25A (1 h).
 - QC options come from `l1_qc_opts(cfg)` and are stored at `PUV.qc.opts`;
   `validation/audit_L1_qcopts.m` compares them with the config. The off-bed
   detector (`cfg.qcOpts.offBedDbar`) is absent from every config, so OFF.

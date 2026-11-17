@@ -53,7 +53,8 @@ function [DAT, SEN, meta] = read_VEC(vecFiles, varargin)
 %            System records are written at 1 Hz, so M ~ N/fs.
 %     meta - struct: serialNo, headSerialNo, fwVersion, coordSystem
 %            ('ENU'|'XYZ'|'BEAM'), fs (Hz), fs_config, nBeams, deployName,
-%            clockDeploy (datetime), headFreq_kHz, velScale, nFiles, files,
+%            clockDeploy (datetime), headFreq_kHz, velScale, headT (3x3 beam->XYZ
+%            head transformation matrix, x = headT*b), nFiles, files,
 %            nBadChecksum.
 %
 %            fs is measured from the decoded records (velocity count / system
@@ -413,7 +414,7 @@ function meta = parse_config(b, ID_HW, LEN_HW, ID_HD, LEN_HD, ID_US, LEN_US)
     meta = struct('serialNo', '', 'headSerialNo', '', 'fwVersion', '', ...
                   'coordSystem', '', 'fs', NaN, 'nBeams', NaN, ...
                   'deployName', '', 'clockDeploy', NaT, ...
-                  'headFreq_kHz', NaN, 'velScale', 0.001);
+                  'headFreq_kHz', NaN, 'velScale', 0.001, 'headT', NaN(3));
 
     pHW = find_records(b, ID_HW, LEN_HW);
     if ~isempty(pHW)
@@ -427,6 +428,17 @@ function meta = parse_config(b, ID_HW, LEN_HW, ID_HD, LEN_HD, ID_US, LEN_US)
         q = pHD(1);
         meta.headFreq_kHz = i16(b, q + 6);
         meta.headSerialNo = strtrim(clean_ascii(b(q+10 : q+21)));
+        % Head transformation matrix (beam -> XYZ, x = T*b), added 2026-11-13 for
+        % the beam-step correction. Nine int16 at bytes 8..25 of the 176-byte
+        % System field (record offset 22), row-major, scaled by 1/4096. Checked
+        % against the ExploreV .hdr "Transformation matrix" on 4 heads (VEC 5724,
+        % VEC 5729, VEC 4400, SIO24A): all 9 entries agree to the .hdr's 4
+        % decimals. test_vector_head_matrix.m repeats the check.
+        tw = zeros(1, 9);
+        for kk = 1:9
+            tw(kk) = i16(b, q + 22 + 8 + 2*(kk-1));
+        end
+        meta.headT = reshape(tw, 3, 3).' / 4096;
     end
 
     pUS = find_records(b, ID_US, LEN_US);

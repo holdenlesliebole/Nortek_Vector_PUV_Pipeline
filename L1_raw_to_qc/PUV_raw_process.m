@@ -69,6 +69,20 @@ function PUV = PUV_raw_process(instr, cfg)
     rawFormat = select_raw_format(instrDir, instr);
     fprintf('  Ingest format: %s\n', rawFormat);
 
+    % Head transformation matrix (beam -> XYZ), read from every .hdr and the first
+    % raw binary, which must agree (vector_head_matrix). Needed by the beam-step
+    % correction below and stamped into L1 provenance. Added 2026-11-13.
+    [headT, headInfo] = deal([], struct());
+    try
+        [headT, headInfo] = vector_head_matrix( ...
+            list_raw_files(instrDir, instr, {'.hdr'}), ...
+            list_raw_files(instrDir, instr, {'.VEC', '.vec', '.049'}));
+        fprintf('  Head matrix: %s (head %s)\n', headInfo.source, headInfo.headSerial);
+    catch ME
+        headInfo = struct('source', 'not found', 'error', ME.message);
+        fprintf('  Head matrix: NOT FOUND (%s)\n', ME.message);
+    end
+
     switch rawFormat
         case 'ASCII'
             [DAT_bursts, SEN_bursts, date_start, date_end, fs, coordSystem] = ...
@@ -119,6 +133,22 @@ function PUV = PUV_raw_process(instr, cfg)
     % record starts at the first continuous data, instead of reading the glitch
     % as an end-of-life cutoff. Only the leading edge is trimmed; an interior
     % gap still marks a real cutoff below.
+    %
+    % BOUND (2026-11-14, beam-step rebuild): only a SHORT leading stretch is a
+    % glitch. The first full rebuild since this trim was added (2026-07-24)
+    % found four single-file records (CAT21B, SIO25C, IB19S/MOP055_7m,
+    % TOR23W/MOP586_10m) whose first gap comes after 84,064 to 5,687,824 good
+    % samples; the unbounded trim discarded all of them (two records came out
+    % with no valid data, two with under 3,000 samples), where the L1s built
+    % before 2026-07-24 kept them and cut at that gap. A stretch longer than
+    % powerOnGlitchMaxSec (cfg.qcOpts, default 10 s of system records) before
+    % the first gap is real data: it is kept, and the interior-cutoff logic
+    % below handles the gap exactly as before the trim existed.
+    glitchMaxSec = 10;
+    if isfield(cfg, 'qcOpts') && isfield(cfg.qcOpts, 'powerOnGlitchMaxSec') && ...
+            ~isempty(cfg.qcOpts.powerOnGlitchMaxSec)
+        glitchMaxSec = cfg.qcOpts.powerOnGlitchMaxSec;
+    end
     b = 1;
     while b <= nBursts
         S = SEN_bursts{b};
@@ -127,6 +157,9 @@ function PUV = PUV_raw_process(instr, cfg)
         g = find(diff(tt) > seconds(cutoffGapSec), 1, 'first');
         if isempty(g)
             break;                     % this burst starts clean — done trimming
+        end
+        if seconds(tt(g) - tt(1)) > glitchMaxSec
+            break;                     % long stretch before the gap: real data, not a glitch
         end
         % Drop samples 1..g (the isolated leading ping and the gap) from burst b.
         keepFrom = g + 1;
@@ -579,6 +612,63 @@ function PUV = PUV_raw_process(instr, cfg)
     vel_c_factor = trim(vel_c_factor);  vel_c_corrected = trim(vel_c_corrected);
     vel_rotation_static = trim(vel_rotation_static);
 
+    %% ========== BEAM-STEP CORRECTION (2026-11-13) ==========
+    % The Vector sometimes reports one beam offset by k*Delta (Delta ~ 1.51 m/s along
+    % the beam, |k| = 1 or 2) for one sample or a short run, at high correlation, so
+    % the correlation gate above passes it. In XYZ it is a ~4 m/s spike along one
+    % column of the head matrix; Bailard's suspended moment weights it as u^4.
+    % Corrected here, in beam space, on the velocity AS RECORDED: after QC and trim,
+    % before the sound-speed factor, the tilt rotation and the XYZ W = -W flip, so
+    % the step has its recorded size and lies along a column of headT exactly.
+    % Rule, parameters and tests: docs/SPEC_L1_beam_step_correction_2026-11-13.md,
+    % vector_beam_step_correct.m, test_vector_beam_step.m.
+    %   ENU records are excluded: undoing the onboard rotation to reach beams is only
+    %   approximate, so they are stamped 'excluded_ENU' and left as recorded.
+    %   Decimated records are excluded: the FIR decimation smears a step.
+    bsOpts = struct('enable', true);
+    if isfield(cfg, 'beamStep'),   bsOpts = merge_struct(bsOpts, cfg.beamStep);   end
+    if isfield(instr, 'beamStep'), bsOpts = merge_struct(bsOpts, instr.beamStep); end
+    isDecimated = isfield(instr, 'decimateTo') && ~isempty(instr.decimateTo);
+    nT = size(DAT, 1);
+    beamstep = struct('status', '', 'k', zeros(nT, 3, 'int8'), ...
+        'unconfirmed', false(nT, 1), 'Delta', NaN, 'counts', struct());
+    if ~bsOpts.enable
+        beamstep.status = 'disabled';
+    elseif coordSystem ~= "XYZ"
+        beamstep.status = ['excluded_' char(coordSystem)];
+    elseif isDecimated
+        beamstep.status = 'excluded_decimated';
+    elseif isempty(headT)
+        error('PUV_raw_process:noHeadMatrix', ...
+            ['%s: XYZ record without a head transformation matrix, so the beam-step ' ...
+             'correction cannot run (%s). Set cfg.beamStep.enable = false to build ' ...
+             'L1 without it, and say why in the config.'], instr.label, headInfo.error);
+    else
+        if isfield(bsOpts, 'dumpInputTo') && ~isempty(bsOpts.dumpInputTo)
+            % Test hook: save the corrector's exact input (recorded-frame velocity,
+            % valid mask, fs, head matrix) for test_vector_beam_step and audits.
+            Xrec = DAT(:, 3:5); tRec = full_date(:); %#ok<NASGU>
+            save(bsOpts.dumpInputTo, 'Xrec', 'valid_vel', 'fs', 'headT', 'headInfo', 'tRec', '-v7.3');
+        end
+        bsOpts = rmfield(bsOpts, intersect(fieldnames(bsOpts), {'enable', 'dumpInputTo'}));
+        [Xc, beamstep] = vector_beam_step_correct(DAT(:, 3:5), valid_vel, fs, headT, bsOpts);
+        DAT(:, 3:5) = Xc;
+        if strcmp(beamstep.status, 'refused_delta')
+            warning('PUV_raw_process:beamStepRefused', ...
+                ['%s: beam-step size %.3f m/s from %d edges is outside [%.2f %.2f] m/s; ' ...
+                 'NO correction applied.'], instr.label, beamstep.Delta, ...
+                beamstep.nDeltaEdges, beamstep.opts.DeltaWindow);
+        end
+    end
+    fprintf('  Beam steps: %s', beamstep.status);
+    if isfield(beamstep.counts, 'nRuns') && ~isempty(fieldnames(beamstep.counts))
+        fprintf(' | Delta %.3f m/s (%d edges) | %d runs, %d samples corrected | %d unconfirmed runs (%d samples, unchanged)', ...
+            beamstep.Delta, beamstep.nDeltaEdges, beamstep.counts.nRuns, ...
+            beamstep.counts.nSamples, beamstep.counts.nUnconfirmedRuns, ...
+            beamstep.counts.nUnconfirmedSamples);
+    end
+    fprintf('\n');
+
     %% ========== EXTRACT VELOCITY, PRESSURE, TEMPERATURE ==========
     U = DAT(:,3);   % East / X velocity (m/s)
     V = DAT(:,4);   % North / Y velocity (m/s)
@@ -712,30 +802,32 @@ function PUV = PUV_raw_process(instr, cfg)
 
         % Sensor heading is the magnetic compass bearing of beam 1 (+x axis).
         % If heading is NaN in config, compute from median compass reading.
-        if isnan(instr.heading)
+        % instr.headingSmoothHours (optional, compass mode only): the mount
+        % rotated during the deployment, so rotate each sample by the compass
+        % heading smoothed over that many hours instead of the record median
+        % (xyz_heading_series.m). theta_mag is then a column, one per sample.
+        smoothH = [];
+        if isfield(instr, 'headingSmoothHours'), smoothH = instr.headingSmoothHours; end
+        if isnan(instr.heading) && ~isempty(smoothH)
+            theta_mag = xyz_heading_series(SEN(:, 11), fs, smoothH);
+            fprintf('  Time-varying heading from .sen data (%.2f h window): %.2f to %.2f deg, median %.2f\n', ...
+                smoothH, min(theta_mag), max(theta_mag), median(theta_mag));
+        elseif isnan(instr.heading)
             heading_col = SEN(:, 11);
             heading_col = heading_col(~isnan(heading_col));
             theta_mag   = median(heading_col);
             fprintf('  Auto-computed heading from .sen data: %.4f deg\n', theta_mag);
         else
+            if ~isempty(smoothH)
+                error('PUV_raw_process:headingSmoothWithFixed', ...
+                    '%s: headingSmoothHours needs heading = NaN (compass mode).', instr.label);
+            end
             theta_mag = instr.heading;
         end
 
-        % Add mag declination to get true bearing of +x.
-        theta_true = theta_mag + magDeclination;
-
-        % Rotation angle: we want +x = WEST (270 deg true), so the CW
-        % rotation from the instrument's true-x axis to 270 deg is:
-        rotation_deg = 270 - theta_true;
-        alpha_rad    = rotation_deg * pi / 180;
-
-        % Left-handed (CW) rotation matrix
-        rot_mat = [ cos(alpha_rad)  sin(alpha_rad);
-                   -sin(alpha_rad)  cos(alpha_rad)];
-
-        uv     = rot_mat * [U'; V'];
-        U_true = uv(1,:).';   % +x WEST
-        V_true = uv(2,:).';   % +y NORTH
+        % Heading + declination -> true bearing of +x -> buoy frame (+x WEST,
+        % +y NORTH). theta_mag may be a scalar or one value per sample.
+        [U_true, V_true] = xyz_to_buoy_frame(U, V, theta_mag, magDeclination);
 
     elseif coordSystem == "ENU"
         % ENU: the instrument rotated to East-North-Up on board using its
@@ -778,9 +870,29 @@ function PUV = PUV_raw_process(instr, cfg)
     PUV.qc.vel_rotation_static = vel_rotation_static;  % logical
     PUV.qc.Tref                = Tref;
     PUV.qc.opts                = qcOpts;
+    % Beam-step correction (2026-11-13). vel_beamstep_k(j,i) = offset removed from
+    % beam i at sample j, in units of beamstep.Delta (m/s): 0 on untouched samples.
+    % vel_beamstep_unconfirmed marks step-like runs left UNCHANGED (not closed by
+    % edges on both sides within gapMaxSec, or longer than runMaxSec).
+    PUV.qc.vel_beamstep_k           = beamstep.k;
+    PUV.qc.vel_beamstep_unconfirmed = beamstep.unconfirmed;
+    PUV.qc.beamstep                 = rmfield(beamstep, {'k', 'unconfirmed'});
+    PUV.head.T          = headT;               % beam -> recorded XYZ, x = T*b
+    PUV.head.info       = headInfo;
 
     PUV.LATLON         = instr.latlon;
-    PUV.rotation.sensor = theta_mag;      % actual heading used (may be auto-computed)
+    if isscalar(theta_mag) || isempty(theta_mag)
+        PUV.rotation.sensor = theta_mag;  % actual heading used (may be auto-computed)
+    else
+        % Time-varying heading: keep the record median here so scalar readers
+        % still work, and the series itself at 1-minute steps (single precision).
+        PUV.rotation.sensor        = median(theta_mag);
+        PUV.rotation.headingMode   = 'compass_smoothed';
+        PUV.rotation.headingSmoothHours = instr.headingSmoothHours;
+        iMin = 1 : round(60*fs) : numel(theta_mag);
+        PUV.rotation.sensorTime    = full_date(iMin);
+        PUV.rotation.sensorSeries  = single(theta_mag(iMin));
+    end
     PUV.rotation.mag    = magDeclination;
     % Stamp (2026-10-07): an L1 without these fields predates the ENU
     % declination fix, and its ENU velocities are in MAGNETIC coordinates.
@@ -1305,4 +1417,11 @@ function [DAT_bursts, SEN_bursts, date_start, date_end, fs, coordSystem] = ...
     end
     coordSystem = C_coord(3);
     fprintf('  Coordinate system: %s\n', coordSystem);
+end
+
+% ======================================================================
+function a = merge_struct(a, b)
+% Overlay the fields of b onto a.
+    f = fieldnames(b);
+    for i = 1:numel(f), a.(f{i}) = b.(f{i}); end
 end

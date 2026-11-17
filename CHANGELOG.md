@@ -6,6 +6,71 @@ What each change did to the published catalog, with measured sizes, is in
 catalog version. Changes before 2026-10-07 are recorded in `PIPELINE_NOTES.md`
 and the dated `docs/RESULTS_*.md` logs.
 
+## Unreleased (2026-11-13), beam-step correction, hand-merged with `swart-amplitude-20261111`
+(which contains `tb-period-20261105`) per HLB's decision of 2026-11-13; not committed
+
+No catalog output rebuilt. The next L1 rebuild changes velocity on every XYZ record that
+has steps; that rebuild, its change entry and its size declaration are HLB's decision.
+
+- **L1 beam-step correction.** `PUV_raw_process.m` now removes Nortek Vector one-beam
+  velocity steps (k·Δ along one or two beams, Δ ≈ 1.5 m/s, |k| ≤ 2) in beam space, on the
+  velocity as recorded (after QC and trim, before the sound-speed factor, tilt rotation and
+  the XYZ `W = -W` flip). New `L1_raw_to_qc/vector_beam_step_correct.m` (rule) and
+  `vector_head_matrix.m` (head transformation matrix from every `.hdr` and the binary's
+  Head Configuration record, which must agree); `read_VEC.m` returns `meta.headT`. New L1
+  fields: `qc.vel_beamstep_k` (N x 3 int8), `qc.vel_beamstep_unconfirmed`, `qc.beamstep`,
+  `head.T`, `head.info`. ENU and decimated records are stamped and left unchanged. Spec,
+  tests and results: `docs/SPEC_L1_beam_step_correction_2026-11-13.md`; tests
+  `L1_raw_to_qc/test_vector_beam_step.m` (self-contained) and
+  `validation/validate_beam_step_20261113.m` (real data, via `cfg.beamStep.dumpInputTo`).
+
+## Unreleased (2026-11-11, bed-stress amplitude and Swart rough-flow friction factor)
+
+- **Defect corrected in `shared/bed_stress_ks.m` and `shared/bed_stress.m`.** The three-branch
+  friction factor labeled Swart (1974) used `f_w = 0.0521 r^-0.187` for `r > 70` (more than 99 % of
+  TBR23 segments). That is Soulsby's smooth-bed turbulent formula (argument: wave Reynolds number)
+  applied to relative roughness, 20 % to 40 % above the rough-bed forms at the observed r. The RMS
+  near-bed speed was also used as if it were the amplitude. Now `u_br = sqrt(2) Ub`,
+  `A = u_br T / (2 pi)`, `f_w = min(0.3, 0.00251 exp(5.21 r^-0.19))` (Swart 1974 in the form of Soulsby
+  and Whitehouse 1997, Eq. 13), `tau_b = 0.5 rho f_w u_br^2`. Both routines still take the RMS speed
+  `Ub` as first argument and convert inside; `Aw` is now the amplitude excursion. Roughness rules
+  unchanged (`2.5 D84` and legacy `10 D50`).
+- `PUV_L2_spectral` stores `L2.ubr = sqrt(2) L2.Ub` (m/s). `bed_stress` added to the L2 key-function
+  list in `build_provenance.m`, so a change to either routine changes the L2 code stamp.
+- `tests/test_bed_stress_swart.m`: hand-derived f_w at r = 1, 10, 100, 300, 1000 and one worked
+  case; registered in `validation/run_all_tests.m`.
+- Rebuilt for TBR23 only (L2 and L3). All other deployments' L2 and L3 still carry the old stress
+  (and, apart from TBR23, the T_p period) and are NOT rebuilt; their products and anything that
+  reads them (Paper 2, Altimeter L4, validation) are stale with respect to this change.
+
+## Unreleased (2026-11-05, bed-stress period)
+
+- **tau_b uses the spectral near-bed period T_b.** `PUV_L2_spectral` stores `L2.Tb`
+  (`shared/near_bed_period.m`: T_b = 2 pi A_b / u_b from S_ubed = (Suu+Svv)/cosh(k z_s)^2 over
+  0.04 Hz to min(0.25 Hz, fCut)) and forms A_w = U_b T_b / (2 pi) for `tau_b`, `fric_w`, `Aw`.
+  `opts.bedstressPeriod` is `'Tb'` (default) or `'Tp'` (earlier behavior); `L2.Tp` is unchanged.
+  `scripts/apply_per_site_ks_to_L2.m` takes `'period'` the same way. TBR23 L2 and L3 rebuilt:
+  every other L2 field is bit-identical to the pre-switch build; mean tau_b rises ~1-3 %.
+  Not yet applied to other deployments; their L2 files still carry the T_p stress.
+
+## Unreleased (2026-10-16, Solana)
+
+Change entry: `docs/catalog_changes/2026-10-16_solana_sol25a_heading_sol26a.md`.
+
+- **Time-varying XYZ heading.** `instr.headingSmoothHours` (compass mode only,
+  `heading = NaN`) rotates each sample by the compass heading smoothed with a
+  circular moving mean over that many hours (`L1_raw_to_qc/xyz_heading_series.m`),
+  for a mount that turned during the deployment. The XYZ rotation moved into
+  `L1_raw_to_qc/xyz_to_buoy_frame.m` (same arithmetic, scalar or per-sample
+  heading). `PUV.rotation.sensor` stays the record median; the series is stored
+  at 1-minute steps in `PUV.rotation.sensorSeries`/`sensorTime`. Test:
+  `validation/test_xyz_heading_rotation.m`.
+- **SOL25A** uses it (`headingSmoothHours = 1`): its mount turned from about
+  17.4 to 13.9 deg magnetic on 2025-04-02, 11:30-16:00 UTC.
+- **SOL26A** added: Solana MOP 654.5, 7 m, S/N 15277, 2026-02-25 to 2026-05-07.
+- `validation/compare_derived_quantities.m` also returns the matched hours
+  (`seg_time`, `seg_idx`) and the MOP shore-normal.
+
 ## Unreleased (2026-10-16)
 
 Change entry: `docs/catalog_changes/2026-10-16_catalina_avalon_tide.md`.

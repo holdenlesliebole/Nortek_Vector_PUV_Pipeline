@@ -27,6 +27,9 @@ function apply_per_site_ks_to_L2(deployment, varargin)
 %   no-op (skips PUVs whose bedstress_method is already 'bed_stress_ks',
 %   unless 'force' is set).
 %
+%   'period' ('Tb' default, or 'Tp') selects the period in A_w = Ub*T/(2 pi);
+%   'Tb' reads the stored L2.Tb (spectral near-bed period).
+%
 %   Always writes a .bak_preP6 backup of each L2 file it touches.
 %
 %   USAGE
@@ -40,8 +43,10 @@ function apply_per_site_ks_to_L2(deployment, varargin)
 
 p = inputParser;
 addParameter(p, 'force', false, @islogical);
+addParameter(p, 'period', 'Tb', @(x) any(strcmp(x, {'Tb','Tp'})));  % period in A_w = Ub*T/(2 pi): 'Tb' = spectral near-bed period L2.Tb (default since 2026-11-05), 'Tp' = peak period L2.Tp
 parse(p, varargin{:});
 forceFlag = p.Results.force;
+periodOpt = p.Results.period;
 
 % Setup
 thisDir = fileparts(mfilename('fullpath'));
@@ -87,7 +92,8 @@ for k = 1:numel(cfg.instruments)
     S = load(l2File, 'L2');
     L2 = S.L2;
     if ~forceFlag && isfield(L2,'params') && isfield(L2.params,'bedstress_method') ...
-            && strcmp(L2.params.bedstress_method, 'bed_stress_ks')
+            && strcmp(L2.params.bedstress_method, 'bed_stress_ks') ...
+            && isfield(L2.params,'bedstress_period') && strcmp(L2.params.bedstress_period, periodOpt)
         fprintf('  [%d/%d] %s: already patched (bedstress_method=bed_stress_ks), skip\n', ...
                 k, numel(cfg.instruments), instr.label);
         continue
@@ -99,7 +105,16 @@ for k = 1:numel(cfg.instruments)
 
     % Patch bed-stress fields
     ks_m = 2.5 * gs.D84;
-    [tau_new, fw_new, Aw_new] = bed_stress_ks(L2.Ub, L2.Tp, ks_m, rho);
+    if strcmp(periodOpt, 'Tb')
+        if ~isfield(L2, 'Tb')
+            error('apply_per_site_ks_to_L2:noTb', ...
+                '%s: L2 has no Tb field; rebuild L2 with the current PUV_L2_spectral.', instr.label);
+        end
+        Tper = L2.Tb;
+    else
+        Tper = L2.Tp;
+    end
+    [tau_new, fw_new, Aw_new] = bed_stress_ks(L2.Ub, Tper, ks_m, rho);
 
     % Compare against pre-patch values for the user
     tau_old = L2.tau_b;
@@ -118,6 +133,7 @@ for k = 1:numel(cfg.instruments)
     L2.Aw     = Aw_new;
 
     L2.params.bedstress_method      = 'bed_stress_ks';
+    L2.params.bedstress_period      = periodOpt;
     L2.params.bedstress_ks_m        = ks_m;
     L2.params.bedstress_D84_m       = gs.D84;
     L2.params.bedstress_D50_m_used  = gs.D50;

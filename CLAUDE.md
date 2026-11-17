@@ -73,6 +73,11 @@ Detail and open items: the top block of `docs/todo.md`. Code changes:
   (unless `allowTtideFallback`) and without t_tide (unless `allowNoTides`).
   Catalina uses 9410079 Avalon since 2026-10-16 (L3 rebuilt; change entry
   `docs/catalog_changes/2026-10-16_catalina_avalon_tide.md`, pending push).
+- **Solana, 2026-10-16 (local, pending push):** SOL26A added (S/N 15277,
+  Feb-May 2026) and SOL25A rebuilt L1-L4 with a time-varying compass heading
+  (`instr.headingSmoothHours`; its mount turned 3.4 deg on 2025-04-02). Local
+  outputs now 66 records / 47 deployments. Change entry
+  `docs/catalog_changes/2026-10-16_solana_sol25a_heading_sol26a.md`.
 - **`check_prov` compares code by directory.** Any edit under a level's code
   folders (L3: `L3_forcing/`, `L3_transport/`, `shared/`) SOFT-refuses every
   file of that level at the next push until a change entry carries `code_ack`.
@@ -287,7 +292,7 @@ cross-repo cleanup — see `docs/todo.md`.
   0 even when the batch errors** (`-nodisplay` with `-batch` on R2025a/macOS,
   checked 2026-10-14); judge a run by its log, or drop `-nodisplay` when the
   exit code matters.
-- **Tests:** `run_all_tests` (validation/run_all_tests.m) runs the 23
+- **Tests:** `run_all_tests` (validation/run_all_tests.m) runs the 24
   self-contained tests and exits nonzero on a failure; `run_all_tests('includeData',
   true)` adds the read-only ones that need `outputs/`, the server or the network.
 - **Batch over the catalog** with `PUV_L{1,2,3,4}_run_all` — each skips
