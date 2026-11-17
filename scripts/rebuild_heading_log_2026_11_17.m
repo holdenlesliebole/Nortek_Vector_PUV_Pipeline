@@ -18,7 +18,13 @@
 %                        each verified against the server by size
 %   stage = 'L1'         rebuild L1; gate G1 (below); a record failing it is not saved
 %   stage = 'L2L4'       L2, L3, L4 per record, all-or-nothing; gates G2-G4
-%   stage = 'xspec'      L4_xspec with provenance for TOR24W and TOR25S
+%   stage = 'gapL4'      L4-only rebuild of every record in the 12 deployments of
+%                        docs/catalog_changes/2026-11-17_l4_velocity_gaps.md that is
+%                        NOT one of the 12 heading records (their L4 is built in
+%                        'L2L4'); gate G5 (below)
+%   stage = 'xspec'      L4_xspec with provenance for TOR24W, TOR25S, RUBY22,
+%                        SOL23 and TOR23W (every deployment with an xspec whose
+%                        L4 parents this release rebuilds)
 %   onlyRecs = {dep, label; ...}  restricts L1 / L2L4 (resume); skipDone = true
 %                        drops records already PASS in that stage's log.
 %   gateBreakShift = x   (L1 only, never saves) adds x deg to the predicted
@@ -61,6 +67,20 @@
 %      field present, no NEW Z flag; eta and bispectra equal within TOL.
 %      ref, pdf, boundwave, reflection_free and moments depend on velocity
 %      direction and are reported, not gated.
+%   G5 gapL4 (added 2026-11-17 before any rebuild, with the scope widening to
+%      the L4 velocity-gap fix of 8295c13): identity alignment, eta.depth ==
+%      L2.depth to 1e-9 m, every L4WANT field present, no NEW Z flag; eta,
+%      bispectra and moments equal within TOL; on a record with ZERO gap
+%      samples, ref, pdf, boundwave and reflection_free also equal within TOL.
+%      On a record with gap samples, the largest change of every numeric leaf
+%      of those four modules is reported, not gated.
+%   L4 velocity gaps: build_L4 applies shared/l1_velocity_gap_mask.m to L1 U,
+%      V, W before the four velocity modules, as PUV_L4_driver does since
+%      8295c13, so the code that builds every L4 here matches the committed
+%      driver. This applies to the 12 heading records too (TOR14C has 1 gap
+%      sample, TOR24W MOP586_10m 15).
+%   Parallel pool: at most one pool, 6 workers (a Paper 1 session runs MATLAB
+%      alongside); the stage opens it, and refuses an existing larger pool.
 %   TOL: |a - b| <= 1e-9 max(|a|, |b|) + 1e-12 max|a| over the array (a
 %      rotation changes velocity at rounding level, ~1e-16 m/s, so invariant
 %      sums move at about 1e-15 relative; a real change is many orders larger).
@@ -79,7 +99,10 @@ if ~exist('rawRoot', 'var'), rawRoot = '/Users/holden/LocalData/Scripps/Research
 if ~exist('gateBreakShift', 'var'), gateBreakShift = 0; end
 L4WANT = {'eta','ref','bispectra','boundwave','moments','reflection_free','pdf', ...
           'label','deploymentName','LATLON','doffp','shorenormal'};
-XSPEC = {'TOR24W','TOR25S'};
+XSPEC = {'TOR24W','TOR25S','RUBY22','SOL23','TOR23W'};
+% deployments of docs/catalog_changes/2026-11-17_l4_velocity_gaps.md
+GAPDEPS = {'CAT21A','COR16B','RUBY22','SOL23','TOR14A','TOR14C','TOR15B','TOR16B','TOR16C','TOR17C','TOR23W','TOR24W'};
+logG = fullfile(outRoot, '_logs', 'heading_log_gapL4_2026-11-17.log');
 % dep, label, old heading (L1 on disk, 1 dp), new heading (config)
 HDG = {'TOR17D','MOP591_9m', 100.5,  66.7;
        'TOR14C','MOP591_9m',  76.0, 101.5;
@@ -128,11 +151,26 @@ if exist('onlyRecs', 'var') && ~isempty(onlyRecs)
 else
     RUN = HDG;
 end
+if strcmp(stage, 'gapL4')
+    isH = @(d, l) any(strcmp(HDG(:,1), d) & strcmp(HDG(:,2), l));
+    RUN = cell(0, 2);
+    for d = 1:numel(GAPDEPS)
+        fl = dir(fullfile(outRoot, 'L4', GAPDEPS{d}, '*_L4.mat'));
+        for k = 1:numel(fl)
+            lab = erase(fl(k).name, '_L4.mat');
+            if ~isH(GAPDEPS{d}, lab), RUN(end+1, :) = {GAPDEPS{d}, lab}; end %#ok<AGROW>
+        end
+    end
+    if exist('onlyRecs', 'var') && ~isempty(onlyRecs)
+        RUN = RUN(ismember(string(RUN(:,1)) + "|" + string(RUN(:,2)), string(onlyRecs(:,1)) + "|" + string(onlyRecs(:,2))), :);
+    end
+    fprintf('gapL4: %d records (12 deployments, heading records excluded)\n', size(RUN, 1));
+end
 if exist('skipDone', 'var') && skipDone
-    lf = ternary(strcmp(stage, 'L1'), logL1, logL2);
+    lf = ternary(strcmp(stage, 'L1'), logL1, ternary(strcmp(stage, 'gapL4'), logG, logL2));
     if isfile(lf)
         txt = regexprep(splitlines(string(fileread(lf))), '\s+', ' ');
-        tag = ternary(strcmp(stage, 'L1'), " L1 PASS", " L2L3L4 PASS");
+        tag = ternary(strcmp(stage, 'L1'), " L1 PASS", ternary(strcmp(stage, 'gapL4'), " gapL4 PASS", " L2L3L4 PASS"));
         key = string(RUN(:,1)) + " " + string(RUN(:,2)) + tag;
         keep = true(size(RUN, 1), 1);
         for r = 1:size(RUN, 1), keep(r) = ~any(contains(txt, key(r))); end
@@ -140,8 +178,8 @@ if exist('skipDone', 'var') && skipDone
     end
     fprintf('skipDone: %d records to run\n', size(RUN, 1));
 end
-hungF = fullfile(outRoot, '_logs', 'heading_log_L2L4_hung.txt');
-if strcmp(stage, 'L2L4') && isfile(hungF)
+hungF = fullfile(outRoot, '_logs', ternary(strcmp(stage, 'gapL4'), 'heading_log_gapL4_hung.txt', 'heading_log_L2L4_hung.txt'));
+if any(strcmp(stage, {'L2L4','gapL4'})) && isfile(hungF)
     hung = strtrim(splitlines(string(fileread(hungF)))); hung = hung(hung ~= "");
     key = string(RUN(:,1)) + "|" + string(RUN(:,2));
     if exist('retryHung', 'var') && retryHung
@@ -166,8 +204,15 @@ case 'L1'
         s = rebuild_L1(reg, RUN(r,:), outRoot, rawRoot, gateBreakShift);
         if gateBreakShift == 0, append_log(logL1, s); end
     end
+case 'gapL4'
+    ensure_pool(6); okN = 0;
+    for r = 1:size(RUN, 1)
+        [s, okRec] = rebuild_gapL4(RUN{r,1}, RUN{r,2}, reg, outRoot, L4WANT);
+        okN = okN + okRec; append_log(logG, s);
+    end
+    fprintf('gapL4: %d/%d records PASS\n', okN, size(RUN, 1));
 case 'L2L4'
-    okN = 0;
+    ensure_pool(6); okN = 0;
     for r = 1:size(RUN, 1)
         [s, okRec] = rebuild_L2L4(reg, RUN(r,:), outRoot, L4WANT);
         okN = okN + okRec; append_log(logL2, s);
@@ -345,7 +390,7 @@ function [s, okRec] = rebuild_L2L4(reg, rec, outRoot, L4WANT)
         msgs{end+1} = ['G3 ok (non-velocity L3 unchanged) | REPORTED: ' strjoin(rep3, '; ')];
 
         % ---- G4: L4 ----
-        L4 = build_L4(PUV, L2);
+        L4 = build_L4(PUV, L2, instr);
         [l4map, info] = l4_l2_index_map(L2, L4);
         ok = ~isnan(l4map(:)) & L2.segValid(:);
         dDep = max(abs(L4.eta.depth(l4map(ok)) - L2.depth(ok)));
@@ -373,6 +418,87 @@ function [s, okRec] = rebuild_L2L4(reg, rec, outRoot, L4WANT)
     fprintf('  %s\n', s);
 end
 
+function [s, okRec] = rebuild_gapL4(dep, lab, reg, outRoot, L4WANT)
+% L4 only, from the current L1 and L2 (neither changes), with the L1 velocity
+% gaps applied. Gate G5 before saving.
+    fprintf('\n[gapL4] %s/%s\n', dep, lab); okRec = false;
+    try
+        fh = reg(dep); cfg = fh(); instr = cfg.instruments(strcmp({cfg.instruments.label}, lab));
+        f1 = fullfile(outRoot,'L1',dep,[lab '_processed.mat']); f2 = fullfile(outRoot,'L2',dep,[lab '_L2.mat']);
+        f4 = fullfile(outRoot,'L4',dep,[lab '_L4.mat']);
+        q = load(f1,'PUV'); PUV = q.PUV; q = load(f2,'L2'); L2 = q.L2; q = load(f4,'L4'); L4o = q.L4; clear q
+        [velGap, gi] = l1_velocity_gap_mask(PUV, instr); nGap = sum(velGap);
+        t0 = tic; L4 = build_L4(PUV, L2, instr);
+        [l4map, info] = l4_l2_index_map(L2, L4);
+        ok = ~isnan(l4map(:)) & L2.segValid(:);
+        dDep = max(abs(L4.eta.depth(l4map(ok)) - L2.depth(ok)));
+        miss = setdiff(L4WANT, fieldnames(L4));
+        qz = ztest_record_flag(L2.ztest_SS, L2.segValid);
+        bad = {};
+        if ~info.identity, bad{end+1} = 'not identity-aligned'; end
+        if ~(dDep <= 1e-9), bad{end+1} = sprintf('eta.depth vs L2.depth %.2e m', dDep); end
+        if ~isempty(miss), bad{end+1} = ['missing ' strjoin(miss, ',')]; end
+        % L2 is not rebuilt, so the Z status is the one already published
+        % (RUBY22/MOP582_30m is FLAG and excluded); reported, not gated.
+        FIX = {'eta','bispectra','moments'}; VEL = {'ref','pdf','boundwave','reflection_free'};
+        bad = [bad, cmp_tol(keep_fields(L4o, FIX), keep_fields(L4, FIX), {}, 'L4.')];
+        if nGap == 0
+            bad = [bad, cmp_tol(keep_fields(L4o, VEL), keep_fields(L4, VEL), {}, 'L4.')];
+            rpt = 'no gap samples: velocity modules unchanged within TOL';
+        else
+            D = leaf_changes(keep_fields(L4o, VEL), keep_fields(L4, VEL), 'L4.');
+            nMoved = sum(D.maxAbs > 0 | D.nanChanged > 0);
+            rpt = sprintf('%d gap samples (%d unconfirmed, %d after cutoff): %d/%d velocity-module leaves moved; largest: %s', ...
+                nGap, gi.nUnconfirmed, gi.nCutoff, nMoved, height(D), leaf_summary(D));
+        end
+        if ~isempty(bad), error('G5 gapL4 gate: %s', strjoin(bad, ', ')); end
+        stamp_save(f4, 'L4', L4, struct('level','L2','path',f2), instr);
+        okRec = true;
+        s = sprintf('%-7s %-11s gapL4 PASS | eta/bispectra/moments unchanged within TOL | %s | Z %s | %.1f min', dep, lab, rpt, qz.status, toc(t0)/60);
+    catch ME
+        s = sprintf('%-7s %-11s gapL4 FAILED: %s', dep, lab, ME.message);
+        fprintf(2, '  FAIL: %s\n', ME.message);
+    end
+    fprintf('  %s\n', s);
+end
+
+function S = keep_fields(S, F)
+    S = rmfield(S, setdiff(fieldnames(S), F));
+end
+
+function D = leaf_changes(A, B, prefix)
+% One row per numeric leaf: largest |a - b| (finite pairs), largest relative
+% change, and the number of elements whose NaN status changed.
+    D = table(strings(0,1), zeros(0,1), zeros(0,1), zeros(0,1), 'VariableNames', {'leaf','maxAbs','maxRel','nanChanged'});
+    for f = union(fieldnames(A), fieldnames(B))'
+        k = f{1};
+        if ~isfield(A, k) || ~isfield(B, k), continue, end
+        a = A.(k); b = B.(k);
+        if isstruct(a) && isstruct(b) && isscalar(a) && isscalar(b)
+            D = [D; leaf_changes(a, b, [prefix k '.'])]; %#ok<AGROW>
+        elseif isnumeric(a) && isnumeric(b) && isequal(size(a), size(b))
+            a = double(a(:)); b = double(b(:)); m = isfinite(a) & isfinite(b);
+            da = abs(a(m) - b(m)); dr = da ./ max(abs(a(m)), eps);
+            D = [D; {string([prefix k]), max([da; 0]), max([dr; 0]), sum(isnan(a) ~= isnan(b))}]; %#ok<AGROW>
+        end
+    end
+end
+
+function t = leaf_summary(D)
+    D = D(D.maxAbs > 0 | D.nanChanged > 0, :);
+    if isempty(D), t = 'none'; return, end
+    D = sortrows(D, 'maxRel', 'descend');
+    n = min(5, height(D));
+    t = strjoin(arrayfun(@(i) sprintf('%s |d| %.3g (rel %.3g, NaN-changed %d)', D.leaf(i), D.maxAbs(i), D.maxRel(i), D.nanChanged(i)), 1:n, 'UniformOutput', false), '; ');
+end
+
+function ensure_pool(nMax)
+    p = gcp('nocreate');
+    if isempty(p), parpool('Processes', nMax);
+    elseif p.NumWorkers > nMax, error('a parallel pool with %d workers is open; at most %d allowed', p.NumWorkers, nMax);
+    end
+end
+
 function x = l1_logged_shift(outRoot, dep, lab)
 % The predicted shift used by G1 for this record, read back from the L1 log.
     lf = fullfile(outRoot, '_logs', 'heading_log_L1_2026-11-17.log');
@@ -394,7 +520,13 @@ function stamp_save(f, varName, S, parents, instr)
     write_prov_sidecar(f, prov);
 end
 
-function L4 = build_L4(PUV, L2)
+function L4 = build_L4(PUV, L2, instr)
+% As PUV_L4_driver since 8295c13: the L2 velocity gaps are applied to L1 U, V, W
+% before the modules that read L1 velocity directly.
+    velGap = l1_velocity_gap_mask(PUV, instr);
+    if any(velGap)
+        PUV.BuoyCoord.U(velGap) = NaN; PUV.BuoyCoord.V(velGap) = NaN; PUV.BuoyCoord.W(velGap) = NaN;
+    end
     L4 = struct();
     L4.eta = PUV_L4_eta(PUV, L2);
     L4.ref = PUV_L4_reflection(PUV, L2, L4.eta);
