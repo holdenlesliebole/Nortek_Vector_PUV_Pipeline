@@ -1,7 +1,7 @@
 # SOL25A time-varying heading; SOL26A added
 
 ```catalog-change
-status: published 2026-11-17.1
+status: published 2026-10-16.2
 files:
   - L1/SOL25A/*
   - L2/SOL25A/*
@@ -18,6 +18,12 @@ code_ack:
   - L4: same dirty tree as L2; no L4 code changed
 fallback_ack: false
 ```
+
+**Record note (2026-11-17).** This entry was published as catalog 2026-10-16.2 (pipeline commit
+0efbedc). The edit recording that status was never committed, so `copy_to_server` read the entry
+as pending and listed it again under 2026-11-17.1. The server CHANGELOG therefore shows it twice.
+The 2026-11-17.1 files for SOL25A and SOL26A come from the full rebuild in
+`2026-11-16_beamstep_tb_swart_rebuild.md`; this change was not applied a second time.
 
 **SOL25A/MOP654_7m.** The mount turned during the 2025-04-02 storm. The raw
 compass (`7M65402_2.sen`) reads 17.2-17.6 deg magnetic until about 11:30 UTC and

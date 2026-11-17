@@ -89,6 +89,18 @@ for k = 1:nInstr
         PUV = l1.PUV;
         L2  = l2.L2;
 
+        % Velocity gaps (2026-11-17): the L4 modules below read L1 velocity
+        % directly, so apply the same beam-step-unconfirmed and velInvalidFrom
+        % gaps L2 applies (shared/l1_velocity_gap_mask.m). Velocity only.
+        [velGap, velGapInfo] = l1_velocity_gap_mask(PUV, instr);
+        if any(velGap)
+            PUV.BuoyCoord.U(velGap) = NaN;
+            PUV.BuoyCoord.V(velGap) = NaN;
+            PUV.BuoyCoord.W(velGap) = NaN;
+            fprintf('  Velocity gaps from L1 flags/cutoff: %d samples (%d beam-step unconfirmed)\n', ...
+                sum(velGap), velGapInfo.nUnconfirmed);
+        end
+
         % --- L4_eta: pressure → elevation timeseries (3 bands) ---
         fprintf('  L4_eta:        pressure → eta timeseries\n');
         L4 = struct();

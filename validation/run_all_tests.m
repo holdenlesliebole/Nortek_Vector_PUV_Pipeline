@@ -44,6 +44,7 @@ function R = run_all_tests(varargin)
         'test_L2_velgap',                     'L2_spectral',  'm',  ''
         'test_enu_declination_closure',       'validation',   'm',  ''
         'test_xyz_heading_rotation',          'validation',   'm',  ''
+        'test_l1_velocity_gap_mask',          'validation',   'm',  ''
         'test_L2_channel_decoupling',         'L2_spectral',  'm',  ''
         'test_pressure_correction_synthetic', 'L2_spectral',  'm',  ''
         'test_ztest_linear',                  'L2_spectral',  'm',  ''
