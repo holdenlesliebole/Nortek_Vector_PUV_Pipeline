@@ -1,8 +1,22 @@
-function [isDisputed, reason, TBL] = heading_disputed_records(deployment, label)
+function [isDisputed, reason, TBL, SWITCHED] = heading_disputed_records(deployment, label)
 % HEADING_DISPUTED_RECORDS  Records whose instrument heading is in dispute.
 %
 %   [tf, reason] = heading_disputed_records(deployment, label)
 %   [~, ~, TBL]  = heading_disputed_records()          % the whole table
+%   [~, ~, ~, SW] = heading_disputed_records()         % records switched off the list
+%
+% STATUS 2026-11-17: THE LIST IS EMPTY. All 12 records it held were switched
+% to the logged heading in L1-L4 (HLB decision 2026-11-16; catalog version
+% after 2026-11-17.1). The decision: prefer the diver log over the compass
+% where an independent diagnostic agrees with the log. For all 12, the single
+% constant rotation that best matches CDIP MOP Sxy has the sign of
+% (log - compass), usually within 4 deg and at most 10.3 deg (CDF15C)
+% (Paper_2/docs/RESULTS_eof_recovery_renumber_2026-11-12.md G30-G31;
+% Paper_2/scripts/analysis/explore_sxy_rotation_2026_11_16.m). MOP is
+% supporting evidence only. The configs carry each logged value exactly as
+% recorded, never a MOP-fitted one. The 12 are returned in SWITCHED (same
+% columns as TBL) so the history and the old compass medians stay readable.
+% The text below describes the list as it stood from 2026-10-07 to 2026-11-16.
 %
 % WHY THIS EXISTS. Two independent sources give the heading of an XYZ record:
 % the onboard compass (median over the record, the L1 default when the config
@@ -19,7 +33,7 @@ function [isDisputed, reason, TBL] = heading_disputed_records(deployment, label)
 % the drift rule (compass drifts or steps at constant tilt; see
 % config/TorreyOffshore_config.m) carries the logged value and is not listed.
 %
-% This is applied at REPORTING time, not in L1-L4. The heading values in the
+% (Until 2026-11-16:) This is applied at REPORTING time, not in L1-L4. The heading values in the
 % configs are unchanged; each config line carries the logged value as a
 % sourced comment. Evidence: outputs/validation/heading_audit_2026-10-07/.
 %
@@ -46,11 +60,14 @@ function [isDisputed, reason, TBL] = heading_disputed_records(deployment, label)
 %   isDisputed  logical
 %   reason      char, empty when not disputed
 %   TBL         table: deployment, label, log heading, compass median, diff,
-%               and the reason with its field-log source
+%               and the reason with its field-log source (empty since 2026-11-16)
+%   SWITCHED    the same table for the 12 records switched to the log on
+%               2026-11-16; compass_median is the median they carried before
 %
 % Author: Holden Leslie-Bole, 2026
 
-E = {
+% The 12 formerly disputed records (switched to the log 2026-11-16).
+S = {
   'TOR17D', 'MOP591_9m', 66.7, 100.3, ...
   ['SoCal_instruments_2017-2018.xls ''All Data'' row 36, S/N V0806: ''""'' (inherits ' ...
    'row 33: "66.7 deg (mag)"). Steady tilt ~(5, 12-15) deg, so the drift rule does not apply.']
@@ -81,9 +98,12 @@ E = {
   'DeploymentNotes2025-2026.xls ''All Data'' row 8, S/N 17047: "+X onshore, 88.0deg magnetic.  Measured with new KVH."'
 };
 
-dif = mod(cell2mat(E(:,3)) - cell2mat(E(:,4)) + 180, 360) - 180;
-TBL = table(E(:,1), E(:,2), cell2mat(E(:,3)), cell2mat(E(:,4)), dif, E(:,5), ...
-    'VariableNames', {'deployment','label','log_heading_mag','compass_median','log_minus_compass','reason'});
+% Records currently disputed (log and compass differ by > 10 deg and the
+% record stays on the compass). Empty since 2026-11-16.
+E = cell(0, 5);
+
+TBL = mk_table(E);
+SWITCHED = mk_table(S);
 
 isDisputed = false;
 reason = '';
@@ -93,8 +113,19 @@ for i = 1:size(E,1)
     if strcmp(deployment, E{i,1}) && strcmp(label, E{i,2})
         isDisputed = true;
         reason = sprintf('log %.1f vs compass %.1f deg (diff %+.1f). %s', ...
-            E{i,3}, E{i,4}, dif(i), E{i,5});
+            E{i,3}, E{i,4}, TBL.log_minus_compass(i), E{i,5});
         return
     end
 end
+end
+
+function T = mk_table(C)
+if isempty(C)
+    T = table(cell(0,1), cell(0,1), zeros(0,1), zeros(0,1), zeros(0,1), cell(0,1), ...
+        'VariableNames', {'deployment','label','log_heading_mag','compass_median','log_minus_compass','reason'});
+    return
+end
+dif = mod(cell2mat(C(:,3)) - cell2mat(C(:,4)) + 180, 360) - 180;
+T = table(C(:,1), C(:,2), cell2mat(C(:,3)), cell2mat(C(:,4)), dif, C(:,5), ...
+    'VariableNames', {'deployment','label','log_heading_mag','compass_median','log_minus_compass','reason'});
 end

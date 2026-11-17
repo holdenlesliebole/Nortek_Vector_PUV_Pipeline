@@ -56,7 +56,7 @@ function cfg = TOR24W_config()
     cfg.instruments(k).depth_nominal  = 10;
     cfg.instruments(k).serialNum      = 16737;
     cfg.instruments(k).latlon         = [32.93035, -117.26572];   % surveyed; DeploymentNotes2024-2025.xls 'All Data' "Torrey Pines 10m MOP586 PUV Vector" -- same jetted pipe reused, was [32.930 -117.266] (47 m off)
-    cfg.instruments(k).heading        = NaN;   % auto-compute. DISPUTED (|log - compass| > 10 deg; value left on the compass median; reported via shared/heading_disputed_records.m): DeploymentNotes2024-2025.xls 'All Data' row 34, S/N 16737: "+X onshore, ???deg. magnetic. KVH Compass failed. 59.5deg previously measured."; compass median 71.9
+    cfg.instruments(k).heading        = 59.5;  % magnetic; DeploymentNotes2024-2025.xls 'All Data' row 34, "Torrey Pines 10m MOP586 PUV Vector" S/N 16737: "+X onshore, ???deg. magnetic. KVH Compass failed. 59.5deg previously measured." (inherited from the previous deployment, not measured for this one); was compass median 71.9. Switched from the compass median to the logged value, HLB decision 2026-11-16: diver log preferred over compass where an independent MOP Sxy diagnostic agrees with the log in sign (12 of 12 formerly disputed records; Paper_2/docs/RESULTS_eof_recovery_renumber_2026-11-12.md G30-G31). Logged value used as recorded, never MOP-fitted; +x as logged, no 180
     cfg.instruments(k).clockDrift     = NaN;
     cfg.instruments(k).doffp          = 0.78;      % meters (78 cm from notes)
 

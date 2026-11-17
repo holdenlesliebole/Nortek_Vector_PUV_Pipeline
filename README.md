@@ -164,8 +164,9 @@ To add a deployment (full walkthrough in `docs/NEW_DEPLOYMENT.md`):
    have none.
 5. Heading: leave `NaN` (onboard compass median) unless the compass drifts or
    steps at constant tilt; then use the logged mount heading. A record whose
-   log and compass differ by more than 10 deg, kept on the compass, goes in
-   `shared/heading_disputed_records.m`.
+   log and compass differ by more than 10 deg goes in
+   `shared/heading_disputed_records.m` until it is resolved (the 12 such
+   records were switched to the log on 2026-11-16).
 6. Register it in `config/deployment_registry.m`, then run
    `validation/audit_registry_loads.m`. It is the one check that does not
    swallow a config that throws.
@@ -312,12 +313,15 @@ the tide). These read `outputs/`.
 
 ## Known limitations
 
-- **Disputed headings.** 12 records keep a compass heading that differs from
-  the logged mount heading by more than 10 deg: TOR14B, TOR14C, TOR15A, TOR15D,
-  TOR17B, TOR17D (MOP591_9m), COR17D/MOP158_9m, CDF15A and CDF15C (MOP677_9m),
-  TOR24W/MOP586_10m, TOR25S/MOP586_15m and SIO25E/SIO_6m. Their directional
-  quantities (mean direction, Sxy, current direction) are uncertain by at least
-  that much; see `shared/heading_disputed_records.m`.
+- **Headings switched to the field log (2026-11-16).** The 12 records whose
+  logged mount heading and compass median differ by more than 10 deg (TOR14B,
+  TOR14C, TOR15A, TOR15D, TOR17B, TOR17D at MOP591_9m; COR17D/MOP158_9m;
+  CDF15A and CDF15C at MOP677_9m; TOR24W/MOP586_10m; TOR25S/MOP586_15m;
+  SIO25E/SIO_6m) now carry the logged value in their configs. HLB decision:
+  prefer the log where an independent PUV-vs-MOP Sxy diagnostic agrees with it
+  in sign, which it did for 12 of 12. Their earlier compass medians are kept in
+  `shared/heading_disputed_records.m` (the `SWITCHED` output); the disputed
+  list itself is empty.
 - **Grain size.** 42 of 65 records use the 250 um placeholder D50, 4 an
   assumed site default (217.4 um) and 19 a measured distribution (tally of the
   L3 sidecars, 2026-10-14). Bed stress, Shields, mobilization, settling

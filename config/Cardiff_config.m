@@ -81,7 +81,7 @@ function cfg = Cardiff_config(deployment_name)
             cfg.instruments(k).serialNum     = 1049;
             cfg.instruments(k).deployYear    = 2015;   % spans into Jan 2016
             cfg.instruments(k).doffp         = 0.54;   % m, at deployment (0.59 on recovery)
-            % heading DISPUTED (|log - compass| > 10 deg; value left on the compass median; reported via shared/heading_disputed_records.m): SoCal_instruments_2015.xls 'All Data' row 49, "PUV-Cardiff, 1st Deployment" S/N V1049: "74 deg (62.2mag)"; compass median 47.6
+            cfg.instruments(k).heading       = 62.2;   % magnetic; SoCal_instruments_2015.xls 'All Data' row 49, "PUV-Cardiff, 1st Deployment" S/N V1049: "74 deg (62.2mag)"; was compass median 47.6. Switched from the compass median to the logged value, HLB decision 2026-11-16: diver log preferred over compass where an independent MOP Sxy diagnostic agrees with the log in sign (12 of 12 formerly disputed records; Paper_2/docs/RESULTS_eof_recovery_renumber_2026-11-12.md G30-G31). Logged value used as recorded, never MOP-fitted; +x as logged, no 180
 
         case 'CDF15C'   % 3rd deployment of winter 2015-16, S/N 1053
             cfg.instruments(k).rawSubfolder  = 'Cardiff1053_2016';
@@ -89,7 +89,7 @@ function cfg = Cardiff_config(deployment_name)
             cfg.instruments(k).serialNum     = 1053;
             cfg.instruments(k).deployYear    = 2016;
             cfg.instruments(k).doffp         = 0.55;   % m, at deployment (0.54 on recovery)
-            % heading DISPUTED (|log - compass| > 10 deg; value left on the compass median; reported via shared/heading_disputed_records.m): SoCal_instruments_2015.xls 'All Data' row 52, "PUV-Cardiff, 3rd Deployment" S/N V1053: "74 deg (62.2mag)"; compass median 47.4
+            cfg.instruments(k).heading       = 62.2;   % magnetic; SoCal_instruments_2015.xls 'All Data' row 52, "PUV-Cardiff, 3rd Deployment" S/N V1053: "74 deg (62.2mag)"; was compass median 47.4. Switched from the compass median to the logged value, HLB decision 2026-11-16: diver log preferred over compass where an independent MOP Sxy diagnostic agrees with the log in sign (12 of 12 formerly disputed records; Paper_2/docs/RESULTS_eof_recovery_renumber_2026-11-12.md G30-G31). Logged value used as recorded, never MOP-fitted; +x as logged, no 180
 
         otherwise
             error('Cardiff_config:unknownDeployment', ...

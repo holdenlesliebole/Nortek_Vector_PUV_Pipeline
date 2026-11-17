@@ -85,7 +85,8 @@ Detail and open items: the top block of `docs/todo.md`. Code changes:
   `docs/catalog_changes/2026-10-15_driver_provenance_tides.md`.
 - **Open (do not guess):** IB18W/IB19S `doffp` source unknown; 69 geometry
   values unannotated (July count); 42 records on the 250 um placeholder D50;
-  12 disputed headings (`shared/heading_disputed_records.m`); off-bed pressure
+  the 12 disputed headings were switched to the log 2026-11-16 (list now empty,
+  `shared/heading_disputed_records.m`); off-bed pressure
   QC off until the next L1 rebuild; IB19S/MOP045_7m 2019-04-22 19:30 IG
   anomaly; `get_k.m`/`xyRotate.m` still resolve from old
   `Beach_Change_Observation` folders on Holden's path (not called by repo code; L3

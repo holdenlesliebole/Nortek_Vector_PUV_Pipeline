@@ -155,7 +155,7 @@ function cfg = SIO_Pier_config(deployment_name)
             cfg.instruments(k).depth_nominal  = 6;
             cfg.instruments(k).serialNum      = 17047;
             cfg.instruments(k).latlon         = sio_latlon;
-            cfg.instruments(k).heading        = NaN;   % auto-compute. DISPUTED (|log - compass| > 10 deg; value left on the compass median; reported via shared/heading_disputed_records.m): DeploymentNotes2025-2026.xls 'All Data' row 8, S/N 17047: "+X onshore, 88.0deg magnetic.  Measured with new KVH."; compass median 99.3
+            cfg.instruments(k).heading        = 88.0;  % magnetic; DeploymentNotes2025-2026.xls 'All Data' row 8, "SIO 6m MOP511 PUV Vector (6th redeploy)" S/N 17047: "+X onshore, 88.0deg magnetic.  Measured with new KVH."; was compass median 99.3. Switched from the compass median to the logged value, HLB decision 2026-11-16: diver log preferred over compass where an independent MOP Sxy diagnostic agrees with the log in sign (12 of 12 formerly disputed records; Paper_2/docs/RESULTS_eof_recovery_renumber_2026-11-12.md G30-G31). Logged value used as recorded, never MOP-fitted; +x as logged, no 180
             cfg.instruments(k).clockDrift     = NaN;
             cfg.instruments(k).doffp          = 0.90;      % meters (90 cm from 2025-2026 notes, deploy 11/25/2025)
 

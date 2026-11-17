@@ -12,7 +12,8 @@ Updated: 2026-10-14
 >   (COR16B, TOR16A-D, TOR17A, TOR17C, TOR24S/MOP586_5m and _7m), and SIO24A
 >   is decoded from `.VEC`; those 10 were rebuilt L1-L4 on 2026-10-07. Twelve
 >   other records whose logged and compass headings differ by more than 10 deg
->   keep the compass value and are listed in `shared/heading_disputed_records.m`.
+>   kept the compass value until 2026-11-16, then were switched to the logged
+>   value and rebuilt L1-L4 (HLB decision; `shared/heading_disputed_records.m`).
 >   A vertical-transit (off-bed) pressure detector exists in
 >   `puv_channel_qc` but is OFF until the next deliberate L1 rebuild.
 > - **L2-L4.** Gap fills no longer extrapolate past a segment edge
@@ -140,9 +141,11 @@ selected by `instr.rawFormat` or auto-detected. See `L1_raw_to_qc/read_VEC.m`.
   path ran, so a pre-fix ENU L1 is detectable.
 - Heading source (2026-10-07): the config `heading` is the field-log mount
   heading where the compass drifts or steps at constant tilt, else NaN (compass
-  median). Records with log and compass more than 10 deg apart are listed in
-  `shared/heading_disputed_records.m` (12 of 45 with a usable log value);
-  directional analyses exclude them or report both.
+  median). Records with log and compass more than 10 deg apart were listed in
+  `shared/heading_disputed_records.m` (12 of 45 with a usable log value).
+  On 2026-11-16 all 12 were switched to the logged value (the diver log is
+  preferred where an independent MOP Sxy diagnostic agrees with it in sign;
+  it did for 12 of 12). The list is empty now.
 - Time-varying heading (2026-10-16): where the mount itself turned during the
   deployment (compass and tilt step together), `instr.headingSmoothHours` rotates
   each sample by the compass heading smoothed over that window

@@ -134,26 +134,39 @@ function cfg = TorreyOffshore_config(deployment_name)
     % so no record carries two heading sources. The 180 deg in C and D was
     % the compass reading 180 deg off, not the mount: the logged 82.3 is
     % within 6.1 deg of both fixes.
+    %
+    % ---- FORMERLY DISPUTED, switched to the log (HLB decision 2026-11-16) ----
+    % TOR14B, TOR14C, TOR15A, TOR15D, TOR17B, TOR17D: |log - compass| > 10 deg
+    % with a compass that does not drift, so the drift rule above does not
+    % select them. Until 2026-11-16 they stayed on the compass median and were
+    % flagged in shared/heading_disputed_records.m. Decision: prefer the diver
+    % log over the compass where an independent diagnostic agrees with the log.
+    % For all 12 disputed catalog records, the single rotation that best
+    % matches CDIP MOP Sxy has the sign of (log - compass), usually within
+    % 4 deg (Paper_2/docs/RESULTS_eof_recovery_renumber_2026-11-12.md G30-G31;
+    % Paper_2/scripts/analysis/explore_sxy_rotation_2026_11_16.m). MOP is
+    % supporting evidence only: each value below is the logged value as
+    % recorded, never a MOP-fitted one. Values re-read from the workbooks on
+    % /Volumes/group/DeploymentNotes/ 2026-11-17. Same convention as above
+    % (logged magnetic bearing of +x, no 180 added).
     logHeading = containers.Map( ...
-        {'TOR16A','TOR16B','TOR16C','TOR16D','TOR17A','TOR17C'}, ...
+        {'TOR16A','TOR16B','TOR16C','TOR16D','TOR17A','TOR17C', ...
+         'TOR14B','TOR14C','TOR15A','TOR15D','TOR17B','TOR17D'}, ...
         {82.3, ...   % TOR16A: SoCal_instruments_2016-2017.xls 'All Data' row 27, "PUV-Torrey, 1st Deployment" S/N V0824: "82.3 deg (mag)"
          82.3, ...   % TOR16B: same workbook row 28, "PUV-Torrey, 2nd Deployment" S/N V1049: "unchanged" (inherits row 27: "82.3 deg (mag)")
          82.3, ...   % TOR16C: same workbook row 29, "PUV-Torrey, 3rd Deployment" S/N V0824: "unchanged" (inherits row 27: "82.3 deg (mag)")
          82.3, ...   % TOR16D: same workbook row 30, "PUV-Torrey, 4th Deployment" S/N V1049: "unchanged" (inherits row 27: "82.3 deg (mag)")
          66.7, ...   % TOR17A: SoCal_instruments_2017-2018.xls 'All Data' row 33, "PUV-Torrey (Nortek Vector ADV), 1st Deployment" S/N V1049: "66.7 deg (mag)"
-         66.7});     % TOR17C: same workbook row 35, "... 3rd Deployment" S/N V1049: '""' (ditto; inherits row 33: "66.7 deg (mag)")
+         66.7, ...   % TOR17C: same workbook row 35, "... 3rd Deployment" S/N V1049: '""' (ditto; inherits row 33: "66.7 deg (mag)")
+         101.5, ...  % TOR14B: SoCal_instruments_2014.xls 'All Data' row 41, "PUV-TorreyPines#2" S/N V0475: "113.3 deg (101.5mag)"; was compass median 89.9 (2026-11-16 switch)
+         101.5, ...  % TOR14C: same workbook row 42, "PUV-TorreyPines#3" S/N V0806: "113.3 deg (101.5mag)"; was compass median 76.1 (2026-11-16 switch)
+         63.6, ...   % TOR15A: SoCal_instruments_2015.xls 'All Data' row 55, "PUV-Torrey, 1st Deployment" S/N V1181: "75 deg (63.6mag)"; was compass median 48.7 (2026-11-16 switch)
+         43.0, ...   % TOR15D: same workbook row 59, "PUV-Torrey, 4th Deployment" S/N V0824: "55 deg (43.0mag)"; was compass median 26.8 (2026-11-16 switch)
+         66.7, ...   % TOR17B: SoCal_instruments_2017-2018.xls 'All Data' row 34, "... 2nd Deployment" S/N V0806: '""' (ditto; inherits row 33: "66.7 deg (mag)"); was compass median 87.6 (2026-11-16 switch)
+         66.7});     % TOR17D: same workbook row 36, "... 4th Deployment" S/N V0806: '""' (ditto; inherits row 33: "66.7 deg (mag)"); was compass median 100.3 (2026-11-16 switch)
     if isKey(logHeading, deployment_name)
         cfg.instruments(k).heading = logHeading(deployment_name);
     end
-    % DISPUTED, value left on the compass median (|log - compass| > 10 deg, but
-    % the compass does not drift, so the rule above does not apply). Reported
-    % via shared/heading_disputed_records.m; L1-L4 unaffected.
-    %   TOR14B  log 101.5 vs compass 89.9 : SoCal_instruments_2014.xls 'All Data' row 41, V0475: "113.3 deg (101.5mag)"
-    %   TOR14C  log 101.5 vs compass 76.1 : same workbook row 42, V0806: "113.3 deg (101.5mag)"
-    %   TOR15A  log 63.6 vs compass 48.7  : SoCal_instruments_2015.xls 'All Data' row 55, V1181: "75 deg (63.6mag)"
-    %   TOR15D  log 43.0 vs compass 26.8  : same workbook row 59, V0824: "55 deg (43.0mag)"
-    %   TOR17B  log 66.7 vs compass 87.6  : SoCal_instruments_2017-2018.xls 'All Data' row 34, V0806: '""' (inherits row 33: "66.7 deg (mag)")
-    %   TOR17D  log 66.7 vs compass 100.3 : same workbook row 36, V0806: '""' (inherits row 33: "66.7 deg (mag)")
     % ------------------------------------------------------------------------
     cfg.instruments(k).clockDrift    = NaN;     % handled by the filename clock recovery
 

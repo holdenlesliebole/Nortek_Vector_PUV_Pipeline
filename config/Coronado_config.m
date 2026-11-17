@@ -92,7 +92,7 @@ function cfg = Coronado_config(deployment_name)
             cfg.instruments(k).serialNum     = 1181;
             cfg.instruments(k).deployYear    = 2018;
             cfg.instruments(k).doffp         = 0.72;   % m, at deployment (0.76 on recovery)
-            % heading DISPUTED (|log - compass| > 10 deg; value left on the compass median; reported via shared/heading_disputed_records.m): SoCal_instruments_2017-2018.xls 'All Data' row 40, S/N V1181: '""' (inherits row 37: "28.9 deg (mag)"); compass median 49.0
+            cfg.instruments(k).heading       = 28.9;   % magnetic; SoCal_instruments_2017-2018.xls 'All Data' row 40, "PUV-Coronado (Nortek Vector ADV), 4th Deployment" S/N V1181: '""' (ditto; inherits row 37: "28.9 deg (mag)"); was compass median 49.0. Switched from the compass median to the logged value, HLB decision 2026-11-16: diver log preferred over compass where an independent MOP Sxy diagnostic agrees with the log in sign (12 of 12 formerly disputed records; Paper_2/docs/RESULTS_eof_recovery_renumber_2026-11-12.md G30-G31). Logged value used as recorded, never MOP-fitted; +x as logged, no 180
 
         otherwise
             error('Coronado_config:unknownDeployment', ...
