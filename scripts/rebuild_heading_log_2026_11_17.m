@@ -396,7 +396,13 @@ end
 function ok = within_tol(a, b)
     a = double(a(:)); b = double(b(:));
     if ~isequal(isnan(a), isnan(b)), ok = false; return, end
-    m = ~isnan(a); a = a(m); b = b(m);
+    % POST HOC (HLB 2026-11-18): Inf - Inf is NaN, so identical Inf entries failed
+    % (moments.varP_over_varU is Inf where varU = 0). Inf entries must now sit in the
+    % same places with the same sign; the finite tolerance is unchanged, with its
+    % scale taken over finite entries (one Inf made it Inf before). Only tighter.
+    ia = isinf(a); ib = isinf(b);
+    if ~isequal(ia, ib) || ~isequal(a(ia), b(ib)), ok = false; return, end
+    m = isfinite(a); a = a(m); b = b(m);
     if isempty(a), ok = true; return, end
     ok = all(abs(a - b) <= 1e-9 * max(abs(a), abs(b)) + 1e-12 * max(abs(a)));
 end
