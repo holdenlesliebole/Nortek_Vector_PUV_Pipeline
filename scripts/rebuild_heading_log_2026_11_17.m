@@ -74,6 +74,12 @@
 %      samples, ref, pdf, boundwave and reflection_free also equal within TOL.
 %      On a record with gap samples, the largest change of every numeric leaf
 %      of those four modules is reported, not gated.
+%   G1 POST HOC metadata exception (HLB 2026-11-17, approved after the first
+%      break test showed it): head.info.vecFile may differ only in the
+%      raw-cache root; head.info.nPlaceholder and qc.beamstep.opts.
+%      flagWhenNoDelta (= false only) may be ADDED where the published L1 lacks
+%      them. Catalog 2026-11-17.1's L1s carry three metadata vintages (43/66
+%      neither, 22/66 nPlaceholder, 1/66 both). See l1_meta_exception.
 %   L4 velocity gaps: build_L4 applies shared/l1_velocity_gap_mask.m to L1 U,
 %      V, W before the four velocity modules, as PUV_L4_driver does since
 %      8295c13, so the code that builds every L4 here matches the committed
@@ -265,8 +271,13 @@ function s = rebuild_L1(reg, rec, outRoot, rawRoot, brk)
         q = load(f1, 'PUV'); O = q.PUV; clear q
         t0 = tic; N = PUV_raw_process(instr, cfg);
         bad = {};
-        for f = setdiff(union(fieldnames(N), fieldnames(O)), {'BuoyCoord','rotation','prov'})'
-            if ~isfield(N, f{1}) || ~isfield(O, f{1}) || ~isequaln(N.(f{1}), O.(f{1})), bad{end+1} = f{1}; end %#ok<AGROW>
+        % POST HOC metadata exception (HLB, 2026-11-17, after the first break
+        % test; see the header): compare a copy Nc with three metadata
+        % fields mapped back to the published L1's, only under these rules.
+        [Nc, metaNote, metaBad] = l1_meta_exception(N, O, cfg.name);
+        bad = [bad, metaBad];
+        for f = setdiff(union(fieldnames(Nc), fieldnames(O)), {'BuoyCoord','rotation','prov'})'
+            if ~isfield(Nc, f{1}) || ~isfield(O, f{1}) || ~isequaln(Nc.(f{1}), O.(f{1})), bad{end+1} = f{1}; end %#ok<AGROW>
         end
         if ~isequaln(N.BuoyCoord.W, O.BuoyCoord.W), bad{end+1} = 'W'; end
         for f = setdiff(union(fieldnames(N.rotation), fieldnames(O.rotation)), {'sensor'})'
@@ -281,8 +292,8 @@ function s = rebuild_L1(reg, rec, outRoot, rawRoot, brk)
         [maxRot, maxSpd, nB, medShift] = bearing_shift(N.BuoyCoord.U, N.BuoyCoord.V, O.BuoyCoord.U, O.BuoyCoord.V, expShift, 0.01);
         if ~(maxRot <= 1e-6), bad{end+1} = sprintf('bearing shift off prediction by up to %.2e deg', maxRot); end
         if ~(maxSpd <= 1e-9), bad{end+1} = sprintf('speed changed by up to %.2e m/s', maxSpd); end
-        msg = sprintf('heading %.3f -> %.3f, predicted shift %+.4f (break %+g), median shift %+.6f, max|shift-pred| %.1e deg, max|dspeed| %.1e m/s, n %d, %.1f min', ...
-            O.rotation.sensor, N.rotation.sensor, expShift, brk, medShift, maxRot, maxSpd, nB, toc(t0)/60);
+        msg = sprintf('heading %.3f -> %.3f, predicted shift %+.4f (break %+g), median shift %+.6f, max|shift-pred| %.1e deg, max|dspeed| %.1e m/s, n %d, %.1f min | meta exception: %s', ...
+            O.rotation.sensor, N.rotation.sensor, expShift, brk, medShift, maxRot, maxSpd, nB, toc(t0)/60, metaNote);
         if ~isempty(bad), error('G1 L1 gate: %s | %s: not saved', strjoin(bad, '; '), msg); end
         if brk ~= 0, error('break test passed the gate (it must not): %s', msg); end
         save_with_provenance(f1, 'L1', 'PUV', N, [], instr);
@@ -292,6 +303,56 @@ function s = rebuild_L1(reg, rec, outRoot, rawRoot, brk)
         fprintf(2, '  FAIL: %s\n', ME.message);
     end
     fprintf('  %s\n', s);
+end
+
+function [Nc, note, bad] = l1_meta_exception(N, O, depName)
+% POST HOC (HLB 2026-11-17). Catalog 2026-11-17.1's L1s were built while the
+% beam-step code was still gaining metadata fields: 43 of 66 lack both fields
+% below, 22 have nPlaceholder only, 1 has both. Only these differences are
+% excused, each under a fixed rule; anything else still fails G1.
+%   head.info.vecFile: may differ only in the raw-cache root; the path below
+%     <deployment>/ must be identical.
+%   head.info.nPlaceholder: may be ADDED where the published L1 lacks it.
+%   qc.beamstep.opts.flagWhenNoDelta: may be ADDED where the published L1
+%     lacks it, and only with the value false (the default).
+% gateBreakMeta = true (base workspace) renames the new vecFile's file: the
+% break test of this exception, which must then fail.
+    Nc = N; note = {}; bad = {};
+    brk = evalin('base', 'exist(''gateBreakMeta'',''var'') && gateBreakMeta');
+    if isfield(N.head.info, 'vecFile') && isfield(O.head.info, 'vecFile')
+        a = char(O.head.info.vecFile); b = char(N.head.info.vecFile);
+        if brk, b = [b 'x']; end
+        key = [filesep depName filesep];
+        if ~strcmp(a, b)
+            if contains(a, key) && contains(b, key) && strcmp(extractAfter(a, key), extractAfter(b, key))
+                Nc.head.info.vecFile = O.head.info.vecFile; note{end+1} = 'vecFile root';
+            else
+                bad{end+1} = sprintf('head.info.vecFile %s vs %s', a, b);
+            end
+        end
+    end
+    if isfield(N.head.info, 'nPlaceholder') && ~isfield(O.head.info, 'nPlaceholder')
+        Nc.head.info = rmfield(Nc.head.info, 'nPlaceholder');
+        note{end+1} = sprintf('nPlaceholder added (%d)', N.head.info.nPlaceholder);
+    end
+    if isfield(N.qc, 'beamstep') && isfield(N.qc.beamstep, 'opts') && isfield(N.qc.beamstep.opts, 'flagWhenNoDelta') ...
+            && isfield(O.qc, 'beamstep') && isfield(O.qc.beamstep, 'opts') && ~isfield(O.qc.beamstep.opts, 'flagWhenNoDelta')
+        if isequal(N.qc.beamstep.opts.flagWhenNoDelta, false)
+            Nc.qc.beamstep.opts = rmfield(Nc.qc.beamstep.opts, 'flagWhenNoDelta');
+            note{end+1} = 'flagWhenNoDelta added (false)';
+        else
+            bad{end+1} = 'qc.beamstep.opts.flagWhenNoDelta added with value true';
+        end
+    end
+    % field order can differ after rmfield; compare order-free
+    if isequal(sort(fieldnames(Nc.head.info)), sort(fieldnames(O.head.info)))
+        Nc.head.info = orderfields(Nc.head.info, O.head.info);
+    end
+    if isfield(Nc.qc, 'beamstep') && isfield(Nc.qc.beamstep, 'opts') && isfield(O.qc, 'beamstep') && isfield(O.qc.beamstep, 'opts') ...
+            && isequal(sort(fieldnames(Nc.qc.beamstep.opts)), sort(fieldnames(O.qc.beamstep.opts)))
+        Nc.qc.beamstep.opts = orderfields(Nc.qc.beamstep.opts, O.qc.beamstep.opts);
+    end
+    if isempty(note), note = 'none'; else, note = strjoin(note, ', '); end
 end
 
 function [maxRot, maxSpd, n, med] = bearing_shift(uN, vN, uO, vO, expShift, minSpd)
