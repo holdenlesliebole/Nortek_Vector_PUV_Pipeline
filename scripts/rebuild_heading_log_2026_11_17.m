@@ -49,7 +49,9 @@
 %      predicted| <= 1e-6 deg; max|speed change| <= 1e-9 m/s.
 %   G2 L2: time, segValid, shorenormal identical; every field outside DIR2
 %      equal within TOL (below); meanDir shift = -predicted within 1e-6 deg on
-%      valid segments; (uMean, vMean) bearing shift = predicted within 1e-6 deg
+%      valid segments; (uMean, vMean) bearing shift = MINUS predicted (post hoc
+%      sign correction 2026-11-17: L2 is in the shore-normal frame, whose
+%      handedness is opposite the L1 buoy frame) within 1e-6 deg
 %      where speed > 1e-4 m/s, and speed equal within TOL; Suu+Svv, Sxx+Syy,
 %      a1^2+b1^2, a2^2+b2^2 equal within TOL (rotation invariants).
 %   G3 L3: full rebuild; every field outside {uMean, vMean, tidal, subtidal,
@@ -429,7 +431,11 @@ function [s, okRec] = rebuild_L2L4(reg, rec, outRoot, L4WANT)
         dd = mod(double(L2.meanDir(v)) - double(L2o.meanDir(v)) + 180, 360) - 180;
         ok = isfinite(dd); mDir = max([abs(mod(dd(ok) + expShift + 180, 360) - 180); 0]);
         if ~(mDir <= 1e-6), bad{end+1} = sprintf('meanDir shift off -pred by %.2e deg', mDir); end
-        [mRot, mSpd] = bearing_shift(L2.uMean(v), L2.vMean(v), L2o.uMean(v), L2o.vMean(v), expShift, 1e-4);
+        % POST HOC sign correction (2026-11-17, after all 12 failed here by 2|shift|):
+        % L2 velocity is in the shore-normal frame of apply_shorenormal_rotation,
+        % Uprime = -uv(1,:), whose handedness is opposite the L1 buoy frame, so the
+        % bearing atan2d(-u, v) of a current turns by -shift there. Tolerance unchanged.
+        [mRot, mSpd] = bearing_shift(L2.uMean(v), L2.vMean(v), L2o.uMean(v), L2o.vMean(v), -expShift, 1e-4);
         if ~(mRot <= 1e-6), bad{end+1} = sprintf('mean-current bearing off pred by %.2e deg', mRot); end
         if ~within_tol(hypot(L2.uMean, L2.vMean), hypot(L2o.uMean, L2o.vMean)), bad{end+1} = sprintf('mean-current speed (%.1e)', mSpd); end
         inv = {L2.Suu + L2.Svv, L2o.Suu + L2o.Svv, 'Suu+Svv'; L2.Sxx + L2.Syy, L2o.Sxx + L2o.Syy, 'Sxx+Syy'; ...
@@ -450,7 +456,7 @@ function [s, okRec] = rebuild_L2L4(reg, rec, outRoot, L4WANT)
         rep3 = {};
         for P = {'tidal','subtidal'}
             a = L3.(P{1}); b = L3o.(P{1});
-            [mR, mS] = bearing_shift(a.u, a.v, b.u, b.v, expShift, 1e-4);
+            [mR, mS] = bearing_shift(a.u, a.v, b.u, b.v, -expShift, 1e-4);   % shore-normal frame: -shift (see G2)
             rep3{end+1} = sprintf('%s bearing off pred max %.1e deg, speed change max %.1e m/s', P{1}, mR, mS); %#ok<AGROW>
         end
         rep3{end+1} = sprintf('vel constituents SNR>2 %d -> %d', n_snr2(L3o.tidal.vel_constituents), n_snr2(L3.tidal.vel_constituents));
