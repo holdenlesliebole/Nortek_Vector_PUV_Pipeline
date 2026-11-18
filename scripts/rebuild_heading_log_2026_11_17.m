@@ -587,9 +587,15 @@ function stamp_save(f, varName, S, parents, instr)
     prov = build_provenance(varName, S, parents, instr);
     S.prov = prov;
     tmpS.(varName) = S; %#ok<STRNU>
-    save(f, '-struct', 'tmpS', '-v7.3');
-    q = load(f, varName);
-    if ~isequaln(q.(varName), S), error('reloaded %s differs from the one saved: %s', varName, f); end
+    % Atomic per file (2026-11-18): the watchdog killed TOR24W's L4 mid-save and left
+    % a truncated file. Write and verify a .partial.mat, then rename it into place.
+    fp = [f(1:end-4) '.partial.mat'];
+    save(fp, '-struct', 'tmpS', '-v7.3');
+    q = load(fp, varName);
+    if ~isequaln(q.(varName), S), delete(fp); error('reloaded %s differs from the one saved: %s', varName, fp); end
+    clear q
+    [ok, msg] = movefile(fp, f, 'f');
+    if ~ok, error('rename %s -> %s failed: %s', fp, f, msg); end
     write_prov_sidecar(f, prov);
 end
 
