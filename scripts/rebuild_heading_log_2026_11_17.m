@@ -75,7 +75,8 @@
 %      On a record with gap samples, the largest change of every numeric leaf
 %      of those four modules is reported, not gated.
 %   G1 POST HOC metadata exception (HLB 2026-11-17, approved after the first
-%      break test showed it): head.info.vecFile may differ only in the
+%      break test showed it; hdrFile by a second ruling after three records
+%      failed on it alone): head.info.vecFile and hdrFile may differ only in the
 %      raw-cache root; head.info.nPlaceholder and qc.beamstep.opts.
 %      flagWhenNoDelta (= false only) may be ADDED where the published L1 lacks
 %      them. Catalog 2026-11-17.1's L1s carry three metadata vintages (43/66
@@ -310,8 +311,10 @@ function [Nc, note, bad] = l1_meta_exception(N, O, depName)
 % beam-step code was still gaining metadata fields: 43 of 66 lack both fields
 % below, 22 have nPlaceholder only, 1 has both. Only these differences are
 % excused, each under a fixed rule; anything else still fails G1.
-%   head.info.vecFile: may differ only in the raw-cache root; the path below
-%     <deployment>/ must be identical.
+%   head.info.vecFile and head.info.hdrFile: may differ only in the raw-cache
+%     root; the path below <deployment>/ must be identical. (hdrFile added by
+%     a second HLB ruling the same day, after TOR14C, TOR17B and TOR15D failed
+%     G1 on it alone.)
 %   head.info.nPlaceholder: may be ADDED where the published L1 lacks it.
 %   qc.beamstep.opts.flagWhenNoDelta: may be ADDED where the published L1
 %     lacks it, and only with the value false (the default).
@@ -319,15 +322,18 @@ function [Nc, note, bad] = l1_meta_exception(N, O, depName)
 % break test of this exception, which must then fail.
     Nc = N; note = {}; bad = {};
     brk = evalin('base', 'exist(''gateBreakMeta'',''var'') && gateBreakMeta');
-    if isfield(N.head.info, 'vecFile') && isfield(O.head.info, 'vecFile')
-        a = char(O.head.info.vecFile); b = char(N.head.info.vecFile);
-        if brk, b = [b 'x']; end
-        key = [filesep depName filesep];
-        if ~strcmp(a, b)
-            if contains(a, key) && contains(b, key) && strcmp(extractAfter(a, key), extractAfter(b, key))
-                Nc.head.info.vecFile = O.head.info.vecFile; note{end+1} = 'vecFile root';
-            else
-                bad{end+1} = sprintf('head.info.vecFile %s vs %s', a, b);
+    key = [filesep depName filesep];
+    for pf = {'vecFile', 'hdrFile'}   % hdrFile added post hoc, HLB 2026-11-17 (second ruling)
+        p = pf{1};
+        if isfield(N.head.info, p) && isfield(O.head.info, p)
+            a = char(O.head.info.(p)); b = char(N.head.info.(p));
+            if brk, b = [b 'x']; end
+            if ~strcmp(a, b)
+                if contains(a, key) && contains(b, key) && strcmp(extractAfter(a, key), extractAfter(b, key))
+                    Nc.head.info.(p) = O.head.info.(p); note{end+1} = [p ' root']; %#ok<AGROW>
+                else
+                    bad{end+1} = sprintf('head.info.%s %s vs %s', p, a, b); %#ok<AGROW>
+                end
             end
         end
     end
