@@ -56,6 +56,11 @@ files:
   - L4_xspec/RUBY22/*
   - L4_xspec/SOL23/*
   - L4_xspec/TOR23W/*
+code_ack:
+  - L2: built at acc5e35 with an uncommitted edit to a docs/ Markdown file only (TOR25S MOP586_15m, SIO25E and the five xspec); git diff acc5e35 014d0db touches docs/ only, no code; HLB 2026-11-18
+  - L3: built at acc5e35 with an uncommitted edit to a docs/ Markdown file only (TOR25S MOP586_15m, SIO25E and the five xspec); git diff acc5e35 014d0db touches docs/ only, no code; HLB 2026-11-18
+  - L4: built at acc5e35 with an uncommitted edit to a docs/ Markdown file only (TOR25S MOP586_15m, SIO25E and the five xspec); git diff acc5e35 014d0db touches docs/ only, no code; HLB 2026-11-18
+  - L4_xspec: built at acc5e35 with an uncommitted edit to a docs/ Markdown file only (TOR25S MOP586_15m, SIO25E and the five xspec); git diff acc5e35 014d0db touches docs/ only, no code; HLB 2026-11-18
 fallback_ack: false
 ```
 
