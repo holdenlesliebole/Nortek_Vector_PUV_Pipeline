@@ -115,7 +115,12 @@ function cfg = TOR23W_config()
     % 26 paired hours, against 1.30-1.46 (5-95%, median 1.38, 1,029 hours) before, during a storm
     % (morphology_ml deep_transport_map step 2 plan sec. 11.2). Pressure had already failed.
     % L2 treats the velocity as gaps from this time on; pressure is untouched.
-    cfg.instruments(k).velInvalidFrom = datetime(2023,12,30,15,29,0, 'TimeZone', 'UTC');
+    % MOVED 2026-11-19 (HLB) from 15:29 to 03:00 UTC: the same ratio rule on the six paired hours
+    % of 30 December gives 1.31-1.38 for segments centred 00:30-02:30 and 0.24-0.27 for 04:30-06:30
+    % (03:30 unpaired), so the failure starts between 03:00 and 04:00. 03:00 keeps the last good
+    % one-hour segment (02:00-03:00) whole. Paper_2/docs/RESULTS_puv_alt_rerun_2026-11-19.md;
+    % rebuild scripts/rebuild_tor23w10m_cutoff_2026_11_19.m.
+    cfg.instruments(k).velInvalidFrom = datetime(2023,12,30,3,0,0, 'TimeZone', 'UTC');
 
     % ---- MOP 586, 15m ----
     % Deployed 11/14/2023 - 02/13/2024
