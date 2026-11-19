@@ -1,7 +1,7 @@
 # L4 velocity modules apply the L2 velocity gaps
 
 ```catalog-change
-status: pending
+status: published 2026-11-18.1
 files:
   - L4/CAT21A/*
   - L4/COR16B/*

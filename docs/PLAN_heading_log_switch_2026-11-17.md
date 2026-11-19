@@ -85,7 +85,7 @@ record, while the same record passes with 0.
 
 - Raw cache: `~/LocalData/Scripps/Research/PUV_Pipeline/raw_cache_heading_20261117`,
   only these 12 instruments, about 13.9 GB (the beam-step raw cache was
-  deleted). Delete when the push is verified.
+  deleted). Deleted 2026-11-18 after the push was verified (13 GB).
 - No byte backups. The 50 files to be overwritten (48 L1-L4 plus 2 xspec,
   13.2 GB) are in `docs/archive_snapshot_manifests/pre_heading_log_2026-11-17_manifest.csv`
   (path, bytes, sha256), and all 50 match sha256s in the server manifest of
@@ -126,3 +126,15 @@ Logs: `outputs/_logs/heading_log_{L1,L2L4,gapL4}_2026-11-17.log`, plus the watch
 - **Altimeter L4, 2026-11-18 17:21:** rebuilt with `run_L4.m` and pushed to reefbreak, 11/11
   sha256 = manifest. Parent stamps 36/42 current before, 42/42 after. Details and the TP 5 m MOP
   gap-fill finding are in `Altimeter_Pipeline/NOTES.md`.
+- **PUV push, 2026-11-18 20:11 to 20:54: catalog 2026-11-18.1**, one attempt with
+  `run_push_with_remount.sh`. 73 files copied, 200 refused as unchanged; manifest.csv 273 rows;
+  CHANGELOG written; prior manifest kept at `manifests/manifest_before_2026-11-18.1.csv`. The
+  first dry run refused 11 files as dirty (a tracked docs edit during their builds); HLB approved
+  the code_ack (8a7b8d6). Verified after the push: 73/73 server sha256 = local = sidecar
+  `file_sha256` = manifest. Both catalog entries set to `published 2026-11-18.1`.
+- **Sxy rotation rerun, 2026-11-18:** `Paper_2/scripts/analysis/explore_sxy_rotation_2026_11_16.m`
+  with `'*'`, 63 records. No record outside the 12 changed its best rotation. Median |best
+  rotation| for the 12 fell from 12 deg to 3.2 deg (other 51 records: 3.5 deg). Each new best
+  rotation equals the old one minus (log - compass) within the 0.5 deg grid. Largest remaining:
+  CDF15C -10.5 deg, TOR15D -9.5 deg, SIO25E +7.5 deg. SIO25E's correlation at zero rotation fell
+  from 0.78 to 0.46. No adjustment made.

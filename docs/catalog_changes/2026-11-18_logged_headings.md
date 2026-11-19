@@ -1,7 +1,7 @@
 # Logged mount headings for the 12 formerly disputed records
 
 ```catalog-change
-status: pending
+status: published 2026-11-18.1
 files:
   - L1/TOR14B/MOP591_9m_processed.mat
   - L1/TOR14C/MOP591_9m_processed.mat
