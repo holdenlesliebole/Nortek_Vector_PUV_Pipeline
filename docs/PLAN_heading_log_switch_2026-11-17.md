@@ -103,4 +103,26 @@ PUV-vs-MOP Sxy diagnostics of 2026-11-16 (`explore_sxy_torrey_2026_11_16.m`,
 
 ## Run log
 
-(filled in as the stages run)
+Logs: `outputs/_logs/heading_log_{L1,L2L4,gapL4}_2026-11-17.log`, plus the watchdog retry logs
+`heading_log_L2L4_retry_202611181330.log` and `heading_log_*_wd1_*.log`.
+
+- **L1, 2026-11-17 16:08 to 17:21: 12/12 PASS.** Bearing moved by the shift within 1.1e-13 deg,
+  speed by at most 8.9e-16 m/s. The first attempt failed G1 on metadata (vecFile root, hdrFile,
+  nPlaceholder, flagWhenNoDelta); HLB ruled these post hoc exceptions (c383f0f, b394b05). The
+  break test (gateBreakShift = +0.01 deg) failed as it must.
+- **L2-L4, 2026-11-17 22:51 to 2026-11-18 17:18: 12/12 PASS.** The first run failed G2 at all 12:
+  the bearing in the shore-normal frame moves by minus the shift, not plus (one axis is flipped).
+  HLB approved the post hoc sign correction (bfffd5e). meanDir within 8.5e-14 deg of minus the
+  shift, current bearing within 8.0e-13 deg. Tidal and subtidal speed changed by at most
+  4.0e-02 m/s (TOR14C); constituent counts above SNR 2 changed at 11/12 (reported, not gated).
+  The watchdog killed TOR24W during its L4 save and truncated the file; its L2, L3 and L4 were
+  restored from the server (sha256 = manifest) and the save made atomic (5b184f3) before the
+  rerun. TOR24W, TOR25S and SIO25E ran with serial bispectra (69 min to 88 min each).
+- **gapL4, 2026-11-18 05:51 to 13:27: 20/20 PASS.** The first run failed at records where
+  `varP_over_varU` is Inf; HLB approved the within_tol fix (acc5e35), break test 7/7. No value
+  changed (see `docs/catalog_changes/2026-11-17_l4_velocity_gaps.md`).
+- **xspec, 2026-11-18 17:20: 5/5 PASS**, 23 pairs, no field changed (xspec reads `eta.eta_ig` and
+  geometry only).
+- **Altimeter L4, 2026-11-18 17:21:** rebuilt with `run_L4.m` and pushed to reefbreak, 11/11
+  sha256 = manifest. Parent stamps 36/42 current before, 42/42 after. Details and the TP 5 m MOP
+  gap-fill finding are in `Altimeter_Pipeline/NOTES.md`.

@@ -39,5 +39,17 @@ deployments; L4 for the other instruments in them rebuilds unchanged.
 by each module's existing fill rule. The tails of the pooled velocity PDF are the most exposed.
 Not measured yet; the rebuild should report each affected field's largest change.
 
+**Measured (2026-11-18): no value changed.** The rebuild of the 20 records in these deployments
+that kept their heading (`scripts/rebuild_heading_log_2026_11_17.m`, stage gapL4) found eta,
+bispectra and moments unchanged within 1e-9 relative at 20/20. The velocity modules were
+unchanged within the same tolerance at the 7 records with no gap samples, and at the 13 with
+gap samples 0 of 114 velocity-module leaves changed at all, not even below tolerance (TOR17C 159,
+RUBY22 MOP579_6m 89, TOR16B 52). The reason, checked directly at TOR17C, TOR16B and
+RUBY22 MOP579_6m: the L2 hours holding their gap samples (12, 38 and 14 hours, from up to the
+first 500 samples) all fail `segValid` already, and the four modules skip such hours. The new files differ from 2026-11-17.1
+in their bytes and provenance only. The other records named above (TOR14C, TOR24W MOP586_10m)
+were rebuilt under `2026-11-18_logged_headings.md`. The count for TOR23W MOP586_5m in the table
+above (1) disagrees with the mask, which finds no gap samples there; it does not affect any value.
+
 **Not changed.** L1, L2, L3, L4_xspec, and every L4 field that does not read L1 velocity
 (eta, bispectra, moments).
