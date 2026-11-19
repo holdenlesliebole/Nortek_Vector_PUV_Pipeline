@@ -1,7 +1,7 @@
 # TOR23W MOP586_10m velocity cutoff moved from 15:29 to 03:00 UTC on 2023-12-30
 
 ```catalog-change
-status: pending
+status: published 2026-11-19.1
 files:
   - L2/TOR23W/MOP586_10m_L2.mat
   - L3/TOR23W/MOP586_10m_L3.mat
@@ -40,5 +40,8 @@ How big:
 
 How to tell a new copy: `L2.velGap.velInvalidFrom` = 2023-12-30 03:00:00 UTC.
 
-Backup of the replaced files: `outputs/_pre_tor23w10m_cutoff_backup_2026-11-19/` (931 MB). EXPIRES: delete
-once this entry is published and the server sha256 is verified; record the deletion here.
+Backup of the replaced files: `outputs/_pre_tor23w10m_cutoff_backup_2026-11-19/` (931 MB). **Deleted 2026-11-19**
+after publication as 2026-11-19.1 and verification (local = provenance sidecar = server manifest = server file,
+4/4). What it held, with sha256 and how to regenerate (config at fb8587d, velInvalidFrom 15:29 UTC):
+`docs/archive_snapshot_manifests/removed_pre_tor23w10m_cutoff_backup_2026-11-19_manifest.csv`. Its xspec.mat was the
+12:06 rewrite, content-identical to the 2026-11-18.1 file but not byte-identical.
