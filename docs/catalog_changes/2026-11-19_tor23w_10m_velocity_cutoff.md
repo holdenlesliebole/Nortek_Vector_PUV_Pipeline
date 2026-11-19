@@ -7,7 +7,11 @@ files:
   - L3/TOR23W/MOP586_10m_L3.mat
   - L4/TOR23W/MOP586_10m_L4.mat
   - L4_xspec/TOR23W/xspec.mat
-code_ack: []
+code_ack:
+  - L2: built at fb8587d with the uncommitted config/TOR23W_config.m velInvalidFrom edit (the change this entry publishes) and the new driver scripts/rebuild_tor23w10m_cutoff_2026_11_19.m; git diff fb8587d c6b7c37 touches only those two files and this entry, no pipeline code; HLB 2026-11-19
+  - L3: same build as L2 (fb8587d plus the uncommitted cutoff config and driver; committed as c6b7c37); HLB 2026-11-19
+  - L4: same build as L2 (fb8587d plus the uncommitted cutoff config and driver; committed as c6b7c37); HLB 2026-11-19
+  - L4_xspec: same build as L2 (fb8587d plus the uncommitted cutoff config and driver; committed as c6b7c37); HLB 2026-11-19
 fallback_ack: false
 ```
 
